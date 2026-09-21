@@ -88,7 +88,8 @@ function linkedRaceTime(entrant: RaceTimeEntrant, source: LinkSource): DraftRace
   };
 }
 
-function playerMappingToDraftPlayer(
+/** Convert a persistent player mapping into a draft player. */
+export function playerMappingToDraftPlayer(
   mapping: PlayerMapping,
   racetime: DraftRaceTimeAccountLink,
 ): DraftPlayer {

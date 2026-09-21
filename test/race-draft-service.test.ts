@@ -9,6 +9,7 @@ import type {
 } from "../src/domain";
 import { RaceDraftService } from "../src/extension/application/race-draft-service";
 import { RaceSessionService } from "../src/extension/application/race-session-service";
+import type { AutomaticIdentityResolver } from "../src/extension/application/automatic-identity-resolution-service";
 import type { CategoryPresetProvider } from "../src/extension/application/category-preset-provider";
 import type { PlayerIdFactory } from "../src/extension/application/player-resolution-service";
 import {
@@ -56,7 +57,12 @@ function defaultHandler(canonical: { categorySlug: string; raceSlug: string }) {
   });
 }
 
-function setup(options: { categoryPresets?: CategoryPresetProvider } = {}) {
+function setup(
+  options: {
+    categoryPresets?: CategoryPresetProvider;
+    automaticIdentityResolver?: AutomaticIdentityResolver;
+  } = {},
+) {
   const events: string[] = [];
   const broadcastStates: string[] = [];
   const client = new FakeRaceTimeClient();
@@ -113,6 +119,7 @@ function setup(options: { categoryPresets?: CategoryPresetProvider } = {}) {
     log: fakeLogger.logger,
     playerIdFactory: sequentialIds(),
     categoryPresets: options.categoryPresets,
+    automaticIdentityResolver: options.automaticIdentityResolver,
   });
 
   raceSessions.setSessionChangeListener((role, session) => {
@@ -430,5 +437,153 @@ describe("RaceDraftService category preset lookup", () => {
     expect(draftConfig.value.race?.raceId).toBe("ootr/race-a");
     expect(draftConfig.value.categorySelection.selection).toBeNull();
     expect(draftConfig.value.categoryPresentation).toBeNull();
+  });
+});
+
+function linkingResolver(targetPlayerId: string, userId: string): AutomaticIdentityResolver {
+  return {
+    resolve: async (draft) => {
+      const player = draft.players[targetPlayerId];
+      const next = player
+        ? {
+            ...draft,
+            players: {
+              ...draft.players,
+              [targetPlayerId]: {
+                ...player,
+                speedrunCom: {
+                  state: "linked" as const,
+                  value: { userId, name: "Linked", twitchLogin: null },
+                  source: "auto" as const,
+                },
+              },
+            },
+          }
+        : draft;
+      return {
+        draft: next,
+        summary: {
+          attempted: player ? 1 : 0,
+          linked: player ? 1 : 0,
+          unresolved: 0,
+          ambiguous: 0,
+          conflicted: 0,
+          failed: 0,
+          rateLimited: false,
+        },
+      };
+    },
+  };
+}
+
+function readySnapshotAt(revision: number) {
+  return {
+    draftRevision: revision,
+    state: "ready" as const,
+    snapshot: {
+      snapshotId: "s1",
+      fetchedAt: "2026-09-21T05:30:00.000Z",
+      leaderboardKey: {
+        gameId: "g",
+        categoryId: "c",
+        levelId: null,
+        variables: {},
+        platformId: null,
+        regionId: null,
+        emulator: null,
+        timingMethod: null,
+      },
+      worldRecord: null,
+      leaderboard: [],
+      personalBests: {},
+    },
+    message: null,
+  };
+}
+
+describe("RaceDraftService automatic identity resolution", () => {
+  it("applies automatic resolution during load without an extra revision", async () => {
+    const { raceDraft, draftConfig } = setup({
+      automaticIdentityResolver: linkingResolver("p-new-1", "src-1"),
+    });
+
+    const result = await raceDraft.loadRace(URL_A);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.draftRevision).toBe(1);
+    expect(
+      Object.values(draftConfig.value.players).some(
+        (player) =>
+          player.speedrunCom.state === "linked" && player.speedrunCom.value.userId === "src-1",
+      ),
+    ).toBe(true);
+  });
+
+  it("resets the snapshot when reconcile changes the participant SRC set", async () => {
+    const { raceDraft, client, factory, draftConfig, draftSpeedrunSnapshot } = setup({
+      automaticIdentityResolver: linkingResolver("p-new-1", "src-1"),
+    });
+    await raceDraft.loadRace(URL_A);
+    // Model a pre-resolution state so reconcile's automatic resolution changes
+    // the participant SRC set.
+    const loadedPlayer = draftConfig.value.players["p-new-1"];
+    if (!loadedPlayer) throw new Error("expected the loaded player");
+    draftConfig.value = {
+      ...draftConfig.value,
+      players: {
+        ...draftConfig.value.players,
+        "p-new-1": { ...loadedPlayer, speedrunCom: { state: "unresolved" } },
+      },
+    };
+    draftSpeedrunSnapshot.value = readySnapshotAt(1);
+    factory.sockets[0]?.emitOpen();
+
+    client.handler = async (canonical) =>
+      makeRaceDto({
+        categorySlug: canonical.categorySlug,
+        slug: canonical.raceSlug,
+        entrants: [
+          makeEntrantDto({ userId: "user-1", name: "Renamed", twitchLogin: "runner_one" }),
+          makeEntrantDto({ userId: "user-2", name: "Runner Two", twitchLogin: null }),
+        ],
+      });
+    factory.sockets[0]?.emitMessage({ type: "race.data" });
+    await flushPromises();
+
+    const result = await raceDraft.reconcile(draftConfig.value.revision);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.draftRevision).toBe(2);
+    expect(draftSpeedrunSnapshot.value).toEqual({
+      draftRevision: 2,
+      state: "empty",
+      snapshot: null,
+      message: null,
+    });
+  });
+
+  it("retags the snapshot on a metadata-only reconcile", async () => {
+    const { raceDraft, client, factory, draftConfig, draftSpeedrunSnapshot } = setup();
+    await raceDraft.loadRace(URL_A);
+    draftSpeedrunSnapshot.value = readySnapshotAt(1);
+    factory.sockets[0]?.emitOpen();
+
+    client.handler = async (canonical) =>
+      makeRaceDto({
+        categorySlug: canonical.categorySlug,
+        slug: canonical.raceSlug,
+        entrants: [
+          makeEntrantDto({ userId: "user-1", name: "Renamed", twitchLogin: "runner_one" }),
+          makeEntrantDto({ userId: "user-2", name: "Runner Two", twitchLogin: null }),
+        ],
+      });
+    factory.sockets[0]?.emitMessage({ type: "race.data" });
+    await flushPromises();
+
+    const result = await raceDraft.reconcile(draftConfig.value.revision);
+
+    expect(result.ok).toBe(true);
+    expect(draftSpeedrunSnapshot.value.state).toBe("ready");
+    expect(draftSpeedrunSnapshot.value.draftRevision).toBe(2);
   });
 });

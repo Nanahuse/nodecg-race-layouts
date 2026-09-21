@@ -58,6 +58,12 @@ describe("bootstrapExtension", () => {
     expect(listened).toContain("speedrun.users.search");
     expect(listened).toContain("speedrun.user.get");
     expect(listened).toContain("speedrun.snapshot.refresh");
+    expect(listened).toContain("participant.set-player");
+    expect(listened).toContain("participant.set-speedruncom");
+    expect(listened).toContain("participant.set-speedruncom-none");
+    expect(listened).toContain("participant.set-twitch");
+    expect(listened).toContain("participant.set-twitch-none");
+    expect(listened).toContain("participant.set-display-name");
   });
 
   it("registers messages with an invalid spreadsheet config", () => {

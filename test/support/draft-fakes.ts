@@ -1,4 +1,13 @@
-import type { RaceSession, RaceSessionRace, RaceTimeEntrant } from "../../src/domain";
+import type {
+  DraftConfig,
+  DraftPlayer,
+  DraftRaceParticipant,
+  RaceSession,
+  RaceSessionRace,
+  RaceTimeEntrant,
+} from "../../src/domain";
+import { createDefaultDraftConfig } from "../../src/replicants/defaults";
+import { makeSelection } from "./category-fakes";
 
 export function makeEntrant(overrides: Partial<RaceTimeEntrant> = {}): RaceTimeEntrant {
   return {
@@ -30,5 +39,50 @@ export function makeSession(overrides: Partial<RaceSession> = {}): RaceSession {
     connection: { state: "connected", message: null },
     race: makeSessionRace(),
     ...overrides,
+  };
+}
+
+export function makeDraftPlayer(
+  playerId: string,
+  overrides: Partial<DraftPlayer> = {},
+): DraftPlayer {
+  return {
+    playerId,
+    manualDisplayName: null,
+    racetime: {
+      state: "linked",
+      value: { userId: `rt-${playerId}`, name: "One", twitchLogin: null },
+      source: "racetime",
+    },
+    speedrunCom: { state: "unresolved" },
+    twitch: { state: "unresolved" },
+    ...overrides,
+  };
+}
+
+export function makeParticipantDraft(options: {
+  players: Record<string, DraftPlayer>;
+  participants?: DraftRaceParticipant[];
+  revision?: number;
+}): DraftConfig {
+  const participants =
+    options.participants ??
+    Object.keys(options.players).map((playerId) => ({
+      racetimeUserId: `rt-${playerId}`,
+      playerId,
+    }));
+  return {
+    ...createDefaultDraftConfig(),
+    revision: options.revision ?? 10,
+    race: {
+      canonicalUrl: "https://racetime.gg/ootr/race-a",
+      raceId: "ootr/race-a",
+      categorySlug: "ootr",
+      categoryName: "OOTR",
+      goal: "Defeat Ganon",
+    },
+    participants,
+    players: options.players,
+    categorySelection: { selection: makeSelection(), source: "manual", savedMappingState: "none" },
   };
 }

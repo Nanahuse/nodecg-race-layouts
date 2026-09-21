@@ -1,4 +1,9 @@
 import type { LeaderboardKey } from "../../src/domain";
+import type {
+  SpeedrunUserGetOutcome,
+  SpeedrunUsersSearchOutcome,
+} from "../../src/extension/application/speedrun-discovery-service";
+import type { SpeedrunUserLookup } from "../../src/extension/application/automatic-identity-resolution-service";
 import type { SpeedrunComClient } from "../../src/extension/integrations/speedruncom/client";
 import type {
   SpeedrunLeaderboard,
@@ -393,5 +398,38 @@ export class FakeSpeedrunComClient implements SpeedrunComClient {
       throw this.personalBestsError;
     }
     return this.personalBestsResult;
+  }
+}
+
+export class FakeSpeedrunUserLookup implements SpeedrunUserLookup {
+  searchOutcome: SpeedrunUsersSearchOutcome = { ok: true, users: [] };
+  userOutcome: SpeedrunUserGetOutcome = { ok: true, user: makeUser() };
+  searchHandler?: (query: string) => Promise<SpeedrunUsersSearchOutcome>;
+  userHandler?: (userId: string) => Promise<SpeedrunUserGetOutcome>;
+  readonly searchCalls: string[] = [];
+  readonly userCalls: string[] = [];
+  active = 0;
+  maxActive = 0;
+
+  async searchUsers(query: string): Promise<SpeedrunUsersSearchOutcome> {
+    this.searchCalls.push(query);
+    this.active += 1;
+    this.maxActive = Math.max(this.maxActive, this.active);
+    try {
+      if (this.searchHandler) {
+        return await this.searchHandler(query);
+      }
+      return this.searchOutcome;
+    } finally {
+      this.active -= 1;
+    }
+  }
+
+  async getUser(userId: string): Promise<SpeedrunUserGetOutcome> {
+    this.userCalls.push(userId);
+    if (this.userHandler) {
+      return this.userHandler(userId);
+    }
+    return this.userOutcome;
   }
 }
