@@ -217,6 +217,31 @@ are separate: `validateDraftIntegrity` allows null slots, while
 selection and resolvable identities. `computeDraftBroadcastState` combines
 readiness with snapshot state, so a draft with an empty slot is never `ready`.
 
+### Broadcast apply
+
+`broadcast.apply { expectedDraftRevision }` (handled in `broadcast-messages.ts`,
+workflow in `broadcast-apply-service.ts`) promotes a READY draft into the active
+broadcast state (`active-config`, `active-speedrun-snapshot`, and the `active`
+RaceTime session).
+
+- The draft and its snapshot are frozen (independent `structuredClone`) at apply
+  start, so editing the draft while the active RaceTime session loads neither
+  aborts nor alters the apply.
+- Draft readiness and snapshot compatibility (state `ready`, matching revision
+  and `LeaderboardKey`) are re-validated on the frozen copies. Speedrun.com is
+  **not** re-fetched; refresh the snapshot first if needed.
+- `buildActiveConfig` / `buildActiveSpeedrunSnapshot` are pure; account link
+  `source` is dropped, `unresolved` is rejected, only referenced players are
+  included, and participant/slot/commentator order is preserved. `source` /
+  `savedMappingState` are not carried into the active category selection.
+- The active revision is independent from the draft revision and derived from
+  `max(active-config, active-snapshot, status) + 1`. `active-config.revision`
+  and `active-speedrun-snapshot.activeRevision` always match.
+- Applies are serialized (`apply_in_progress`); a failure keeps the previous
+  active state and never clears it. After a successful apply the draft broadcast
+  status is recomputed from the _current_ draft (which may have changed during
+  the apply).
+
 TypeScript domain types under `src/replicants/value-types.ts` are the single
 source of truth for the Replicants. `npm run schema:generate` writes one
 self-contained draft-07 schema per Replicant into `schemas/`; `npm run

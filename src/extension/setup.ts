@@ -1,4 +1,6 @@
 import type {
+  ActiveConfig,
+  ActiveSpeedrunSnapshot,
   DraftConfig,
   DraftSpeedrunSnapshot,
   IntegrationStatus,
@@ -8,6 +10,7 @@ import type {
 import { declareReplicants } from "../replicants";
 import type { NodeCG } from "../types/nodecg";
 import { AutomaticIdentityResolutionService } from "./application/automatic-identity-resolution-service";
+import { BroadcastApplyService } from "./application/broadcast-apply-service";
 import { CategoryDraftService } from "./application/category-draft-service";
 import {
   nullCategoryPresetProvider,
@@ -40,6 +43,7 @@ import {
 } from "./integrations/spreadsheet/category-presentation-repository";
 import { GoogleSheetsClient } from "./integrations/spreadsheet/google-sheets-client";
 import { SpreadsheetPlayersRepository } from "./integrations/spreadsheet/players-repository";
+import { registerBroadcastMessages } from "./messages/broadcast-messages";
 import { registerCategoryMessages } from "./messages/category-messages";
 import { registerParticipantMessages } from "./messages/participant-messages";
 import { registerRaceMessages } from "./messages/race-messages";
@@ -122,11 +126,17 @@ function categoryPresetProviderFor(
   };
 }
 
+export type RaceTimeIntegration = {
+  raceSessions: RaceSessionService;
+  raceDraft: RaceDraftService;
+  categoryDraft: CategoryDraftService;
+};
+
 export function setupRaceTimeIntegration(
   nodecg: NodeCG,
   spreadsheet: SpreadsheetIntegration | null,
   speedrunLookup: SpeedrunIntegration["discovery"],
-): { raceDraft: RaceDraftService; categoryDraft: CategoryDraftService } {
+): RaceTimeIntegration {
   const raceSessions = new RaceSessionService({
     client: new HttpRaceTimeClient(),
     webSocketFactory: createDefaultWebSocketFactory(),
@@ -177,7 +187,7 @@ export function setupRaceTimeIntegration(
     }
   });
 
-  return { raceDraft, categoryDraft };
+  return { raceSessions, raceDraft, categoryDraft };
 }
 
 export type SpeedrunIntegration = {
@@ -237,6 +247,23 @@ export function setupRacePresentationDraftService(nodecg: NodeCG): RacePresentat
   });
 }
 
+export function setupBroadcastApplyService(
+  nodecg: NodeCG,
+  raceSessions: RaceSessionService,
+): BroadcastApplyService {
+  return new BroadcastApplyService({
+    raceSessions,
+    draftConfig: nodecg.Replicant<DraftConfig>("draft-config"),
+    activeConfig: nodecg.Replicant<ActiveConfig | null>("active-config"),
+    draftSpeedrunSnapshot: nodecg.Replicant<DraftSpeedrunSnapshot>("draft-speedrun-snapshot"),
+    activeSpeedrunSnapshot: nodecg.Replicant<ActiveSpeedrunSnapshot | null>(
+      "active-speedrun-snapshot",
+    ),
+    integrationStatus: nodecg.Replicant<IntegrationStatus>("integration-status"),
+    log: nodecg.log,
+  });
+}
+
 export function bootstrapExtension(nodecg: NodeCG): {
   raceDraft: RaceDraftService;
   categoryDraft: CategoryDraftService;
@@ -244,24 +271,27 @@ export function bootstrapExtension(nodecg: NodeCG): {
   speedrunSnapshot: SpeedrunSnapshotService;
   participantDraft: ParticipantDraftService;
   racePresentationDraft: RacePresentationDraftService;
+  broadcastApply: BroadcastApplyService;
 } {
   declareReplicants(nodecg);
   const spreadsheet = setupSpreadsheetIntegration(nodecg);
   const { discovery: speedrunDiscovery, snapshot: speedrunSnapshot } =
     setupSpeedrunIntegration(nodecg);
-  const { raceDraft, categoryDraft } = setupRaceTimeIntegration(
+  const { raceSessions, raceDraft, categoryDraft } = setupRaceTimeIntegration(
     nodecg,
     spreadsheet,
     speedrunDiscovery,
   );
   const participantDraft = setupParticipantDraftService(nodecg, speedrunDiscovery);
   const racePresentationDraft = setupRacePresentationDraftService(nodecg);
+  const broadcastApply = setupBroadcastApplyService(nodecg, raceSessions);
   registerRaceMessages(nodecg, raceDraft);
   registerCategoryMessages(nodecg, categoryDraft);
   registerSpeedrunMessages(nodecg, speedrunDiscovery);
   registerSpeedrunSnapshotMessages(nodecg, speedrunSnapshot);
   registerParticipantMessages(nodecg, participantDraft);
   registerRacePresentationMessages(nodecg, racePresentationDraft);
+  registerBroadcastMessages(nodecg, broadcastApply);
   return {
     raceDraft,
     categoryDraft,
@@ -269,5 +299,6 @@ export function bootstrapExtension(nodecg: NodeCG): {
     speedrunSnapshot,
     participantDraft,
     racePresentationDraft,
+    broadcastApply,
   };
 }
