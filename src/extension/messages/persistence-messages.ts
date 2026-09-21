@@ -1,10 +1,12 @@
 import type { NodeCG } from "../../types/nodecg";
 import type { PostApplyPersistenceService } from "../application/post-apply-persistence-service";
+import { PERSISTENCE_RETRY_MESSAGE } from "../../protocol/persistence";
+export * from "../../protocol/persistence";
 export function registerPersistenceMessages(
   nodecg: NodeCG,
   service: PostApplyPersistenceService | null,
 ): void {
-  nodecg.listenFor("broadcast.persistence.retry", async (_data, ack) => {
+  nodecg.listenFor(PERSISTENCE_RETRY_MESSAGE, async (_data, ack) => {
     if (!service) {
       ack(null, {
         ok: false,
