@@ -66,6 +66,7 @@ describe("bootstrapExtension", () => {
     expect(listened).toContain("participant.set-display-name");
     expect(listened).toContain("race-screen.set-slots");
     expect(listened).toContain("commentators.set");
+    expect(listened).toContain("broadcast.apply");
   });
 
   it("registers messages with an invalid spreadsheet config", () => {
