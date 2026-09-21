@@ -7,6 +7,11 @@ export default defineConfig({
   build: {
     outDir: "../../graphics",
     emptyOutDir: true,
-    rollupOptions: { input: { race: "ui/graphics/race.html" } },
+    rollupOptions: {
+      input: {
+        race: "ui/graphics/race.html",
+        participants: "ui/graphics/participants.html",
+      },
+    },
   },
 });
