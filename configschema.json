@@ -1,0 +1,28 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "nodecg-race-layouts bundle config",
+  "type": "object",
+  "properties": {
+    "spreadsheet": {
+      "type": "object",
+      "description": "Google Spreadsheet that stores the Players sheet.",
+      "properties": {
+        "spreadsheetId": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The id of the spreadsheet (from its URL)."
+        },
+        "playersSheet": {
+          "type": "string",
+          "minLength": 1,
+          "default": "Players",
+          "description": "Name of the sheet that holds the player mappings."
+        }
+      },
+      "required": ["spreadsheetId"],
+      "additionalProperties": false
+    }
+  },
+  "required": ["spreadsheet"],
+  "additionalProperties": true
+}
