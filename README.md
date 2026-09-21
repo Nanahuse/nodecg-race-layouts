@@ -33,7 +33,7 @@ schema:check` fails if the committed schemas drift from the types.
 ```sh
 npm run build           # compile the extension to dist/
 npm run typecheck       # tsc --noEmit
-npm run lint            # eslint
+npm run lint            # oxlint
 npm run test            # vitest
 npm run schema:generate # regenerate schemas/*.json
 npm run schema:check    # verify schemas are up to date
