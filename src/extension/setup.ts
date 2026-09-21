@@ -103,7 +103,10 @@ export function setupSpreadsheetIntegration(nodecg: NodeCG): SpreadsheetIntegrat
   } = parsed.config.spreadsheet;
 
   const client = GoogleSheetsClient.create({ spreadsheetId });
-  const status = new SpreadsheetOperationStatusCoordinator(nodecg.Replicant("integration-status"), nodecg.log);
+  const status = new SpreadsheetOperationStatusCoordinator(
+    nodecg.Replicant("integration-status"),
+    nodecg.log,
+  );
 
   const playerDirectoryService = new PlayerDirectoryService({
     repository: new SpreadsheetPlayersRepository(client, { sheetName: playersSheet }),
