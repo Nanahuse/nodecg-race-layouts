@@ -115,6 +115,12 @@
         "status": {
           "type": "string"
         },
+        "twitchLogin": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
         "userId": {
           "type": "string"
         }
@@ -122,6 +128,7 @@
       "required": [
         "userId",
         "name",
+        "twitchLogin",
         "status"
       ],
       "type": "object"
@@ -139,7 +146,7 @@
           ]
         },
         "status": {
-          "type": "string"
+          "$ref": "#/definitions/RaceTimeResultStatus"
         },
         "time": {
           "type": [
@@ -162,6 +169,15 @@
         "status"
       ],
       "type": "object"
+    },
+    "RaceTimeResultStatus": {
+      "enum": [
+        "finished",
+        "dnf",
+        "dq",
+        "other"
+      ],
+      "type": "string"
     }
   },
   "title": "draft-race-session"

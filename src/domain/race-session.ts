@@ -7,15 +7,19 @@
 export type RaceTimeEntrant = {
   userId: string;
   name: string;
+  twitchLogin: string | null;
   status: string;
 };
+
+export type RaceTimeResultStatus = "finished" | "dnf" | "dq" | "other";
 
 export type RaceTimeResult = {
   userId: string | null;
   name: string;
   place: number | null;
+  /** RaceTime.gg ISO 8601 duration string, kept verbatim. */
   time: string | null;
-  status: string;
+  status: RaceTimeResultStatus;
 };
 
 export type RaceSessionConnectionState = "disconnected" | "connecting" | "connected" | "error";
