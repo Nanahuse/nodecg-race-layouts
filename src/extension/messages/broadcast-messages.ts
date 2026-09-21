@@ -1,11 +1,7 @@
 import type { NodeCG } from "../../types/nodecg";
 import type { BroadcastApplyService } from "../application/broadcast-apply-service";
-
-export const BROADCAST_APPLY_MESSAGE = "broadcast.apply";
-
-export type BroadcastApplyRequest = {
-  expectedDraftRevision: number;
-};
+import { BROADCAST_APPLY_MESSAGE } from "../../protocol/broadcast";
+export * from "../../protocol/broadcast";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);

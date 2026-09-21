@@ -18,6 +18,7 @@ import { statusTone } from "./model/status";
 import { CategoryEditor } from "./components/category-editor";
 import { CategoryPresentationEditor } from "./components/category-presentation-editor";
 import { SpeedrunSnapshotPanel } from "./components/speedrun-snapshot-panel";
+import { BroadcastApplyPanel } from "./components/broadcast-apply-panel";
 import { resetParticipantLocalState } from "./model/participant-state";
 
 function Badge({
@@ -479,6 +480,15 @@ export function App() {
           <CategoryEditor draft={d} />
           <CategoryPresentationEditor draft={d} />
           <SpeedrunSnapshotPanel draft={d} snapshot={snap} />
+          <BroadcastApplyPanel
+            draft={d}
+            active={a}
+            snapshot={snap}
+            integration={i}
+            directory={dir}
+            session={s}
+            persistence={p}
+          />
         </section>
         <section className="panel">
           <span className="eyebrow">ON AIR</span>
