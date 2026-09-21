@@ -453,6 +453,11 @@ export function App() {
             </div>
           )}
           {error && <div className="callout error">{error}</div>}
+          <h3>RaceTime Session</h3>
+          <p>
+            Connection: <strong>{s.connection.state}</strong> · Race: {s.race?.status ?? "—"} ·
+            Entrants: {s.race?.entrants.length ?? 0} · Revision: {s.revision}
+          </p>
           <h3>Participants</h3>
           <div className="participants">
             {d.participants.map((participant) => (
@@ -470,15 +475,10 @@ export function App() {
               />
             ))}
           </div>
-          <h3>RaceTime Session</h3>
           <PresentationEditor draft={d} session={s} directory={dir} />
           <CategoryEditor draft={d} />
           <CategoryPresentationEditor draft={d} />
           <SpeedrunSnapshotPanel draft={d} snapshot={snap} />
-          <p>
-            Connection: <strong>{s.connection.state}</strong> · Race: {s.race?.status ?? "—"} ·
-            Entrants: {s.race?.entrants.length ?? 0} · Revision: {s.revision}
-          </p>
         </section>
         <section className="panel">
           <span className="eyebrow">ON AIR</span>

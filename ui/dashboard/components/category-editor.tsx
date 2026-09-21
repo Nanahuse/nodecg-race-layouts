@@ -20,15 +20,19 @@ export function CategoryEditor({ draft }: { draft: DraftConfig }) {
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [mappingBusy, setMappingBusy] = useState<string | null>(null);
+  const [syncRequested, setSyncRequested] = useState(false);
   useEffect(() => {
-    setSelection(draft.categorySelection.selection);
+    if (syncRequested) {
+      setSelection(draft.categorySelection.selection);
+      setSyncRequested(false);
+    }
     setGames([]);
     setOptions(null);
     setVariables([]);
     setQuery("");
     setMessage(null);
     setMappingBusy(null);
-  }, [draft.race?.raceId]);
+  }, [draft.race?.raceId, draft.revision, syncRequested]);
   const search = async () => {
     setBusy(true);
     const result = await speedrunApi.searchGames(query);
@@ -64,9 +68,15 @@ export function CategoryEditor({ draft }: { draft: DraftConfig }) {
   const apply = async () => {
     if (!selection) return;
     setBusy(true);
-    const result = await categoryApi.select(selection);
-    if (!result.ok) setMessage(result.message);
-    setBusy(false);
+    try {
+      const result = await categoryApi.select(selection);
+      if (!result.ok) setMessage(result.message);
+      else setSyncRequested(true);
+    } catch (cause) {
+      setMessage(cause instanceof Error ? cause.message : "NodeCG communication error");
+    } finally {
+      setBusy(false);
+    }
   };
   const map = async (
     operation: string,
@@ -74,9 +84,19 @@ export function CategoryEditor({ draft }: { draft: DraftConfig }) {
   ) => {
     setMappingBusy(operation);
     setMessage(null);
-    const result = await action();
-    if (!result.ok) setMessage(result.message ?? "Mapping operation failed.");
-    setMappingBusy(null);
+    try {
+      const result = await action();
+      if (!result.ok) setMessage(result.message ?? "Mapping operation failed.");
+      else {
+        setSyncRequested(true);
+        setOptions(null);
+        setVariables([]);
+      }
+    } catch (cause) {
+      setMessage(cause instanceof Error ? cause.message : "NodeCG communication error");
+    } finally {
+      setMappingBusy(null);
+    }
   };
   return (
     <section className="subpanel">
