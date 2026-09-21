@@ -8,15 +8,16 @@ NodeCG layouts for RTA race events.
 
 ## Foundation
 
-The repository contains the domain/replicant/schema foundation plus the
-**Player Directory** persistence layer. External services not yet implemented:
-RaceTime.gg, Speedrun.com, the apply pipeline and the dashboard/graphics UI.
+The repository contains the domain/replicant/schema foundation, the **Player
+Directory** persistence layer and the **RaceTime.gg race session** integration.
+Not yet implemented: Speedrun.com, player resolution, the apply pipeline and the
+dashboard/graphics UI.
 
 ```
 src/domain/       Domain types, display-name resolution, active validation
 src/replicants/   Replicant names, value types, safe defaults and declaration
-src/extension/    NodeCG extension entry point, application service and
-                  spreadsheet integration
+src/extension/    NodeCG extension entry point, application services and
+                  spreadsheet / racetime integrations
 src/types/        Minimal structural typings for the NodeCG API we use
 scripts/          JSON Schema generation from the TypeScript domain types
 schemas/          Generated JSON Schemas (do not edit by hand)
@@ -60,6 +61,27 @@ against `configschema.json`; see `config.example.json`):
   }
 }
 ```
+
+### RaceTime.gg race sessions
+
+`src/extension/integrations/racetime` watches a race and keeps the normalized
+`draft-race-session` / `active-race-session` replicants up to date.
+
+- `url.ts` validates operator URLs (`https://racetime.gg/<category>/<race>`) and
+  builds the Race Detail URL internally, so an arbitrary URL is never fetched.
+- `client.ts` performs the Race Detail GET (`/<category>/<race>/data`) with a
+  timeout, using the Node.js global `fetch`; `parseRaceDetail` validates the
+  untrusted payload.
+- `mapper.ts` maps the integration DTO to the domain `RaceSessionRace` and
+  normalizes result statuses (`done`→`finished`, `dnf`→`dnf`, `dq`→`dq`, else
+  `other`).
+- `watcher.ts` treats the Race WebSocket as an invalidation signal only: a
+  `race.data` message triggers a full Race Detail re-fetch (coalesced). Chat and
+  other events are ignored. Disconnects keep the last race and reconnect with
+  bounded backoff, re-fetching before reconnecting.
+- `race-session-service.ts` runs one watcher per role (`draft` / `active`),
+  manages revisions, protects against stale callbacks and aggregates
+  `integration-status.racetime`.
 
 TypeScript domain types under `src/replicants/value-types.ts` are the single
 source of truth for the Replicants. `npm run schema:generate` writes one
