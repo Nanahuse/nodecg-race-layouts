@@ -26,6 +26,7 @@ import { jsonEquals } from "../integrations/racetime/equality";
 import type { CategoryMappingsRepository } from "../integrations/spreadsheet/category-mappings-repository";
 import type { CategoryPresentationRepository } from "../integrations/spreadsheet/category-presentation-repository";
 import { computeDraftBroadcastState } from "./broadcast-status";
+import type { SpreadsheetOperationStatusCoordinator } from "./spreadsheet-status-coordinator";
 
 type SavedMappingState = CategorySelectionState["savedMappingState"];
 
@@ -65,6 +66,7 @@ export type CategoryDraftServiceOptions = {
   mappingsRepository: CategoryMappingsRepository | null;
   presentationRepository: CategoryPresentationRepository | null;
   log: NodeCGLogger;
+  spreadsheetStatus?: SpreadsheetOperationStatusCoordinator | null;
 };
 
 type RaceKey = {
@@ -102,6 +104,7 @@ export class CategoryDraftService {
   private readonly mappingsRepository: CategoryMappingsRepository | null;
   private readonly presentationRepository: CategoryPresentationRepository | null;
   private readonly log: NodeCGLogger;
+  private readonly spreadsheetStatus: SpreadsheetOperationStatusCoordinator | null;
 
   constructor(options: CategoryDraftServiceOptions) {
     this.draftConfig = options.draftConfig;
@@ -111,6 +114,7 @@ export class CategoryDraftService {
     this.mappingsRepository = options.mappingsRepository;
     this.presentationRepository = options.presentationRepository;
     this.log = options.log;
+    this.spreadsheetStatus = options.spreadsheetStatus ?? null;
   }
 
   async select(
@@ -135,6 +139,8 @@ export class CategoryDraftService {
     }
 
     const lookup = await this.findMapping(key);
+    if (this.currentDraft().revision !== expectedDraftRevision)
+      return fail("draft_changed", "Draft changed while looking up the mapping.");
     const savedMapping = lookup.ok ? lookup.mapping : null;
     const nextState: CategorySelectionState = {
       selection: validation.selection,
@@ -189,6 +195,8 @@ export class CategoryDraftService {
     }
 
     const lookup = await this.findMapping(key);
+    if (this.currentDraft().revision !== expectedDraftRevision)
+      return fail("draft_changed", "Draft changed while looking up the mapping.");
     if (!lookup.ok) {
       return fail("lookup_failed", lookup.message);
     }
@@ -200,6 +208,8 @@ export class CategoryDraftService {
     if (!(await this.saveMapping(mapping))) {
       return fail("save_failed", "Failed to save the category mapping.");
     }
+    if (this.currentDraft().revision !== expectedDraftRevision)
+      return fail("draft_changed", "Draft changed while saving the mapping.");
 
     return this.applySavedMappingState(draft);
   }
@@ -222,6 +232,8 @@ export class CategoryDraftService {
     }
 
     const lookup = await this.findMapping(key);
+    if (this.currentDraft().revision !== expectedDraftRevision)
+      return fail("draft_changed", "Draft changed while looking up the mapping.");
     if (!lookup.ok) {
       return fail("lookup_failed", lookup.message);
     }
@@ -233,6 +245,8 @@ export class CategoryDraftService {
     if (!(await this.saveMapping(mapping))) {
       return fail("save_failed", "Failed to update the category mapping.");
     }
+    if (this.currentDraft().revision !== expectedDraftRevision)
+      return fail("draft_changed", "Draft changed while saving the mapping.");
 
     return this.applySavedMappingState(draft);
   }
@@ -333,17 +347,19 @@ export class CategoryDraftService {
       return fail("spreadsheet_unavailable", "Spreadsheet integration is not configured.");
     }
 
-    this.setSpreadsheetStatus("saving", null);
+    const operation = this.spreadsheetStatus?.begin("saving");
     try {
       await this.presentationRepository.upsert(key.categorySlug, key.goal, presentation);
-      this.setSpreadsheetStatus("saved", null);
+      operation?.success();
+      if (!operation) this.setLegacySpreadsheetStatus("saved", null);
       this.logEvent("category.presentation.saved", {
         categorySlug: key.categorySlug,
         goal: key.goal,
       });
     } catch (error) {
       const message = describeError(error);
-      this.setSpreadsheetStatus("error", message);
+      operation?.failure(message);
+      if (!operation) this.setLegacySpreadsheetStatus("error", message);
       this.logEvent("category.presentation.save_failed", { error }, "error");
       return fail("save_failed", message);
     }
@@ -365,6 +381,8 @@ export class CategoryDraftService {
     }
 
     const lookup = await this.findPresentation(key);
+    if (this.currentDraft().revision !== expectedDraftRevision)
+      return fail("draft_changed", "Draft changed while looking up the presentation.");
     if (!lookup.ok) {
       return fail("lookup_failed", lookup.message);
     }
@@ -424,17 +442,19 @@ export class CategoryDraftService {
     if (!this.mappingsRepository) {
       return false;
     }
-    this.setSpreadsheetStatus("saving", null);
+    const operation = this.spreadsheetStatus?.begin("saving");
     try {
       await this.mappingsRepository.upsert(mapping);
-      this.setSpreadsheetStatus("saved", null);
+      operation?.success();
+      if (!operation) this.setLegacySpreadsheetStatus("saved", null);
       this.logEvent("category.mapping.saved", {
         categorySlug: mapping.racetime.categorySlug,
         goal: mapping.racetime.goal,
       });
       return true;
     } catch (error) {
-      this.setSpreadsheetStatus("error", describeError(error));
+      operation?.failure(describeError(error));
+      if (!operation) this.setLegacySpreadsheetStatus("error", describeError(error));
       this.logEvent("category.mapping.save_failed", { error }, "error");
       return false;
     }
@@ -446,6 +466,7 @@ export class CategoryDraftService {
     if (!this.mappingsRepository) {
       return { ok: false, message: "Spreadsheet integration is not configured." };
     }
+    const operation = this.spreadsheetStatus?.begin("loading");
     try {
       const mapping = await this.mappingsRepository.find(key.categorySlug, key.goal);
       this.logEvent("category.mapping.lookup.completed", {
@@ -453,10 +474,11 @@ export class CategoryDraftService {
         goal: key.goal,
         found: mapping !== null,
       });
+      operation?.success();
       return { ok: true, mapping };
     } catch (error) {
       const message = describeError(error);
-      this.setSpreadsheetStatus("error", message);
+      operation?.failure(message);
       this.logEvent("category.mapping.lookup.failed", { error }, "error");
       return { ok: false, message };
     }
@@ -470,6 +492,7 @@ export class CategoryDraftService {
     if (!this.presentationRepository) {
       return { ok: false, message: "Spreadsheet integration is not configured." };
     }
+    const operation = this.spreadsheetStatus?.begin("loading");
     try {
       const presentation = await this.presentationRepository.find(key.categorySlug, key.goal);
       this.logEvent("category.presentation.lookup.completed", {
@@ -477,10 +500,11 @@ export class CategoryDraftService {
         goal: key.goal,
         found: presentation !== null,
       });
+      operation?.success();
       return { ok: true, presentation };
     } catch (error) {
       const message = describeError(error);
-      this.setSpreadsheetStatus("error", message);
+      operation?.failure(message);
       this.logEvent("category.presentation.lookup.failed", { error }, "error");
       return { ok: false, message };
     }
@@ -530,7 +554,7 @@ export class CategoryDraftService {
     };
   }
 
-  private setSpreadsheetStatus(
+  private setLegacySpreadsheetStatus(
     state: IntegrationStatus["spreadsheet"]["state"],
     message: string | null,
   ): void {
