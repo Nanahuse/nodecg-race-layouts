@@ -5,12 +5,10 @@ import type {
   DraftSpeedrunSnapshot,
   IntegrationStatus,
   PlayerDirectory,
-  PostApplyPersistenceState,
   RaceSession,
 } from "../../../src/domain";
-import { resolveDisplayName } from "../../../src/domain";
 import { createBroadcastApi } from "../api/broadcast-api";
-import { createPersistenceApi } from "../api/persistence-api";
+import { canApply, buildBroadcastApplySummary } from "../model/broadcast-controls";
 
 export function BroadcastApplyPanel({
   draft,
@@ -19,7 +17,6 @@ export function BroadcastApplyPanel({
   integration,
   directory,
   session,
-  persistence,
 }: {
   draft: DraftConfig;
   active: ActiveConfig | null;
@@ -27,13 +24,10 @@ export function BroadcastApplyPanel({
   integration: IntegrationStatus;
   directory: PlayerDirectory;
   session: RaceSession;
-  persistence: PostApplyPersistenceState;
 }) {
   const [applyPending, setApplyPending] = useState(false);
   const [applyError, setApplyError] = useState<string | null>(null);
   const [issues, setIssues] = useState<{ code: string; message: string }[]>([]);
-  const [retryPending, setRetryPending] = useState(false);
-  const [retryError, setRetryError] = useState<string | null>(null);
   const apply = async () => {
     setApplyPending(true);
     setApplyError(null);
@@ -50,56 +44,45 @@ export function BroadcastApplyPanel({
       setApplyPending(false);
     }
   };
-  const retry = async () => {
-    setRetryPending(true);
-    setRetryError(null);
-    try {
-      const result = await createPersistenceApi().retry();
-      if (!result.ok) setRetryError(`${result.reason}: ${result.message}`);
-    } catch (cause) {
-      setRetryError(cause instanceof Error ? cause.message : "NodeCG communication error");
-    } finally {
-      setRetryPending(false);
-    }
-  };
-  const entrantName = (id: string | null) =>
-    id ? (session.race?.entrants.find((item) => item.userId === id)?.name ?? id) : "Unassigned";
-  const playerName = (id: string) => {
-    const player = draft.players[id] ?? directory[id];
-    return player ? (resolveDisplayName(player) ?? id) : id;
-  };
-  const canApply = integration.broadcast.state === "ready" && !applyPending;
+  const summary = buildBroadcastApplySummary(
+    draft,
+    snapshot,
+    session,
+    active?.revision ?? null,
+    directory,
+  );
+  const applyAllowed = canApply(integration.broadcast.state, applyPending);
   return (
     <section className="subpanel">
       <h3>Broadcast Apply</h3>
       <dl>
         <dt>Race</dt>
-        <dd>{draft.race?.raceId ?? "—"}</dd>
-        <dt>Category</dt>
-        <dd>{draft.race?.categoryName ?? "—"}</dd>
+        <dd>{summary.raceId}</dd>
+        <dt>RaceTime Category</dt>
+        <dd>{summary.racetimeCategory}</dd>
+        <dt>Speedrun.com Game</dt>
+        <dd>{summary.speedrunGame}</dd>
+        <dt>Speedrun.com Category</dt>
+        <dd>{summary.speedrunCategory}</dd>
         <dt>Draft revision</dt>
-        <dd>{draft.revision}</dd>
+        <dd>{summary.draftRevision}</dd>
         <dt>Snapshot</dt>
         <dd>
-          {snapshot.state}
-          {snapshot.snapshot ? ` · ${snapshot.snapshot.fetchedAt}` : ""}
+          {summary.snapshotState}
+          {summary.snapshotFetchedAt ? ` · ${summary.snapshotFetchedAt}` : ""}
         </dd>
         <dt>P1–P4</dt>
-        <dd>
-          {([1, 2, 3, 4] as const)
-            .map((slot) => entrantName(draft.raceScreenSlots[slot]))
-            .join(" · ")}
-        </dd>
+        <dd>{summary.slots.join(" · ")}</dd>
         <dt>Commentators</dt>
-        <dd>{draft.commentatorPlayerIds.map(playerName).join(" · ") || "None"}</dd>
+        <dd>{summary.commentators.join(" · ") || "None"}</dd>
         <dt>Active revision</dt>
-        <dd>{active?.revision ?? "—"}</dd>
+        <dd>{summary.activeRevision ?? "—"}</dd>
       </dl>
       <p>
         Broadcast: <strong>{integration.broadcast.state}</strong>
         {integration.broadcast.message ? ` · ${integration.broadcast.message}` : ""}
       </p>
-      <button disabled={!canApply} onClick={() => void apply()}>
+      <button disabled={!applyAllowed} onClick={() => void apply()}>
         {applyPending ? "Applying…" : "Apply Draft to Broadcast"}
       </button>
       {applyError && <p className="callout error">{applyError}</p>}
@@ -108,24 +91,6 @@ export function BroadcastApplyPanel({
           {issue.code}: {issue.message}
         </p>
       ))}
-      <h3>Persistence</h3>
-      <p>
-        State: <strong>{persistence.state}</strong> · Queue: {persistence.queue.length} · Last
-        saved: {persistence.lastSavedActiveRevision ?? "—"}
-      </p>
-      {persistence.queue.map((item) => (
-        <div className="persistence-item" key={item.activeRevision}>
-          Active r{item.activeRevision} · Attempts {item.attempts} · {item.lastError ?? "No error"}
-        </div>
-      ))}
-      {persistence.state === "error" && persistence.queue.length > 0 && (
-        <button disabled={retryPending} onClick={() => void retry()}>
-          {retryPending ? "Retrying…" : "Retry Persistence"}
-        </button>
-      )}
-      {(retryError || persistence.message) && (
-        <p className="callout error">{retryError ?? persistence.message}</p>
-      )}
     </section>
   );
 }

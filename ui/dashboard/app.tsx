@@ -19,6 +19,7 @@ import { CategoryEditor } from "./components/category-editor";
 import { CategoryPresentationEditor } from "./components/category-presentation-editor";
 import { SpeedrunSnapshotPanel } from "./components/speedrun-snapshot-panel";
 import { BroadcastApplyPanel } from "./components/broadcast-apply-panel";
+import { PersistencePanel } from "./components/persistence-panel";
 import { resetParticipantLocalState } from "./model/participant-state";
 
 function Badge({
@@ -487,7 +488,6 @@ export function App() {
             integration={i}
             directory={dir}
             session={s}
-            persistence={p}
           />
         </section>
         <section className="panel">
@@ -507,11 +507,7 @@ export function App() {
           ) : (
             <p>Nothing is currently applied.</p>
           )}
-          <h2>Persistence</h2>
-          <p className={`state ${statusTone(p.state)}`}>{p.state}</p>
-          <p>
-            {p.queue.length} pending saves · Last saved: {p.lastSavedActiveRevision ?? "—"}
-          </p>
+          <PersistencePanel persistence={p} />
         </section>
       </div>
     </main>
