@@ -1,0 +1,197 @@
+{
+  "$ref": "#/definitions/PlayerDirectory",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "definitions": {
+    "NoneAccountLink": {
+      "additionalProperties": false,
+      "properties": {
+        "state": {
+          "const": "none",
+          "type": "string"
+        }
+      },
+      "required": [
+        "state"
+      ],
+      "type": "object"
+    },
+    "PlayerDirectory": {
+      "additionalProperties": {
+        "$ref": "#/definitions/PlayerMapping"
+      },
+      "type": "object"
+    },
+    "PlayerId": {
+      "type": "string"
+    },
+    "PlayerMapping": {
+      "additionalProperties": false,
+      "properties": {
+        "manualDisplayName": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "playerId": {
+          "$ref": "#/definitions/PlayerId"
+        },
+        "racetime": {
+          "$ref": "#/definitions/RaceTimeAccountLink"
+        },
+        "speedrunCom": {
+          "$ref": "#/definitions/SpeedrunComAccountLink"
+        },
+        "twitch": {
+          "$ref": "#/definitions/TwitchAccountLink"
+        }
+      },
+      "required": [
+        "playerId",
+        "manualDisplayName",
+        "racetime",
+        "speedrunCom",
+        "twitch"
+      ],
+      "type": "object"
+    },
+    "RaceTimeAccountLink": {
+      "anyOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "state": {
+              "const": "linked",
+              "type": "string"
+            },
+            "value": {
+              "$ref": "#/definitions/RaceTimeIdentity"
+            }
+          },
+          "required": [
+            "state",
+            "value"
+          ],
+          "type": "object"
+        },
+        {
+          "$ref": "#/definitions/NoneAccountLink"
+        }
+      ]
+    },
+    "RaceTimeIdentity": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "twitchLogin": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "userId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "userId",
+        "name",
+        "twitchLogin"
+      ],
+      "type": "object"
+    },
+    "SpeedrunComAccountLink": {
+      "anyOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "state": {
+              "const": "linked",
+              "type": "string"
+            },
+            "value": {
+              "$ref": "#/definitions/SpeedrunComIdentity"
+            }
+          },
+          "required": [
+            "state",
+            "value"
+          ],
+          "type": "object"
+        },
+        {
+          "$ref": "#/definitions/NoneAccountLink"
+        }
+      ]
+    },
+    "SpeedrunComIdentity": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "twitchLogin": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "userId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "userId",
+        "name",
+        "twitchLogin"
+      ],
+      "type": "object"
+    },
+    "TwitchAccountLink": {
+      "anyOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "state": {
+              "const": "linked",
+              "type": "string"
+            },
+            "value": {
+              "$ref": "#/definitions/TwitchIdentity"
+            }
+          },
+          "required": [
+            "state",
+            "value"
+          ],
+          "type": "object"
+        },
+        {
+          "$ref": "#/definitions/NoneAccountLink"
+        }
+      ]
+    },
+    "TwitchIdentity": {
+      "additionalProperties": false,
+      "properties": {
+        "login": {
+          "type": "string"
+        },
+        "userId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "userId",
+        "login"
+      ],
+      "type": "object"
+    }
+  },
+  "title": "player-directory"
+}

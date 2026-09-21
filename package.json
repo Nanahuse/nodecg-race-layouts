@@ -1,0 +1,37 @@
+{
+  "name": "nodecg-race-layouts",
+  "version": "0.1.0",
+  "private": true,
+  "description": "NodeCG layouts for RTA race events",
+  "license": "Apache-2.0",
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "clean": "rimraf dist",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "oxlint src test scripts",
+    "format:check": "prettier --check \"**/*.{ts,mts,mjs,json,md}\"",
+    "format": "prettier --write \"**/*.{ts,mts,mjs,json,md}\"",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "schema:generate": "tsx scripts/generate-schemas.ts",
+    "schema:check": "tsx scripts/generate-schemas.ts --check",
+    "verify": "npm run typecheck && npm run lint && npm run schema:check && npm run test"
+  },
+  "nodecg": {
+    "compatibleRange": "^2.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.6",
+    "ajv": "^8.17.1",
+    "oxlint": "^1.83.0",
+    "prettier": "^3.9.8",
+    "rimraf": "^6.1.3",
+    "ts-json-schema-generator": "^2.9.0",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.1"
+  }
+}

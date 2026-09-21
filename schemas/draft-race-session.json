@@ -1,0 +1,168 @@
+{
+  "$ref": "#/definitions/RaceSession",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "definitions": {
+    "RaceSession": {
+      "additionalProperties": false,
+      "properties": {
+        "canonicalUrl": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "connection": {
+          "$ref": "#/definitions/RaceSessionConnection"
+        },
+        "race": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/RaceSessionRace"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "revision": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "revision",
+        "canonicalUrl",
+        "connection",
+        "race"
+      ],
+      "type": "object"
+    },
+    "RaceSessionConnection": {
+      "additionalProperties": false,
+      "properties": {
+        "message": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "state": {
+          "$ref": "#/definitions/RaceSessionConnectionState"
+        }
+      },
+      "required": [
+        "state",
+        "message"
+      ],
+      "type": "object"
+    },
+    "RaceSessionConnectionState": {
+      "enum": [
+        "disconnected",
+        "connecting",
+        "connected",
+        "error"
+      ],
+      "type": "string"
+    },
+    "RaceSessionRace": {
+      "additionalProperties": false,
+      "properties": {
+        "categoryName": {
+          "type": "string"
+        },
+        "categorySlug": {
+          "type": "string"
+        },
+        "entrants": {
+          "items": {
+            "$ref": "#/definitions/RaceTimeEntrant"
+          },
+          "type": "array"
+        },
+        "goal": {
+          "type": "string"
+        },
+        "raceId": {
+          "type": "string"
+        },
+        "results": {
+          "items": {
+            "$ref": "#/definitions/RaceTimeResult"
+          },
+          "type": "array"
+        },
+        "status": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "raceId",
+        "categorySlug",
+        "categoryName",
+        "goal",
+        "status",
+        "entrants",
+        "results"
+      ],
+      "type": "object"
+    },
+    "RaceTimeEntrant": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "userId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "userId",
+        "name",
+        "status"
+      ],
+      "type": "object"
+    },
+    "RaceTimeResult": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "place": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "status": {
+          "type": "string"
+        },
+        "time": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "userId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "userId",
+        "name",
+        "place",
+        "time",
+        "status"
+      ],
+      "type": "object"
+    }
+  },
+  "title": "draft-race-session"
+}

@@ -1,0 +1,162 @@
+{
+  "$ref": "#/definitions/IntegrationStatus",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "definitions": {
+    "BroadcastStatus": {
+      "additionalProperties": false,
+      "properties": {
+        "activeRevision": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "draftRevision": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "message": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "state": {
+          "$ref": "#/definitions/BroadcastStatusState"
+        }
+      },
+      "required": [
+        "state",
+        "draftRevision",
+        "activeRevision",
+        "message"
+      ],
+      "type": "object"
+    },
+    "BroadcastStatusState": {
+      "enum": [
+        "empty",
+        "loading",
+        "resolving",
+        "resolution_required",
+        "fetching",
+        "ready",
+        "dirty",
+        "applying",
+        "error"
+      ],
+      "type": "string"
+    },
+    "IntegrationStatus": {
+      "additionalProperties": false,
+      "properties": {
+        "broadcast": {
+          "$ref": "#/definitions/BroadcastStatus"
+        },
+        "racetime": {
+          "$ref": "#/definitions/ServiceStatus"
+        },
+        "speedrunCom": {
+          "$ref": "#/definitions/SpeedrunComStatus"
+        },
+        "spreadsheet": {
+          "$ref": "#/definitions/SpreadsheetStatus"
+        }
+      },
+      "required": [
+        "racetime",
+        "speedrunCom",
+        "spreadsheet",
+        "broadcast"
+      ],
+      "type": "object"
+    },
+    "ServiceState": {
+      "enum": [
+        "disconnected",
+        "connecting",
+        "connected",
+        "error"
+      ],
+      "type": "string"
+    },
+    "ServiceStatus": {
+      "additionalProperties": false,
+      "properties": {
+        "message": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "state": {
+          "$ref": "#/definitions/ServiceState"
+        }
+      },
+      "required": [
+        "state",
+        "message"
+      ],
+      "type": "object"
+    },
+    "SpeedrunComStatus": {
+      "additionalProperties": false,
+      "properties": {
+        "message": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "state": {
+          "$ref": "#/definitions/SpeedrunComStatusState"
+        }
+      },
+      "required": [
+        "state",
+        "message"
+      ],
+      "type": "object"
+    },
+    "SpeedrunComStatusState": {
+      "enum": [
+        "idle",
+        "fetching",
+        "ready",
+        "error"
+      ],
+      "type": "string"
+    },
+    "SpreadsheetStatus": {
+      "additionalProperties": false,
+      "properties": {
+        "message": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "state": {
+          "$ref": "#/definitions/SpreadsheetStatusState"
+        }
+      },
+      "required": [
+        "state",
+        "message"
+      ],
+      "type": "object"
+    },
+    "SpreadsheetStatusState": {
+      "enum": [
+        "idle",
+        "saving",
+        "saved",
+        "error"
+      ],
+      "type": "string"
+    }
+  },
+  "title": "integration-status"
+}

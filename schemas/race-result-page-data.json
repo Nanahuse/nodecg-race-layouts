@@ -1,0 +1,126 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "anyOf": [
+    {
+      "$ref": "#/definitions/RaceResultPageData"
+    },
+    {
+      "type": "null"
+    }
+  ],
+  "definitions": {
+    "EventView": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "shortName": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "name",
+        "shortName"
+      ],
+      "type": "object"
+    },
+    "RaceResultEntry": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "place": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "placeLabel": {
+          "type": "string"
+        },
+        "racetimeUserId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "secondaryName": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "status": {
+          "$ref": "#/definitions/RaceResultStatus"
+        },
+        "time": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "racetimeUserId",
+        "place",
+        "placeLabel",
+        "name",
+        "secondaryName",
+        "time",
+        "status"
+      ],
+      "type": "object"
+    },
+    "RaceResultPageData": {
+      "additionalProperties": false,
+      "properties": {
+        "activeRevision": {
+          "type": "number"
+        },
+        "category": {
+          "additionalProperties": false,
+          "properties": {
+            "name": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "name"
+          ],
+          "type": "object"
+        },
+        "event": {
+          "$ref": "#/definitions/EventView"
+        },
+        "results": {
+          "items": {
+            "$ref": "#/definitions/RaceResultEntry"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "activeRevision",
+        "event",
+        "category",
+        "results"
+      ],
+      "type": "object"
+    },
+    "RaceResultStatus": {
+      "enum": [
+        "finished",
+        "dnf",
+        "dq",
+        "other"
+      ],
+      "type": "string"
+    }
+  },
+  "title": "race-result-page-data"
+}
