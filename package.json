@@ -38,6 +38,11 @@
         "file": "race.html",
         "width": 1920,
         "height": 1080
+      },
+      {
+        "file": "participants.html",
+        "width": 1920,
+        "height": 1080
       }
     ]
   },

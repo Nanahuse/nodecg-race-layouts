@@ -1,0 +1,121 @@
+:root {
+  --canvas-width: 1920px;
+  --canvas-height: 1080px;
+}
+
+html,
+body,
+#root {
+  width: var(--canvas-width);
+  height: var(--canvas-height);
+  margin: 0;
+  overflow: hidden;
+  background: transparent;
+}
+
+body {
+  color: white;
+  font-family: sans-serif;
+}
+.participant-graphic {
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  padding: 48px 64px;
+  text-shadow: 0 2px 4px #000;
+}
+.participant-header {
+  min-height: 130px;
+  border-bottom: 2px solid rgb(255 255 255 / 65%);
+}
+.participant-event {
+  font-size: 42px;
+  font-weight: 700;
+}
+.participants-event-logo {
+  display: block;
+  max-width: 300px;
+  max-height: 64px;
+}
+.participant-category {
+  margin-top: 8px;
+  font-size: 28px;
+}
+.participant-commentary {
+  margin-top: 12px;
+  font-size: 20px;
+}
+.participant-list {
+  display: grid;
+  grid-template-columns: repeat(var(--columns), 1fr);
+  grid-auto-rows: 1fr;
+  gap: 18px 24px;
+  height: calc(100% - 170px);
+  padding-top: 28px;
+}
+.participant-card {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  justify-content: center;
+  padding: 16px 22px;
+  border-left: 6px solid rgb(255 255 255 / 70%);
+  background: rgb(0 0 0 / 42%);
+}
+.participant-card strong {
+  overflow: hidden;
+  font-size: 30px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.participant-card small {
+  margin-top: 4px;
+  color: rgb(255 255 255 / 75%);
+  font-size: 18px;
+}
+.participant-stats {
+  margin-top: 8px;
+  font-size: 22px;
+}
+.density-compact .participant-card {
+  padding: 10px 16px;
+}
+.density-compact .participant-card strong {
+  font-size: 25px;
+}
+.density-compact .participant-stats {
+  font-size: 19px;
+}
+.density-dense .participant-card {
+  padding: 8px 14px;
+}
+.density-dense .participant-card strong {
+  font-size: 22px;
+}
+.density-dense .participant-stats {
+  font-size: 17px;
+}
+.density-extra-dense {
+  padding: 40px 56px;
+}
+.density-extra-dense .participant-header {
+  min-height: 112px;
+}
+.density-extra-dense .participant-list {
+  gap: 10px 16px;
+  padding-top: 18px;
+  height: calc(100% - 148px);
+}
+.density-extra-dense .participant-card {
+  padding: 5px 10px;
+}
+.density-extra-dense .participant-card strong {
+  font-size: 18px;
+}
+.density-extra-dense .participant-stats {
+  margin-top: 3px;
+  font-size: 15px;
+}
+.density-extra-dense .participant-card small {
+  font-size: 13px;
+}
