@@ -25,21 +25,21 @@ export function CategoryEditor({ draft }: { draft: DraftConfig }) {
   const search = async () => {
     setBusy(true);
     const result = await speedrunApi.searchGames(query);
-    if (result.ok) setGames((result.games ?? []) as SpeedrunGameSearchResult[]);
+    if (result.ok) setGames(result.games);
     else setMessage(result.message ?? "Game search failed.");
     setBusy(false);
   };
   const chooseGame = async (game: SpeedrunGameSearchResult) => {
     setBusy(true);
     const result = await speedrunApi.gameOptions(game.id);
-    if (result.ok) setOptions(result.options as SpeedrunGameOptions);
+    if (result.ok) setOptions(result.options);
     else setMessage(result.message ?? "Game options failed.");
     setBusy(false);
   };
   const chooseCategory = async (category: SpeedrunCategoryOption) => {
     if (!options) return;
     const result = await speedrunApi.categoryVariables(category.id);
-    if (result.ok) setVariables((result.variables ?? []) as SpeedrunVariableOption[]);
+    if (result.ok) setVariables(result.variables);
     else setMessage(result.message ?? "Variable lookup failed.");
     setSelection({
       gameId: options.game.id,
@@ -136,6 +136,85 @@ export function CategoryEditor({ draft }: { draft: DraftConfig }) {
               ))}
             </select>
           </label>
+          <label>
+            Platform
+            <select
+              value={selection?.platformId ?? ""}
+              onChange={(e) =>
+                setSelection(
+                  selection ? { ...selection, platformId: e.target.value || null } : selection,
+                )
+              }
+            >
+              <option value="">Any platform</option>
+              {options.platforms.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Region
+            <select
+              value={selection?.regionId ?? ""}
+              onChange={(e) =>
+                setSelection(
+                  selection ? { ...selection, regionId: e.target.value || null } : selection,
+                )
+              }
+            >
+              <option value="">Any region</option>
+              {options.regions.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Emulator
+            <select
+              value={selection?.emulator === null ? "any" : selection?.emulator ? "true" : "false"}
+              onChange={(e) =>
+                setSelection(
+                  selection
+                    ? {
+                        ...selection,
+                        emulator: e.target.value === "any" ? null : e.target.value === "true",
+                      }
+                    : selection,
+                )
+              }
+            >
+              <option value="any">Any</option>
+              <option value="true">Emulator</option>
+              <option value="false">Non-emulator</option>
+            </select>
+          </label>
+          <label>
+            Timing Method
+            <select
+              value={selection?.timingMethod ?? ""}
+              onChange={(e) =>
+                setSelection(
+                  selection
+                    ? {
+                        ...selection,
+                        timingMethod: (e.target.value || null) as typeof selection.timingMethod,
+                      }
+                    : selection,
+                )
+              }
+            >
+              <option value="">Any timing method</option>
+              {options.timingMethods.map((method) => (
+                <option key={method} value={method}>
+                  {method}
+                </option>
+              ))}
+            </select>
+          </label>
           {variables.map((variable) => (
             <label key={variable.id}>
               {variable.name}
@@ -162,9 +241,21 @@ export function CategoryEditor({ draft }: { draft: DraftConfig }) {
               </select>
             </label>
           ))}
-          <button disabled={busy || !selection} onClick={() => void apply()}>
+          <button
+            disabled={
+              busy ||
+              !selection ||
+              variables.some((variable) => variable.mandatory && !selection.variables[variable.id])
+            }
+            onClick={() => void apply()}
+          >
             Apply Selection
           </button>
+          {variables.some(
+            (variable) => variable.mandatory && !selection?.variables[variable.id],
+          ) && (
+            <p className="callout warning">Required variables must be selected before applying.</p>
+          )}
         </>
       )}
       {message && <p className="callout error">{message}</p>}

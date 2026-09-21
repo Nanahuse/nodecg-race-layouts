@@ -35,5 +35,10 @@ export type SpeedrunGameOptions = {
   regions: { id: string; name: string }[];
   timingMethods: ("realtime" | "realtime_noloads" | "ingame")[];
 };
-export type SpeedrunResponse<T> =
-  ({ ok: true; [key: string]: unknown } & T) | { ok: false; reason: string; message: string };
+export type SpeedrunFailure = { ok: false; reason: string; message: string };
+export type SpeedrunGamesSearchResponse =
+  { ok: true; games: SpeedrunGameSearchResult[] } | SpeedrunFailure;
+export type SpeedrunGameOptionsResponse =
+  { ok: true; options: SpeedrunGameOptions } | SpeedrunFailure;
+export type SpeedrunCategoryVariablesResponse =
+  { ok: true; variables: SpeedrunVariableOption[] } | SpeedrunFailure;
