@@ -7,6 +7,7 @@ import type {
   PlayerDirectory,
   PostApplyPersistenceState,
   RaceSession,
+  DraftSpeedrunSnapshot,
 } from "../../src/domain";
 import { resolveDisplayName } from "../../src/domain";
 import { raceApi } from "./api/race-api";
@@ -14,6 +15,9 @@ import { createParticipantApi } from "./api/participant-api";
 import { createRacePresentationApi } from "./api/race-presentation-api";
 import { useReplicant } from "./hooks/use-replicant";
 import { statusTone } from "./model/status";
+import { CategoryEditor } from "./components/category-editor";
+import { CategoryPresentationEditor } from "./components/category-presentation-editor";
+import { SpeedrunSnapshotPanel } from "./components/speedrun-snapshot-panel";
 import { resetParticipantLocalState } from "./model/participant-state";
 
 function Badge({
@@ -370,10 +374,15 @@ export function App() {
   const directory = useReplicant<PlayerDirectory>("player-directory");
   const integration = useReplicant<IntegrationStatus>("integration-status");
   const persistence = useReplicant<PostApplyPersistenceState>("post-apply-persistence");
+  const snapshot = useReplicant<DraftSpeedrunSnapshot>("draft-speedrun-snapshot");
   const [url, setUrl] = useState("");
   const [operation, setOperation] = useState<"idle" | "load" | "reconcile">("idle");
   const [error, setError] = useState<string | null>(null);
-  if (![draft, active, session, directory, integration, persistence].every((item) => item.ready))
+  if (
+    ![draft, active, session, directory, integration, persistence, snapshot].every(
+      (item) => item.ready,
+    )
+  )
     return <main className="loading">Connecting to NodeCG…</main>;
   const d = draft.value!;
   const a = active.value!;
@@ -381,6 +390,7 @@ export function App() {
   const dir = directory.value!;
   const i = integration.value!;
   const p = persistence.value!;
+  const snap = snapshot.value!;
   const run = async (kind: "load" | "reconcile") => {
     setOperation(kind);
     setError(null);
@@ -462,6 +472,9 @@ export function App() {
           </div>
           <h3>RaceTime Session</h3>
           <PresentationEditor draft={d} session={s} directory={dir} />
+          <CategoryEditor draft={d} />
+          <CategoryPresentationEditor draft={d} />
+          <SpeedrunSnapshotPanel draft={d} snapshot={snap} />
           <p>
             Connection: <strong>{s.connection.state}</strong> · Race: {s.race?.status ?? "—"} ·
             Entrants: {s.race?.entrants.length ?? 0} · Revision: {s.revision}

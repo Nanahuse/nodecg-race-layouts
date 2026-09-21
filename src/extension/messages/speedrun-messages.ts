@@ -1,26 +1,16 @@
 import type { NodeCG } from "../../types/nodecg";
 import type { SpeedrunDiscoveryService } from "../application/speedrun-discovery-service";
 import type { SpeedrunUserSearchMode } from "../integrations/speedruncom/types";
+import {
+  SPEEDRUN_GAMES_SEARCH_MESSAGE,
+  SPEEDRUN_GAME_GET_MESSAGE,
+  SPEEDRUN_GAME_OPTIONS_MESSAGE,
+  SPEEDRUN_CATEGORY_VARIABLES_MESSAGE,
+} from "../../protocol/speedrun";
+export * from "../../protocol/speedrun";
 
-export const SPEEDRUN_GAMES_SEARCH_MESSAGE = "speedrun.games.search";
-export const SPEEDRUN_GAME_GET_MESSAGE = "speedrun.game.get";
-export const SPEEDRUN_GAME_OPTIONS_MESSAGE = "speedrun.game.options";
-export const SPEEDRUN_CATEGORY_VARIABLES_MESSAGE = "speedrun.category.variables";
 export const SPEEDRUN_USERS_SEARCH_MESSAGE = "speedrun.users.search";
 export const SPEEDRUN_USER_GET_MESSAGE = "speedrun.user.get";
-
-export type SpeedrunGamesSearchRequest = {
-  query: string;
-  limit?: number;
-};
-
-export type SpeedrunGameRequest = {
-  gameId: string;
-};
-
-export type SpeedrunCategoryVariablesRequest = {
-  categoryId: string;
-};
 
 export type SpeedrunUsersSearchRequest = {
   query: string;
