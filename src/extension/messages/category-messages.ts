@@ -1,27 +1,15 @@
 import type { NodeCG } from "../../types/nodecg";
 import type { CategoryDraftService } from "../application/category-draft-service";
-
-export const CATEGORY_SELECT_MESSAGE = "category.select";
-export const CATEGORY_MAPPING_REGISTER_MESSAGE = "category.mapping.register";
-export const CATEGORY_MAPPING_UPDATE_MESSAGE = "category.mapping.update";
-export const CATEGORY_MAPPING_REVERT_MESSAGE = "category.mapping.revert";
-export const CATEGORY_PRESENTATION_UPDATE_MESSAGE = "category.presentation.update";
-export const CATEGORY_PRESENTATION_SAVE_MESSAGE = "category.presentation.save";
-export const CATEGORY_PRESENTATION_REVERT_MESSAGE = "category.presentation.revert";
-
-export type CategorySelectRequest = {
-  expectedDraftRevision: number;
-  selection: unknown;
-};
-
-export type CategoryRevisionRequest = {
-  expectedDraftRevision: number;
-};
-
-export type CategoryPresentationUpdateRequest = {
-  expectedDraftRevision: number;
-  presentation: unknown;
-};
+import {
+  CATEGORY_SELECT_MESSAGE,
+  CATEGORY_MAPPING_REGISTER_MESSAGE,
+  CATEGORY_MAPPING_UPDATE_MESSAGE,
+  CATEGORY_MAPPING_REVERT_MESSAGE,
+  CATEGORY_PRESENTATION_UPDATE_MESSAGE,
+  CATEGORY_PRESENTATION_SAVE_MESSAGE,
+  CATEGORY_PRESENTATION_REVERT_MESSAGE,
+} from "../../protocol/category";
+export * from "../../protocol/category";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);

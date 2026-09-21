@@ -222,6 +222,35 @@ dd {
   color: var(--muted);
   font-size: 0.75rem;
 }
+.subpanel {
+  border-top: 1px solid var(--border);
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+}
+.subpanel label {
+  display: grid;
+  gap: 0.35rem;
+  margin-top: 0.7rem;
+}
+.button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.7rem;
+}
+.choice {
+  display: block;
+  margin-top: 0.4rem;
+  width: 100%;
+  text-align: left;
+}
+.subpanel textarea {
+  min-height: 5rem;
+  background: #0d1117;
+  color: inherit;
+  border: 1px solid var(--border);
+  padding: 10px;
+}
 .presentation-editor {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
