@@ -6,11 +6,15 @@ export function CategoryPresentationEditor({ draft }: { draft: DraftConfig }) {
   const [value, setValue] = useState<CategoryPresentation | null>(draft.categoryPresentation);
   const [message, setMessage] = useState<string | null>(null);
   const [pending, setPending] = useState<string | null>(null);
+  const [syncRequested, setSyncRequested] = useState(false);
   useEffect(() => {
-    setValue(draft.categoryPresentation);
+    if (syncRequested) {
+      setValue(draft.categoryPresentation);
+      setSyncRequested(false);
+    }
     setMessage(null);
     setPending(null);
-  }, [draft.race?.raceId]);
+  }, [draft.race?.raceId, draft.revision, syncRequested]);
   const dirty = JSON.stringify(value) !== JSON.stringify(draft.categoryPresentation);
   const update = (patch: Partial<CategoryPresentation>) =>
     setValue(
@@ -28,14 +32,18 @@ export function CategoryPresentationEditor({ draft }: { draft: DraftConfig }) {
   const run = async (
     operation: string,
     action: () => Promise<{ ok: boolean; message?: string }>,
-    next: CategoryPresentation | null | undefined,
   ) => {
     setPending(operation);
     setMessage(null);
-    const result = await action();
-    if (!result.ok) setMessage(result.message ?? "Presentation update failed.");
-    else if (next !== undefined) setValue(next);
-    setPending(null);
+    try {
+      const result = await action();
+      if (!result.ok) setMessage(result.message ?? "Presentation update failed.");
+      else setSyncRequested(true);
+    } catch (cause) {
+      setMessage(cause instanceof Error ? cause.message : "NodeCG communication error");
+    } finally {
+      setPending(null);
+    }
   };
   return (
     <section className="subpanel">
@@ -75,27 +83,25 @@ export function CategoryPresentationEditor({ draft }: { draft: DraftConfig }) {
       <div className="button-row">
         <button
           disabled={pending !== null || !dirty}
-          onClick={() => void run("update", () => api.updatePresentation(value), value)}
+          onClick={() => void run("update", () => api.updatePresentation(value))}
         >
           Update Draft
         </button>
         <button
           disabled={pending !== null || dirty}
-          onClick={() => void run("save", () => api.savePresentation(), undefined)}
+          onClick={() => void run("save", () => api.savePresentation())}
         >
           Save Preset
         </button>
         <button
           disabled={pending !== null}
-          onClick={() =>
-            void run("revert", () => api.revertPresentation(), draft.categoryPresentation)
-          }
+          onClick={() => void run("revert", () => api.revertPresentation())}
         >
           Revert to Saved
         </button>
         <button
           disabled={pending !== null}
-          onClick={() => void run("clear", () => api.updatePresentation(null), null)}
+          onClick={() => void run("clear", () => api.updatePresentation(null))}
         >
           Clear Presentation
         </button>
