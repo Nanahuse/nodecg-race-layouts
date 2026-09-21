@@ -57,6 +57,7 @@ describe("bootstrapExtension", () => {
     expect(listened).toContain("speedrun.category.variables");
     expect(listened).toContain("speedrun.users.search");
     expect(listened).toContain("speedrun.user.get");
+    expect(listened).toContain("speedrun.snapshot.refresh");
   });
 
   it("registers messages with an invalid spreadsheet config", () => {

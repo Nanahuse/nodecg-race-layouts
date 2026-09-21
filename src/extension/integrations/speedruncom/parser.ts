@@ -53,6 +53,29 @@ export function optionalString(
   return value;
 }
 
+export function requireNumber(record: Record<string, unknown>, key: string, path: string): number {
+  const value = record[key];
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    throw new SpeedrunComPayloadError(`${path} must be a number.`);
+  }
+  return value;
+}
+
+export function optionalNumber(
+  record: Record<string, unknown>,
+  key: string,
+  path: string,
+): number | null {
+  const value = record[key];
+  if (value === null || value === undefined) {
+    return null;
+  }
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    throw new SpeedrunComPayloadError(`${path} must be a number or null.`);
+  }
+  return value;
+}
+
 export function requireBoolean(
   record: Record<string, unknown>,
   key: string,

@@ -1,6 +1,4 @@
-import type { IntegrationStatus } from "../../domain";
-import { createDefaultIntegrationStatus } from "../../replicants/defaults";
-import type { NodeCGLogger, Replicant } from "../../types/nodecg";
+import type { NodeCGLogger } from "../../types/nodecg";
 import type { SpeedrunComClient } from "../integrations/speedruncom/client";
 import {
   describeSpeedrunComError,
@@ -18,6 +16,7 @@ import type {
   SpeedrunUserSearchMode,
   SpeedrunVariableOption,
 } from "../integrations/speedruncom/types";
+import type { SpeedrunOperationStatusCoordinator } from "./speedrun-status-coordinator";
 
 export const DEFAULT_SEARCH_LIMIT = 20;
 export const MAX_SEARCH_LIMIT = 50;
@@ -50,7 +49,7 @@ export type SpeedrunUserGetOutcome =
 
 export type SpeedrunDiscoveryServiceOptions = {
   client: SpeedrunComClient;
-  integrationStatus: Replicant<IntegrationStatus>;
+  status: SpeedrunOperationStatusCoordinator;
   log: NodeCGLogger;
 };
 
@@ -74,20 +73,17 @@ function fail(reason: SpeedrunDiscoveryFailureReason, message: string): Speedrun
 
 /**
  * Read-only Speedrun.com discovery API used by the dashboard. It never mutates
- * the draft or any other replicant; only `integration-status.speedrunCom` is
- * updated.
+ * the draft or any other replicant; `integration-status.speedrunCom` is managed
+ * by the shared status coordinator.
  */
 export class SpeedrunDiscoveryService {
   private readonly client: SpeedrunComClient;
-  private readonly integrationStatus: Replicant<IntegrationStatus>;
+  private readonly status: SpeedrunOperationStatusCoordinator;
   private readonly log: NodeCGLogger;
-
-  private inFlight = 0;
-  private lastError: string | null = null;
 
   constructor(options: SpeedrunDiscoveryServiceOptions) {
     this.client = options.client;
-    this.integrationStatus = options.integrationStatus;
+    this.status = options.status;
     this.log = options.log;
   }
 
@@ -211,48 +207,11 @@ export class SpeedrunDiscoveryService {
     operation: string,
     body: () => Promise<T>,
   ): Promise<T | SpeedrunDiscoveryFailure> {
-    this.beginRequest(operation);
     try {
-      const result = await body();
-      this.endRequest(operation, true);
-      return result;
+      return await this.status.run(operation, body);
     } catch (error) {
-      this.endRequest(operation, false, error);
       return fail(toReason(error), describeSpeedrunComError(error));
     }
-  }
-
-  private beginRequest(operation: string): void {
-    this.inFlight += 1;
-    this.setStatus("fetching");
-    this.logEvent("speedrun.request.started", { operation });
-  }
-
-  private endRequest(operation: string, success: boolean, error?: unknown): void {
-    this.inFlight = Math.max(0, this.inFlight - 1);
-
-    if (success) {
-      this.lastError = null;
-      this.logEvent("speedrun.request.completed", { operation });
-    } else {
-      this.lastError = describeSpeedrunComError(error);
-      this.logEvent("speedrun.request.failed", { operation, error }, "error");
-    }
-
-    if (this.inFlight > 0) {
-      this.setStatus("fetching");
-    } else {
-      this.setStatus(this.lastError === null ? "ready" : "error");
-    }
-  }
-
-  private setStatus(state: "fetching" | "ready" | "error"): void {
-    const current = this.integrationStatus.value ?? createDefaultIntegrationStatus();
-    const message = state === "error" ? this.lastError : null;
-    if (current.speedrunCom.state === state && current.speedrunCom.message === message) {
-      return;
-    }
-    this.integrationStatus.value = { ...current, speedrunCom: { state, message } };
   }
 
   private logEvent(

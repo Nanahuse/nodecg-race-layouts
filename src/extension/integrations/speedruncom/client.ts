@@ -9,6 +9,15 @@ import {
   SpeedrunComRateLimitedError,
   SpeedrunComTimeoutError,
 } from "./errors";
+import type { LeaderboardKey } from "../../../domain";
+import {
+  leaderboardPath,
+  leaderboardQuery,
+  type SpeedrunLeaderboard,
+  type SpeedrunPersonalBestEntry,
+} from "./leaderboard";
+import { mapLeaderboard, mapPersonalBestEntry } from "./leaderboard-mapper";
+import { parseLeaderboard, parsePersonalBest } from "./leaderboard-parser";
 import {
   mapCategory,
   mapGameDetail,
@@ -60,6 +69,17 @@ export interface SpeedrunComClient {
     signal?: AbortSignal,
   ): Promise<SpeedrunUserOption[]>;
   getUser(userId: string, signal?: AbortSignal): Promise<SpeedrunUserOption>;
+
+  getLeaderboard(
+    key: LeaderboardKey,
+    top: number,
+    signal?: AbortSignal,
+  ): Promise<SpeedrunLeaderboard>;
+  getUserPersonalBests(
+    userId: string,
+    gameId: string,
+    signal?: AbortSignal,
+  ): Promise<SpeedrunPersonalBestEntry[]>;
 }
 
 export type HttpSpeedrunComClientOptions = {
@@ -117,7 +137,7 @@ export class HttpSpeedrunComClient implements SpeedrunComClient {
 
   getGame(gameId: string, signal?: AbortSignal): Promise<SpeedrunGameDetail> {
     return this.cache.get(`game:${gameId}`, () =>
-      this.fetchSingle(`/games/${encodeURIComponent(gameId)}`, signal, mapGameDetail),
+      this.fetchSingle(`/games/${encodeURIComponent(gameId)}`, {}, signal, mapGameDetail),
     );
   }
 
@@ -184,16 +204,42 @@ export class HttpSpeedrunComClient implements SpeedrunComClient {
 
   getUser(userId: string, signal?: AbortSignal): Promise<SpeedrunUserOption> {
     return this.cache.get(`user:${userId}`, () =>
-      this.fetchSingle(`/users/${encodeURIComponent(userId)}`, signal, mapUser),
+      this.fetchSingle(`/users/${encodeURIComponent(userId)}`, {}, signal, mapUser),
+    );
+  }
+
+  /** Ranking data is never cached; a refresh must hit the API. */
+  getLeaderboard(
+    key: LeaderboardKey,
+    top: number,
+    signal?: AbortSignal,
+  ): Promise<SpeedrunLeaderboard> {
+    return this.fetchSingle(leaderboardPath(key), leaderboardQuery(key, top), signal, (data) =>
+      mapLeaderboard(parseLeaderboard(data), key),
+    );
+  }
+
+  getUserPersonalBests(
+    userId: string,
+    gameId: string,
+    signal?: AbortSignal,
+  ): Promise<SpeedrunPersonalBestEntry[]> {
+    return this.fetchCollection(
+      `/users/${encodeURIComponent(userId)}/personal-bests`,
+      { game: gameId },
+      LARGE_COLLECTION_LIMIT,
+      signal,
+      (data) => mapPersonalBestEntry(parsePersonalBest(data)),
     );
   }
 
   private async fetchSingle<T>(
     path: string,
+    query: Record<string, QueryValue>,
     signal: AbortSignal | undefined,
     mapItem: (value: unknown) => T,
   ): Promise<T> {
-    const payload = await this.request(path, {}, signal);
+    const payload = await this.request(path, query, signal);
     return mapItem(parseSingleEnvelope(payload));
   }
 

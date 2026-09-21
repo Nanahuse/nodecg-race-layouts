@@ -530,3 +530,58 @@ describe("CategoryDraftService presentation operations", () => {
     }
   });
 });
+
+describe("CategoryDraftService snapshot retag / reset", () => {
+  function readySnapshot(draftRevision: number) {
+    return {
+      draftRevision,
+      state: "ready" as const,
+      snapshot: {
+        snapshotId: "s1",
+        fetchedAt: "2026-09-21T05:30:00.000Z",
+        leaderboardKey: {
+          gameId: "g",
+          categoryId: "c",
+          levelId: null,
+          variables: {},
+          platformId: null,
+          regionId: null,
+          emulator: null,
+          timingMethod: null,
+        },
+        worldRecord: null,
+        leaderboard: [],
+        personalBests: {},
+      },
+      message: null,
+    };
+  }
+
+  it("retags the snapshot on a non-invalidating presentation change", async () => {
+    const { service, draftConfig, draftSpeedrunSnapshot } = setup();
+    const ready = readySnapshot(1);
+    draftSpeedrunSnapshot.value = ready;
+
+    await service.updatePresentation(1, makePresentation());
+
+    expect(draftConfig.value.revision).toBe(2);
+    expect(draftSpeedrunSnapshot.value.draftRevision).toBe(2);
+    expect(draftSpeedrunSnapshot.value.state).toBe("ready");
+    expect(draftSpeedrunSnapshot.value.snapshot).toBe(ready.snapshot);
+  });
+
+  it("resets the snapshot on a leaderboard-invalidating selection change", async () => {
+    const { service, draftConfig, draftSpeedrunSnapshot } = setup();
+    draftSpeedrunSnapshot.value = readySnapshot(1);
+
+    await service.select(1, makeSelection({ gameId: "other" }));
+
+    expect(draftConfig.value.revision).toBe(2);
+    expect(draftSpeedrunSnapshot.value).toEqual({
+      draftRevision: 2,
+      state: "empty",
+      snapshot: null,
+      message: null,
+    });
+  });
+});

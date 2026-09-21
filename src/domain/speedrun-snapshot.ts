@@ -30,8 +30,8 @@ export type PersonalBest = {
 };
 
 /**
- * A normalized Speedrun.com snapshot. The leaderboard array is expected to
- * eventually hold the top 20 entries.
+ * A normalized Speedrun.com snapshot. The leaderboard array holds the top 20
+ * *places*; tied runs can make it longer than 20 entries.
  */
 export type SpeedrunSnapshot = {
   snapshotId: string;
@@ -65,3 +65,18 @@ export type ActiveSpeedrunSnapshot = {
   activeRevision: number;
   snapshot: SpeedrunSnapshot;
 };
+
+/**
+ * Keep a snapshot's contents but move its `draftRevision` to a newer draft
+ * revision. Used for draft mutations that do not invalidate the leaderboard /
+ * PB data (e.g. presentation or display-name edits).
+ */
+export function retagDraftSpeedrunSnapshot(
+  current: DraftSpeedrunSnapshot,
+  newDraftRevision: number,
+): DraftSpeedrunSnapshot {
+  if (current.draftRevision === newDraftRevision) {
+    return current;
+  }
+  return { ...current, draftRevision: newDraftRevision };
+}
