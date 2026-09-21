@@ -6,6 +6,11 @@ export default defineConfig({
   build: {
     outDir: "../../dashboard",
     emptyOutDir: true,
-    rollupOptions: { input: { "race-control": "ui/dashboard/race-control.html" } },
+    rollupOptions: {
+      input: {
+        "race-control": "ui/dashboard/race-control.html",
+        "player-mapping": "ui/dashboard/player-mapping.html",
+      },
+    },
   },
 });
