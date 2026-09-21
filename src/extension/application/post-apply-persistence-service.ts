@@ -59,7 +59,11 @@ export class PostApplyPersistenceService implements PostApplyPersistenceSink {
       while (this.state.value.queue.length) {
         const item = this.state.value.queue[0];
         if (!item) break;
-        this.updateItem(item.activeRevision, { attempts: item.attempts + 1 }, "saving");
+        this.updateItem(
+          item.activeRevision,
+          { attempts: item.attempts + 1, lastError: null },
+          "saving",
+        );
         const operation = this.coordinator?.begin("saving");
         try {
           await this.players.savePlayers(item.players);

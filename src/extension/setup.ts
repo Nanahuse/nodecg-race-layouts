@@ -224,6 +224,7 @@ export function setupRaceTimeIntegration(
     integrationStatus,
     mappingsRepository: spreadsheet?.categoryMappingsRepository ?? null,
     presentationRepository: spreadsheet?.categoryPresentationRepository ?? null,
+    spreadsheetStatus: spreadsheet?.status ?? null,
     log: nodecg.log,
   });
 
