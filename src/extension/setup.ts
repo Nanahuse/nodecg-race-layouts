@@ -16,6 +16,7 @@ import {
 import { ParticipantDraftService } from "./application/participant-draft-service";
 import { PlayerDirectoryService } from "./application/player-directory-service";
 import { RaceDraftService } from "./application/race-draft-service";
+import { RacePresentationDraftService } from "./application/race-presentation-draft-service";
 import { RaceSessionService } from "./application/race-session-service";
 import { SpeedrunDiscoveryService } from "./application/speedrun-discovery-service";
 import { SpeedrunSnapshotService } from "./application/speedrun-snapshot-service";
@@ -42,6 +43,7 @@ import { SpreadsheetPlayersRepository } from "./integrations/spreadsheet/players
 import { registerCategoryMessages } from "./messages/category-messages";
 import { registerParticipantMessages } from "./messages/participant-messages";
 import { registerRaceMessages } from "./messages/race-messages";
+import { registerRacePresentationMessages } from "./messages/race-presentation-messages";
 import { registerSpeedrunMessages } from "./messages/speedrun-messages";
 import { registerSpeedrunSnapshotMessages } from "./messages/speedrun-snapshot-messages";
 
@@ -225,12 +227,23 @@ export function setupParticipantDraftService(
   });
 }
 
+export function setupRacePresentationDraftService(nodecg: NodeCG): RacePresentationDraftService {
+  return new RacePresentationDraftService({
+    draftConfig: nodecg.Replicant<DraftConfig>("draft-config"),
+    draftSpeedrunSnapshot: nodecg.Replicant<DraftSpeedrunSnapshot>("draft-speedrun-snapshot"),
+    playerDirectory: nodecg.Replicant<PlayerDirectory>("player-directory"),
+    integrationStatus: nodecg.Replicant<IntegrationStatus>("integration-status"),
+    log: nodecg.log,
+  });
+}
+
 export function bootstrapExtension(nodecg: NodeCG): {
   raceDraft: RaceDraftService;
   categoryDraft: CategoryDraftService;
   speedrunDiscovery: SpeedrunDiscoveryService;
   speedrunSnapshot: SpeedrunSnapshotService;
   participantDraft: ParticipantDraftService;
+  racePresentationDraft: RacePresentationDraftService;
 } {
   declareReplicants(nodecg);
   const spreadsheet = setupSpreadsheetIntegration(nodecg);
@@ -242,10 +255,19 @@ export function bootstrapExtension(nodecg: NodeCG): {
     speedrunDiscovery,
   );
   const participantDraft = setupParticipantDraftService(nodecg, speedrunDiscovery);
+  const racePresentationDraft = setupRacePresentationDraftService(nodecg);
   registerRaceMessages(nodecg, raceDraft);
   registerCategoryMessages(nodecg, categoryDraft);
   registerSpeedrunMessages(nodecg, speedrunDiscovery);
   registerSpeedrunSnapshotMessages(nodecg, speedrunSnapshot);
   registerParticipantMessages(nodecg, participantDraft);
-  return { raceDraft, categoryDraft, speedrunDiscovery, speedrunSnapshot, participantDraft };
+  registerRacePresentationMessages(nodecg, racePresentationDraft);
+  return {
+    raceDraft,
+    categoryDraft,
+    speedrunDiscovery,
+    speedrunSnapshot,
+    participantDraft,
+    racePresentationDraft,
+  };
 }

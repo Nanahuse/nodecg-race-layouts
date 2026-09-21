@@ -507,16 +507,21 @@ describe("ParticipantDraftService.setDisplayName", () => {
 
 describe("ParticipantDraftService broadcast transitions", () => {
   it("keeps a ready snapshot and broadcast ready on a display-name change", async () => {
-    const draft = baseDraft({
-      p1: makeDraftPlayer("p1", {
-        speedrunCom: {
-          state: "linked",
-          value: { userId: "src-1", name: "One", twitchLogin: null },
-          source: "manual",
-        },
-        twitch: { state: "none", source: "manual" },
-      }),
-    });
+    const players = Object.fromEntries(
+      [1, 2, 3, 4].map((index) => [
+        `p${index}`,
+        makeDraftPlayer(`p${index}`, {
+          speedrunCom: {
+            state: "linked" as const,
+            value: { userId: `src-${index}`, name: `Player ${index}`, twitchLogin: null },
+            source: "manual" as const,
+          },
+          twitch: { state: "none" as const, source: "manual" as const },
+        }),
+      ]),
+    );
+    const draft = baseDraft(players);
+    draft.raceScreenSlots = { 1: "rt-p1", 2: "rt-p2", 3: "rt-p3", 4: "rt-p4" };
     const { service, draftSpeedrunSnapshot, integrationStatus } = setup({ draft });
     draftSpeedrunSnapshot.value = readySnapshot(draft);
     integrationStatus.value = {

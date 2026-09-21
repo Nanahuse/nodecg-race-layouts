@@ -18,6 +18,7 @@ import type { NodeCGLogger, Replicant } from "../../types/nodecg";
 import { jsonEquals } from "../integrations/racetime/equality";
 import type { SpeedrunUserLookup } from "./automatic-identity-resolution-service";
 import { computeDraftBroadcastState } from "./broadcast-status";
+import { pruneUnreferencedDraftPlayers } from "./draft-player-references";
 import {
   findDirectorySpeedrunConflict,
   findDirectoryTwitchConflict,
@@ -187,7 +188,7 @@ export class ParticipantDraftService {
         ? { ...participant, playerId: targetPlayerId }
         : participant,
     );
-    const candidate = this.prunePlayers({ ...draft, players, participants });
+    const candidate = pruneUnreferencedDraftPlayers({ ...draft, players, participants });
 
     return this.finish(draft, candidate, targetPlayerId, "participant.player.updated");
   }
@@ -492,26 +493,6 @@ export class ParticipantDraftService {
       return { ...currentRaceTime, source: "manual" };
     }
     return { state: "unresolved" };
-  }
-
-  private prunePlayers(draft: DraftConfig): DraftConfig {
-    const referenced = new Set<PlayerId>();
-    for (const participant of draft.participants) {
-      if (participant.playerId) {
-        referenced.add(participant.playerId);
-      }
-    }
-    for (const playerId of draft.commentatorPlayerIds) {
-      referenced.add(playerId);
-    }
-    const players: Record<PlayerId, DraftPlayer> = {};
-    for (const playerId of referenced) {
-      const player = draft.players[playerId];
-      if (player) {
-        players[playerId] = player;
-      }
-    }
-    return { ...draft, players };
   }
 
   private finish(

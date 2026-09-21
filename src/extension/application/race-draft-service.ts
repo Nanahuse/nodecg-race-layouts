@@ -9,7 +9,11 @@ import type {
   PlayerDirectory,
   RaceSession,
 } from "../../domain";
-import { categorySelectionFromMapping, retagDraftSpeedrunSnapshot } from "../../domain";
+import {
+  MAX_COMMENTATORS,
+  categorySelectionFromMapping,
+  retagDraftSpeedrunSnapshot,
+} from "../../domain";
 import {
   createDefaultDraftConfig,
   createDefaultDraftSpeedrunSnapshot,
@@ -159,12 +163,48 @@ export function validateDraftIntegrity(draft: DraftConfig): DraftIntegrityIssue[
   const participantRacetimeIds = new Set(
     draft.participants.map((participant) => participant.racetimeUserId),
   );
+  const slotOwners = new Map<string, string>();
   for (const slot of ["1", "2", "3", "4"] as const) {
     const value = draft.raceScreenSlots[slot];
-    if (value !== null && !participantRacetimeIds.has(value)) {
+    if (value === null) {
+      continue;
+    }
+    if (!participantRacetimeIds.has(value)) {
       issues.push({
         code: "slot_unknown_participant",
         message: `Race screen slot ${slot} references unknown participant "${value}".`,
+      });
+    }
+    const existingSlot = slotOwners.get(value);
+    if (existingSlot !== undefined) {
+      issues.push({
+        code: "slot_duplicate",
+        message: `RaceTime user "${value}" is used in slots ${existingSlot} and ${slot}.`,
+      });
+    } else {
+      slotOwners.set(value, slot);
+    }
+  }
+
+  if (draft.commentatorPlayerIds.length > MAX_COMMENTATORS) {
+    issues.push({
+      code: "commentator_too_many",
+      message: `At most ${MAX_COMMENTATORS} commentators are allowed.`,
+    });
+  }
+  const seenCommentators = new Set<string>();
+  for (const playerId of draft.commentatorPlayerIds) {
+    if (seenCommentators.has(playerId)) {
+      issues.push({
+        code: "commentator_duplicate",
+        message: `Commentator "${playerId}" is listed more than once.`,
+      });
+    }
+    seenCommentators.add(playerId);
+    if (!draft.players[playerId]) {
+      issues.push({
+        code: "commentator_player_missing",
+        message: `Commentator "${playerId}" is not a known draft player.`,
       });
     }
   }
