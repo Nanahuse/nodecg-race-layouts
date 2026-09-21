@@ -105,6 +105,25 @@ against `configschema.json`; see `config.example.json`):
   preserving operator edits, valid slots and commentators, and resets the
   category selection when the category slug/goal changes.
 
+### Category mapping & presentation
+
+`category.*` messages (handled in `messages/category-messages.ts`, workflow in
+`category-draft-service.ts`) keep the per-race selection separate from the
+persisted preset:
+
+- `CategoryMappings` and `CategoryPresentation` are separate sheets, keyed by
+  `racetime_category_slug + racetime_goal`.
+- On `race.load`/`race.reconcile` the preset for the race's category key is
+  looked up and applied to the draft. A spreadsheet lookup failure only leaves
+  the selection/presentation empty; it never fails the race load.
+- `category.select` sets a manual selection and recomputes `savedMappingState`
+  (`none`/`matches`/`overridden`) without writing to the spreadsheet.
+- `category.mapping.register` / `update` / `revert` and
+  `category.presentation.update` / `save` / `revert` are the **only** operations
+  that persist to the spreadsheet, and all require `expectedDraftRevision`.
+- Changing the leaderboard conditions invalidates `draft-speedrun-snapshot`;
+  presentation edits never do.
+
 TypeScript domain types under `src/replicants/value-types.ts` are the single
 source of truth for the Replicants. `npm run schema:generate` writes one
 self-contained draft-07 schema per Replicant into `schemas/`; `npm run

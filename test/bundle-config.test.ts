@@ -1,11 +1,21 @@
 import { describe, expect, it } from "vitest";
 
-import { DEFAULT_PLAYERS_SHEET, parseBundleConfig } from "../src/extension/config";
+import {
+  DEFAULT_CATEGORY_MAPPINGS_SHEET,
+  DEFAULT_CATEGORY_PRESENTATION_SHEET,
+  DEFAULT_PLAYERS_SHEET,
+  parseBundleConfig,
+} from "../src/extension/config";
 
 describe("parseBundleConfig", () => {
   it("parses a valid config", () => {
     const result = parseBundleConfig({
-      spreadsheet: { spreadsheetId: "sheet-123", playersSheet: "Runners" },
+      spreadsheet: {
+        spreadsheetId: "sheet-123",
+        playersSheet: "Runners",
+        categoryMappingsSheet: "Mappings",
+        categoryPresentationSheet: "Presentation",
+      },
     });
 
     expect(result.ok).toBe(true);
@@ -13,15 +23,21 @@ describe("parseBundleConfig", () => {
       expect(result.config.spreadsheet).toEqual({
         spreadsheetId: "sheet-123",
         playersSheet: "Runners",
+        categoryMappingsSheet: "Mappings",
+        categoryPresentationSheet: "Presentation",
       });
     }
   });
 
-  it("defaults playersSheet to Players", () => {
+  it("defaults the sheet names", () => {
     const result = parseBundleConfig({ spreadsheet: { spreadsheetId: "sheet-123" } });
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.config.spreadsheet.playersSheet).toBe(DEFAULT_PLAYERS_SHEET);
+      expect(result.config.spreadsheet.categoryMappingsSheet).toBe(DEFAULT_CATEGORY_MAPPINGS_SHEET);
+      expect(result.config.spreadsheet.categoryPresentationSheet).toBe(
+        DEFAULT_CATEGORY_PRESENTATION_SHEET,
+      );
     }
   });
 

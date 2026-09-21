@@ -5,7 +5,7 @@
   "properties": {
     "spreadsheet": {
       "type": "object",
-      "description": "Google Spreadsheet that stores the Players sheet.",
+      "description": "Google Spreadsheet that stores the Players, CategoryMappings and CategoryPresentation sheets.",
       "properties": {
         "spreadsheetId": {
           "type": "string",
@@ -17,6 +17,18 @@
           "minLength": 1,
           "default": "Players",
           "description": "Name of the sheet that holds the player mappings."
+        },
+        "categoryMappingsSheet": {
+          "type": "string",
+          "minLength": 1,
+          "default": "CategoryMappings",
+          "description": "Name of the sheet that holds the RaceTime.gg -> Speedrun.com category mappings."
+        },
+        "categoryPresentationSheet": {
+          "type": "string",
+          "minLength": 1,
+          "default": "CategoryPresentation",
+          "description": "Name of the sheet that holds the category presentation content."
         }
       },
       "required": ["spreadsheetId"],

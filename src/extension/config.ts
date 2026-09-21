@@ -1,8 +1,12 @@
 export const DEFAULT_PLAYERS_SHEET = "Players";
+export const DEFAULT_CATEGORY_MAPPINGS_SHEET = "CategoryMappings";
+export const DEFAULT_CATEGORY_PRESENTATION_SHEET = "CategoryPresentation";
 
 export type SpreadsheetConfig = {
   spreadsheetId: string;
   playersSheet: string;
+  categoryMappingsSheet: string;
+  categoryPresentationSheet: string;
 };
 
 export type RaceLayoutsConfig = {
@@ -16,9 +20,20 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+function parseSheetName(value: unknown, label: string, fallback: string, issues: string[]): string {
+  if (value === undefined) {
+    return fallback;
+  }
+  if (typeof value !== "string" || value.trim() === "") {
+    issues.push(`"spreadsheet.${label}" must be a non-empty string when provided.`);
+    return fallback;
+  }
+  return value.trim();
+}
+
 /**
  * Parse and validate the bundle config. Credentials are never part of the
- * config; only the spreadsheet id and sheet name are read here.
+ * config; only the spreadsheet id and sheet names are read here.
  */
 export function parseBundleConfig(raw: unknown): BundleConfigParseResult {
   if (!isRecord(raw)) {
@@ -38,15 +53,24 @@ export function parseBundleConfig(raw: unknown): BundleConfigParseResult {
     issues.push('"spreadsheet.spreadsheetId" is required and must be a non-empty string.');
   }
 
-  let playersSheet = DEFAULT_PLAYERS_SHEET;
-  const playersSheetRaw = spreadsheet.playersSheet;
-  if (playersSheetRaw !== undefined) {
-    if (typeof playersSheetRaw !== "string" || playersSheetRaw.trim() === "") {
-      issues.push('"spreadsheet.playersSheet" must be a non-empty string when provided.');
-    } else {
-      playersSheet = playersSheetRaw.trim();
-    }
-  }
+  const playersSheet = parseSheetName(
+    spreadsheet.playersSheet,
+    "playersSheet",
+    DEFAULT_PLAYERS_SHEET,
+    issues,
+  );
+  const categoryMappingsSheet = parseSheetName(
+    spreadsheet.categoryMappingsSheet,
+    "categoryMappingsSheet",
+    DEFAULT_CATEGORY_MAPPINGS_SHEET,
+    issues,
+  );
+  const categoryPresentationSheet = parseSheetName(
+    spreadsheet.categoryPresentationSheet,
+    "categoryPresentationSheet",
+    DEFAULT_CATEGORY_PRESENTATION_SHEET,
+    issues,
+  );
 
   if (issues.length > 0) {
     return { ok: false, issues };
@@ -58,6 +82,8 @@ export function parseBundleConfig(raw: unknown): BundleConfigParseResult {
       spreadsheet: {
         spreadsheetId,
         playersSheet,
+        categoryMappingsSheet,
+        categoryPresentationSheet,
       },
     },
   };

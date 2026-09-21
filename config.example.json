@@ -1,6 +1,8 @@
 {
   "spreadsheet": {
     "spreadsheetId": "your-spreadsheet-id",
-    "playersSheet": "Players"
+    "playersSheet": "Players",
+    "categoryMappingsSheet": "CategoryMappings",
+    "categoryPresentationSheet": "CategoryPresentation"
   }
 }

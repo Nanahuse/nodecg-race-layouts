@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
+import type { CategoryDraftService } from "../src/extension/application/category-draft-service";
 import type { RaceDraftService } from "../src/extension/application/race-draft-service";
+import { registerCategoryMessages } from "../src/extension/messages/category-messages";
 import { registerRaceMessages } from "../src/extension/messages/race-messages";
 import { bootstrapExtension } from "../src/extension/setup";
 import type { MessageHandler, NodeCG } from "../src/types/nodecg";
@@ -39,13 +41,21 @@ describe("bootstrapExtension", () => {
     expect(() => bootstrapExtension(nodecg)).not.toThrow();
     expect(listened).toContain("race.load");
     expect(listened).toContain("race.reconcile");
+    expect(listened).toContain("category.select");
+    expect(listened).toContain("category.mapping.register");
+    expect(listened).toContain("category.mapping.update");
+    expect(listened).toContain("category.mapping.revert");
+    expect(listened).toContain("category.presentation.update");
+    expect(listened).toContain("category.presentation.save");
+    expect(listened).toContain("category.presentation.revert");
   });
 
-  it("registers race messages with an invalid spreadsheet config", () => {
+  it("registers messages with an invalid spreadsheet config", () => {
     const { nodecg, listened } = makeFakeNodeCG({ spreadsheet: {} });
 
     expect(() => bootstrapExtension(nodecg)).not.toThrow();
     expect(listened).toContain("race.load");
+    expect(listened).toContain("category.select");
   });
 });
 
@@ -101,5 +111,46 @@ describe("registerRaceMessages", () => {
     });
 
     expect(results[0]).toMatchObject({ ok: true, changed: false, draftRevision: 1 });
+  });
+});
+
+describe("registerCategoryMessages", () => {
+  it("acknowledges category.select with the structured result", async () => {
+    const { nodecg, handlers } = makeFakeNodeCG(undefined);
+    const service = {
+      select: async () => ({
+        ok: true,
+        changed: true,
+        draftRevision: 2,
+        savedMappingState: "none",
+      }),
+      registerMapping: async () => ({ ok: false, reason: "spreadsheet_unavailable", message: "x" }),
+      updateMapping: async () => ({ ok: false, reason: "no_saved_mapping", message: "x" }),
+      revertMapping: async () => ({ ok: false, reason: "no_saved_mapping", message: "x" }),
+      updatePresentation: async () => ({ ok: true, changed: false, draftRevision: 2 }),
+      savePresentation: async () => ({ ok: false, reason: "no_presentation", message: "x" }),
+      revertPresentation: async () => ({
+        ok: false,
+        reason: "no_saved_presentation",
+        message: "x",
+      }),
+    } as unknown as CategoryDraftService;
+
+    registerCategoryMessages(nodecg, service);
+
+    const results: unknown[] = [];
+    await handlers.get("category.select")?.(
+      { expectedDraftRevision: 1, selection: {} },
+      (_e, r) => {
+        results.push(r);
+      },
+    );
+
+    expect(results[0]).toEqual({
+      ok: true,
+      changed: true,
+      draftRevision: 2,
+      savedMappingState: "none",
+    });
   });
 });

@@ -7,6 +7,11 @@ import type {
 } from "../domain";
 import { declareReplicants } from "../replicants";
 import type { NodeCG } from "../types/nodecg";
+import { CategoryDraftService } from "./application/category-draft-service";
+import {
+  nullCategoryPresetProvider,
+  type CategoryPresetProvider,
+} from "./application/category-preset-provider";
 import { PlayerDirectoryService } from "./application/player-directory-service";
 import { RaceDraftService } from "./application/race-draft-service";
 import { RaceSessionService } from "./application/race-session-service";
@@ -18,9 +23,24 @@ import type {
   WebSocketFactory,
   WebSocketLike,
 } from "./integrations/racetime/watcher";
+import {
+  SpreadsheetCategoryMappingsRepository,
+  type CategoryMappingsRepository,
+} from "./integrations/spreadsheet/category-mappings-repository";
+import {
+  SpreadsheetCategoryPresentationRepository,
+  type CategoryPresentationRepository,
+} from "./integrations/spreadsheet/category-presentation-repository";
 import { GoogleSheetsClient } from "./integrations/spreadsheet/google-sheets-client";
 import { SpreadsheetPlayersRepository } from "./integrations/spreadsheet/players-repository";
+import { registerCategoryMessages } from "./messages/category-messages";
 import { registerRaceMessages } from "./messages/race-messages";
+
+export type SpreadsheetIntegration = {
+  playerDirectoryService: PlayerDirectoryService;
+  categoryMappingsRepository: CategoryMappingsRepository;
+  categoryPresentationRepository: CategoryPresentationRepository;
+};
 
 export const defaultScheduler: RaceWatcherScheduler = {
   setTimeout: (callback, delayMs) => setTimeout(callback, delayMs),
@@ -45,29 +65,56 @@ export function createDefaultWebSocketFactory(): WebSocketFactory {
  * Set up the spreadsheet integration. A missing or invalid spreadsheet config
  * only disables the spreadsheet integration; it never stops the extension.
  */
-export function setupSpreadsheetIntegration(nodecg: NodeCG): PlayerDirectoryService | null {
+export function setupSpreadsheetIntegration(nodecg: NodeCG): SpreadsheetIntegration | null {
   const parsed = parseBundleConfig(nodecg.bundleConfig);
   if (!parsed.ok) {
     nodecg.log.warn(`[spreadsheet.config.invalid] ${parsed.issues.join("; ")}`);
     return null;
   }
 
-  const { spreadsheetId, playersSheet } = parsed.config.spreadsheet;
+  const { spreadsheetId, playersSheet, categoryMappingsSheet, categoryPresentationSheet } =
+    parsed.config.spreadsheet;
+
   const client = GoogleSheetsClient.create({ spreadsheetId });
-  const repository = new SpreadsheetPlayersRepository(client, { sheetName: playersSheet });
-  const service = new PlayerDirectoryService({
-    repository,
+
+  const playerDirectoryService = new PlayerDirectoryService({
+    repository: new SpreadsheetPlayersRepository(client, { sheetName: playersSheet }),
     playerDirectory: nodecg.Replicant<PlayerDirectory>("player-directory"),
     integrationStatus: nodecg.Replicant<IntegrationStatus>("integration-status"),
     log: nodecg.log,
     sheetName: playersSheet,
   });
+  void playerDirectoryService.reloadFromSpreadsheet();
 
-  void service.reloadFromSpreadsheet();
-  return service;
+  return {
+    playerDirectoryService,
+    categoryMappingsRepository: new SpreadsheetCategoryMappingsRepository(client, {
+      sheetName: categoryMappingsSheet,
+    }),
+    categoryPresentationRepository: new SpreadsheetCategoryPresentationRepository(client, {
+      sheetName: categoryPresentationSheet,
+    }),
+  };
 }
 
-export function setupRaceTimeIntegration(nodecg: NodeCG): RaceDraftService {
+function categoryPresetProviderFor(
+  spreadsheet: SpreadsheetIntegration | null,
+): CategoryPresetProvider {
+  if (!spreadsheet) {
+    return nullCategoryPresetProvider;
+  }
+  return {
+    findMapping: (categorySlug, goal) =>
+      spreadsheet.categoryMappingsRepository.find(categorySlug, goal),
+    findPresentation: (categorySlug, goal) =>
+      spreadsheet.categoryPresentationRepository.find(categorySlug, goal),
+  };
+}
+
+export function setupRaceTimeIntegration(
+  nodecg: NodeCG,
+  spreadsheet: SpreadsheetIntegration | null,
+): { raceDraft: RaceDraftService; categoryDraft: CategoryDraftService } {
   const raceSessions = new RaceSessionService({
     client: new HttpRaceTimeClient(),
     webSocketFactory: createDefaultWebSocketFactory(),
@@ -80,13 +127,29 @@ export function setupRaceTimeIntegration(nodecg: NodeCG): RaceDraftService {
     integrationStatus: nodecg.Replicant<IntegrationStatus>("integration-status"),
   });
 
+  const draftConfig = nodecg.Replicant<DraftConfig>("draft-config");
+  const draftSpeedrunSnapshot = nodecg.Replicant<DraftSpeedrunSnapshot>("draft-speedrun-snapshot");
+  const draftRaceSession = nodecg.Replicant<RaceSession>("draft-race-session");
+  const integrationStatus = nodecg.Replicant<IntegrationStatus>("integration-status");
+
   const raceDraft = new RaceDraftService({
     raceSessions,
-    draftRaceSession: nodecg.Replicant<RaceSession>("draft-race-session"),
+    draftRaceSession,
     playerDirectory: nodecg.Replicant<PlayerDirectory>("player-directory"),
-    draftConfig: nodecg.Replicant<DraftConfig>("draft-config"),
-    draftSpeedrunSnapshot: nodecg.Replicant<DraftSpeedrunSnapshot>("draft-speedrun-snapshot"),
-    integrationStatus: nodecg.Replicant<IntegrationStatus>("integration-status"),
+    draftConfig,
+    draftSpeedrunSnapshot,
+    integrationStatus,
+    log: nodecg.log,
+    categoryPresets: categoryPresetProviderFor(spreadsheet),
+  });
+
+  const categoryDraft = new CategoryDraftService({
+    draftConfig,
+    draftSpeedrunSnapshot,
+    draftRaceSession,
+    integrationStatus,
+    mappingsRepository: spreadsheet?.categoryMappingsRepository ?? null,
+    presentationRepository: spreadsheet?.categoryPresentationRepository ?? null,
     log: nodecg.log,
   });
 
@@ -96,13 +159,17 @@ export function setupRaceTimeIntegration(nodecg: NodeCG): RaceDraftService {
     }
   });
 
-  return raceDraft;
+  return { raceDraft, categoryDraft };
 }
 
-export function bootstrapExtension(nodecg: NodeCG): { raceDraft: RaceDraftService } {
+export function bootstrapExtension(nodecg: NodeCG): {
+  raceDraft: RaceDraftService;
+  categoryDraft: CategoryDraftService;
+} {
   declareReplicants(nodecg);
-  setupSpreadsheetIntegration(nodecg);
-  const raceDraft = setupRaceTimeIntegration(nodecg);
+  const spreadsheet = setupSpreadsheetIntegration(nodecg);
+  const { raceDraft, categoryDraft } = setupRaceTimeIntegration(nodecg, spreadsheet);
   registerRaceMessages(nodecg, raceDraft);
-  return { raceDraft };
+  registerCategoryMessages(nodecg, categoryDraft);
+  return { raceDraft, categoryDraft };
 }

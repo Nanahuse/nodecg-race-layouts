@@ -1,5 +1,4 @@
 import type {
-  CategorySelectionState,
   DraftConfig,
   DraftPlayer,
   DraftRaceParticipant,
@@ -11,7 +10,9 @@ import type {
   RaceSession,
   RaceTimeEntrant,
 } from "../../domain";
+import { categorySelectionFromMapping } from "../../domain";
 import { jsonEquals } from "../integrations/racetime/equality";
+import type { CategoryPreset } from "./category-preset-provider";
 import {
   resolveEntrants,
   type PlayerIdFactory,
@@ -56,6 +57,11 @@ export function needsDraftReconciliation(draft: DraftConfig, session: RaceSessio
     return true;
   }
   if (draft.race.goal !== session.race.goal) {
+    return true;
+  }
+  // A display-name-only change still updates the draft race reference (but not
+  // the saved category preset).
+  if (draft.race.categoryName !== session.race.categoryName) {
     return true;
   }
 
@@ -120,6 +126,8 @@ export type ReconcileDraftInput = {
   session: RaceSession;
   directory: PlayerDirectory;
   playerIdFactory: PlayerIdFactory;
+  /** Preset for the new category key, when the category/goal changed. */
+  categoryPreset?: CategoryPreset;
 };
 
 export type DraftReconcileOutcome = {
@@ -166,12 +174,6 @@ function participantSetChanged(
   }
   return false;
 }
-
-const EMPTY_CATEGORY_SELECTION: CategorySelectionState = {
-  selection: null,
-  source: null,
-  savedMappingState: "none",
-};
 
 /**
  * Apply the latest RaceTime session to the draft, preserving operator edits,
@@ -295,8 +297,12 @@ export function reconcileDraft(input: ReconcileDraftInput): DraftReconcileOutcom
     players: prunedPlayers,
     raceScreenSlots,
     commentatorPlayerIds: [...draft.commentatorPlayerIds],
-    categorySelection: categoryChanged ? EMPTY_CATEGORY_SELECTION : draft.categorySelection,
-    categoryPresentation: categoryChanged ? null : draft.categoryPresentation,
+    categorySelection: categoryChanged
+      ? categorySelectionFromMapping(input.categoryPreset?.mapping ?? null)
+      : draft.categorySelection,
+    categoryPresentation: categoryChanged
+      ? (input.categoryPreset?.presentation ?? null)
+      : draft.categoryPresentation,
   };
 
   const changed = !jsonEquals(candidate, draft);

@@ -9,6 +9,7 @@ import type {
 } from "../src/domain";
 import { RaceDraftService } from "../src/extension/application/race-draft-service";
 import { RaceSessionService } from "../src/extension/application/race-session-service";
+import type { CategoryPresetProvider } from "../src/extension/application/category-preset-provider";
 import type { PlayerIdFactory } from "../src/extension/application/player-resolution-service";
 import {
   RaceNotFoundError,
@@ -22,6 +23,11 @@ import {
 } from "../src/replicants/defaults";
 import { makeActivePlayer } from "./factories";
 import { createFakeLogger, TrackingReplicant } from "./support/fakes";
+import {
+  FakeCategoryPresetProvider,
+  makeCategoryMapping,
+  makePresentation,
+} from "./support/category-fakes";
 import {
   FakeRaceTimeClient,
   FakeScheduler,
@@ -50,7 +56,7 @@ function defaultHandler(canonical: { categorySlug: string; raceSlug: string }) {
   });
 }
 
-function setup() {
+function setup(options: { categoryPresets?: CategoryPresetProvider } = {}) {
   const events: string[] = [];
   const broadcastStates: string[] = [];
   const client = new FakeRaceTimeClient();
@@ -106,6 +112,7 @@ function setup() {
     integrationStatus,
     log: fakeLogger.logger,
     playerIdFactory: sequentialIds(),
+    categoryPresets: options.categoryPresets,
   });
 
   raceSessions.setSessionChangeListener((role, session) => {
@@ -380,5 +387,48 @@ describe("RaceDraftService.reconcile", () => {
       expect(result.changed).toBe(false);
       expect(result.draftRevision).toBe(1);
     }
+  });
+});
+
+describe("RaceDraftService category preset lookup", () => {
+  it("applies a saved mapping and presentation", async () => {
+    const provider = new FakeCategoryPresetProvider();
+    provider.mapping = makeCategoryMapping();
+    provider.presentation = makePresentation({ title: "Saved Title" });
+    const { raceDraft, draftConfig } = setup({ categoryPresets: provider });
+
+    const result = await raceDraft.loadRace(URL_A);
+
+    expect(result.ok).toBe(true);
+    expect(draftConfig.value.categorySelection.source).toBe("saved_mapping");
+    expect(draftConfig.value.categorySelection.savedMappingState).toBe("matches");
+    expect(draftConfig.value.categoryPresentation?.title).toBe("Saved Title");
+  });
+
+  it("leaves the selection empty when there is no mapping", async () => {
+    const provider = new FakeCategoryPresetProvider();
+    const { raceDraft, draftConfig } = setup({ categoryPresets: provider });
+
+    await raceDraft.loadRace(URL_A);
+
+    expect(draftConfig.value.categorySelection).toEqual({
+      selection: null,
+      source: null,
+      savedMappingState: "none",
+    });
+    expect(draftConfig.value.categoryPresentation).toBeNull();
+  });
+
+  it("still loads the race when the preset lookup fails", async () => {
+    const provider = new FakeCategoryPresetProvider();
+    provider.error = new Error("spreadsheet down");
+    const { raceDraft, draftConfig } = setup({ categoryPresets: provider });
+
+    const result = await raceDraft.loadRace(URL_A);
+
+    expect(result.ok).toBe(true);
+    expect(draftConfig.value.race?.raceId).toBe("ootr/race-a");
+    expect(draftConfig.value.categorySelection.selection).toBeNull();
+    expect(draftConfig.value.categoryPresentation).toBeNull();
   });
 });
