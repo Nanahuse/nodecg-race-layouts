@@ -81,6 +81,9 @@ out
 # Nuxt.js build / generate output
 .nuxt
 dist
+dashboard
+!ui/dashboard/
+!ui/dashboard/**
 .output
 
 # Gatsby files
