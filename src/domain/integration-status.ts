@@ -24,6 +24,7 @@ export type BroadcastStatusState =
   | "loading"
   | "resolving"
   | "resolution_required"
+  | "reconciliation_required"
   | "fetching"
   | "ready"
   | "dirty"

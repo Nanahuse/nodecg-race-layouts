@@ -83,6 +83,28 @@ against `configschema.json`; see `config.example.json`):
   manages revisions, protects against stale callbacks and aggregates
   `integration-status.racetime`.
 
+### Race load & reconciliation
+
+`race.load` and `race.reconcile` are NodeCG messages handled in
+`src/extension/messages/race-messages.ts`; the workflow lives in
+`race-draft-service.ts` and never touches active state.
+
+- `race.load { url }` loads a race for the `draft` role, resolves RaceTime
+  entrants to the persisted `player-directory` and writes `draft-config` once
+  (participants, players, P1–P4 slots). New draft players are **not** written to
+  the spreadsheet.
+- Player resolution (`player-resolution-service.ts`) is pure and prioritized:
+  RaceTime user id exact match, then an unambiguous case-insensitive Twitch
+  login exact match, otherwise a new draft player. No fuzzy/name matching.
+- RaceTime-side structural changes are detected via
+  `needsDraftReconciliation` and surface as
+  `integration-status.broadcast.state = "reconciliation_required"` without
+  modifying the draft. Result-only changes (status, time, place, DNF/DQ) are
+  ignored.
+- `race.reconcile { expectedDraftRevision }` applies those changes while
+  preserving operator edits, valid slots and commentators, and resets the
+  category selection when the category slug/goal changes.
+
 TypeScript domain types under `src/replicants/value-types.ts` are the single
 source of truth for the Replicants. `npm run schema:generate` writes one
 self-contained draft-07 schema per Replicant into `schemas/`; `npm run

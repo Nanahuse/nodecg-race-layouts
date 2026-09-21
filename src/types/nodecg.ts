@@ -26,8 +26,21 @@ export interface NodeCGLogger {
   error(...args: unknown[]): void;
 }
 
+/**
+ * NodeCG message acknowledgement. Handlers call it error-first
+ * (`ack(null, result)`); the sending client receives the result as the
+ * resolved value of `sendMessage`.
+ */
+export type MessageAck = {
+  (error: Error | null, result?: unknown): void;
+  handled?: boolean;
+};
+
+export type MessageHandler = (data: unknown, ack: MessageAck) => void | Promise<void>;
+
 export interface NodeCG {
   Replicant<T = unknown>(name: string, opts?: ReplicantOptions<T>): Replicant<T>;
+  listenFor(messageName: string, handler: MessageHandler): void;
   log: NodeCGLogger;
   /**
    * Contents of the bundle's config file (validated against
