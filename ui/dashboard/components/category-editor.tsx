@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { DraftConfig } from "../../../src/domain";
 import type {
   SpeedrunCategoryOption,
@@ -20,19 +20,37 @@ export function CategoryEditor({ draft }: { draft: DraftConfig }) {
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [mappingBusy, setMappingBusy] = useState<string | null>(null);
-  const [syncRequested, setSyncRequested] = useState(false);
+  const [syncTargetRevision, setSyncTargetRevision] = useState<number | null>(null);
+  const discoveryGeneration = useRef(0);
+  const restoreDiscovery = async (next: typeof selection) => {
+    if (!next) return;
+    const generation = ++discoveryGeneration.current;
+    const game = await speedrunApi.gameOptions(next.gameId);
+    if (generation !== discoveryGeneration.current || !game.ok) return;
+    setOptions(game.options);
+    const variablesResult = await speedrunApi.categoryVariables(next.categoryId);
+    if (generation === discoveryGeneration.current && variablesResult.ok)
+      setVariables(variablesResult.variables);
+  };
   useEffect(() => {
-    if (syncRequested) {
-      setSelection(draft.categorySelection.selection);
-      setSyncRequested(false);
-    }
+    setSelection(draft.categorySelection.selection);
     setGames([]);
     setOptions(null);
     setVariables([]);
     setQuery("");
     setMessage(null);
     setMappingBusy(null);
-  }, [draft.race?.raceId, draft.revision, syncRequested]);
+    setSyncTargetRevision(null);
+    discoveryGeneration.current += 1;
+  }, [draft.race?.raceId]);
+  useEffect(() => {
+    if (syncTargetRevision !== null && draft.revision === syncTargetRevision) {
+      const next = draft.categorySelection.selection;
+      setSelection(next);
+      void restoreDiscovery(next);
+      setSyncTargetRevision(null);
+    }
+  }, [draft.revision, draft.categorySelection.selection, syncTargetRevision]);
   const search = async () => {
     setBusy(true);
     const result = await speedrunApi.searchGames(query);
@@ -71,7 +89,7 @@ export function CategoryEditor({ draft }: { draft: DraftConfig }) {
     try {
       const result = await categoryApi.select(selection);
       if (!result.ok) setMessage(result.message);
-      else setSyncRequested(true);
+      else setSyncTargetRevision(result.draftRevision);
     } catch (cause) {
       setMessage(cause instanceof Error ? cause.message : "NodeCG communication error");
     } finally {
@@ -80,18 +98,15 @@ export function CategoryEditor({ draft }: { draft: DraftConfig }) {
   };
   const map = async (
     operation: string,
-    action: () => Promise<{ ok: boolean; message?: string }>,
+    action: () => Promise<{ ok: boolean; message?: string; draftRevision?: number }>,
   ) => {
     setMappingBusy(operation);
     setMessage(null);
     try {
       const result = await action();
       if (!result.ok) setMessage(result.message ?? "Mapping operation failed.");
-      else {
-        setSyncRequested(true);
-        setOptions(null);
-        setVariables([]);
-      }
+      else if (operation === "revert" && result.draftRevision !== undefined)
+        setSyncTargetRevision(result.draftRevision);
     } catch (cause) {
       setMessage(cause instanceof Error ? cause.message : "NodeCG communication error");
     } finally {
