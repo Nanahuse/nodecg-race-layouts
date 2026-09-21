@@ -82,6 +82,7 @@ out
 .nuxt
 dist
 dashboard
+/graphics
 !ui/dashboard/
 !ui/dashboard/**
 .output
