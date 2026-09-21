@@ -353,7 +353,7 @@ export function bootstrapExtension(nodecg: NodeCG): {
   );
   const playerMappingManagement = spreadsheet
     ? new PlayerMappingManagementService({
-        repository: spreadsheet.playerDirectoryService.getRepository(),
+        directoryService: spreadsheet.playerDirectoryService,
         playerDirectory: nodecg.Replicant<PlayerDirectory>("player-directory"),
         draftConfig: nodecg.Replicant<DraftConfig>("draft-config"),
         activeConfig: nodecg.Replicant<ActiveConfig | null>("active-config"),
@@ -372,7 +372,7 @@ export function bootstrapExtension(nodecg: NodeCG): {
   registerParticipantMessages(nodecg, participantDraft);
   registerRacePresentationMessages(nodecg, racePresentationDraft);
   registerBroadcastMessages(nodecg, broadcastApplyWithPersistence);
-  if (playerMappingManagement) registerPlayerDirectoryMessages(nodecg, playerMappingManagement);
+  registerPlayerDirectoryMessages(nodecg, playerMappingManagement);
   return {
     raceDraft,
     categoryDraft,

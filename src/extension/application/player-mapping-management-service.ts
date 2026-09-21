@@ -9,7 +9,7 @@ import type {
 import { resolveDisplayName, validatePlayerDirectory } from "../../domain";
 import type { SpeedrunDiscoveryService } from "./speedrun-discovery-service";
 import type { NodeCGLogger, Replicant } from "../../types/nodecg";
-import type { PlayersRepository } from "../integrations/spreadsheet/players-repository";
+import type { PlayerDirectoryService } from "./player-directory-service";
 import type {
   PlayerDirectoryCreateResponse,
   PlayerDirectoryDeleteResponse,
@@ -20,7 +20,7 @@ import type {
 } from "../../protocol/player-directory";
 
 export type PlayerMappingManagementOptions = {
-  repository: PlayersRepository;
+  directoryService: PlayerDirectoryService;
   playerDirectory: Replicant<PlayerDirectory>;
   draftConfig: Replicant<DraftConfig>;
   activeConfig: Replicant<ActiveConfig | null>;
@@ -55,7 +55,10 @@ function normalizeInput(input: PlayerMappingEditInput): PlayerMappingEditInput {
   return {
     manualDisplayName: manualDisplayName || null,
     racetime,
-    speedrunCom: input.speedrunCom,
+    speedrunCom:
+      input.speedrunCom.state === "linked"
+        ? { state: "linked" as const, userId: input.speedrunCom.userId.trim() }
+        : { state: "none" as const },
     twitch,
   };
 }
@@ -64,13 +67,15 @@ export class PlayerMappingManagementService {
   constructor(private readonly options: PlayerMappingManagementOptions) {}
 
   async create(input: PlayerMappingEditInput): Promise<PlayerDirectoryCreateResponse> {
+    if (typeof input.manualDisplayName !== "string" || input.manualDisplayName.trim() === "")
+      return failure("invalid_input", "A manual display name is required when creating a player.");
     const playerId = randomUUID();
     const built = await this.buildPlayer(playerId, input);
     if (!built.ok) return built;
     const validation = this.validateNext(built.player);
     if (validation) return validation;
     try {
-      await this.options.repository.upsert([built.player]);
+      await this.options.directoryService.savePlayers([built.player]);
       this.options.playerDirectory.value = {
         ...this.options.playerDirectory.value,
         [playerId]: built.player,
@@ -97,7 +102,7 @@ export class PlayerMappingManagementService {
     const validation = this.validateNext(built.player, playerId);
     if (validation) return validation;
     try {
-      await this.options.repository.upsert([built.player]);
+      await this.options.directoryService.savePlayers([built.player]);
       this.options.playerDirectory.value = {
         ...this.options.playerDirectory.value,
         [playerId]: built.player,
@@ -119,7 +124,7 @@ export class PlayerMappingManagementService {
     const inUse = this.inUseReason(playerId);
     if (inUse) return failure("player_in_use", inUse);
     try {
-      await this.options.repository.delete(playerId);
+      await this.options.directoryService.deletePlayer(playerId);
       const next = { ...this.options.playerDirectory.value };
       delete next[playerId];
       this.options.playerDirectory.value = next;
@@ -131,9 +136,8 @@ export class PlayerMappingManagementService {
 
   async reload(): Promise<PlayerDirectoryReloadResponse> {
     try {
-      const directory = await this.options.repository.loadAll();
-      this.options.playerDirectory.value = directory;
-      return { ok: true, playerCount: Object.keys(directory).length };
+      const result = await this.options.directoryService.reloadFromSpreadsheet();
+      return result.ok ? result : failure("operation_failed", result.message);
     } catch (error) {
       return failure("operation_failed", error instanceof Error ? error.message : String(error));
     }
@@ -157,6 +161,8 @@ export class PlayerMappingManagementService {
       return failure("invalid_input", "Twitch login is required.");
     let speedrunCom: PlayerMapping["speedrunCom"] = { state: "none" };
     if (input.speedrunCom.state === "linked") {
+      if (!input.speedrunCom.userId)
+        return failure("invalid_input", "Speedrun.com user id is required.");
       const result = await this.options.speedrun.getUser(input.speedrunCom.userId);
       if (!result.ok)
         return failure(
@@ -170,7 +176,14 @@ export class PlayerMappingManagementService {
       manualDisplayName: input.manualDisplayName,
       racetime:
         input.racetime.state === "linked"
-          ? { state: "linked", value: input.racetime }
+          ? {
+              state: "linked",
+              value: {
+                userId: input.racetime.userId,
+                name: input.racetime.name,
+                twitchLogin: input.racetime.twitchLogin,
+              },
+            }
           : { state: "none" },
       speedrunCom,
       twitch:

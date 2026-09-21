@@ -18,6 +18,8 @@ export type PlayerDirectoryServiceOptions = {
   sheetName: string;
   statusCoordinator?: SpreadsheetOperationStatusCoordinator;
 };
+export type PlayerDirectoryReloadOutcome =
+  { ok: true; playerCount: number } | { ok: false; message: string };
 
 function describeError(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
@@ -46,11 +48,7 @@ export class PlayerDirectoryService {
     this.coordinator = options.statusCoordinator ?? null;
   }
 
-  getRepository(): PlayersRepository {
-    return this.repository;
-  }
-
-  async reloadFromSpreadsheet(): Promise<void> {
+  async reloadFromSpreadsheet(): Promise<PlayerDirectoryReloadOutcome> {
     const operation = this.coordinator?.begin("loading");
     this.log.info(`[spreadsheet.players.load.started] sheet=${this.sheetName}`);
 
@@ -63,11 +61,13 @@ export class PlayerDirectoryService {
       this.log.info(
         `[spreadsheet.players.load.completed] sheet=${this.sheetName} players=${playerCount}`,
       );
+      return { ok: true, playerCount };
     } catch (error) {
       const message = describeError(error);
       operation?.failure(message);
       if (!operation) this.setSpreadsheetStatus("error", message);
       this.log.error(`[spreadsheet.players.load.failed] sheet=${this.sheetName} error=${message}`);
+      return { ok: false, message };
     }
   }
 
