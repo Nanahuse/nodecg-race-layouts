@@ -122,4 +122,9 @@ export const REPLICANT_DEFINITIONS: readonly ReplicantDefinition[] = [
     defaultValue: createDefaultIntegrationStatus(),
     persistent: true,
   },
+  {
+    name: "post-apply-persistence",
+    defaultValue: { state: "idle", queue: [], lastSavedActiveRevision: null, message: null },
+    persistent: true,
+  },
 ];

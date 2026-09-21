@@ -25,6 +25,7 @@ import {
 import { computeDraftBroadcastState } from "./broadcast-status";
 import { validateDraftReadiness } from "./draft-readiness";
 import type { RaceSessionService } from "./race-session-service";
+import type { PostApplyPersistenceService } from "./post-apply-persistence-service";
 
 export type BroadcastApplyFailureReason =
   | "draft_changed"
@@ -63,6 +64,7 @@ export type BroadcastApplyServiceOptions = {
   activeSpeedrunSnapshot: Replicant<ActiveSpeedrunSnapshot | null>;
   integrationStatus: Replicant<IntegrationStatus>;
   log: NodeCGLogger;
+  postApplyPersistence?: PostApplyPersistenceService | null;
 };
 
 function fail(
@@ -93,6 +95,7 @@ export class BroadcastApplyService {
   private readonly log: NodeCGLogger;
 
   private applying = false;
+  private readonly postApplyPersistence: PostApplyPersistenceService | null;
 
   constructor(options: BroadcastApplyServiceOptions) {
     this.raceSessions = options.raceSessions;
@@ -102,6 +105,7 @@ export class BroadcastApplyService {
     this.activeSpeedrunSnapshot = options.activeSpeedrunSnapshot;
     this.integrationStatus = options.integrationStatus;
     this.log = options.log;
+    this.postApplyPersistence = options.postApplyPersistence ?? null;
   }
 
   async apply(expectedDraftRevision: number): Promise<BroadcastApplyOutcome> {
@@ -216,6 +220,11 @@ export class BroadcastApplyService {
       this.activeConfig.value = activeConfig;
       this.activeSpeedrunSnapshot.value = activeSnapshot;
       this.recomputeAfterApply(activeRevision);
+      try {
+        this.postApplyPersistence?.enqueue(activeConfig);
+      } catch (error) {
+        this.log.error(`[broadcast.persistence.enqueue.failed] ${describeError(error)}`);
+      }
 
       this.logEvent("broadcast.apply.completed", {
         appliedDraftRevision: frozenDraft.revision,

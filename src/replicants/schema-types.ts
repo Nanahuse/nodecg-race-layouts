@@ -17,4 +17,5 @@ export const REPLICANT_SCHEMA_TYPES: Record<ReplicantName, string> = {
   "leaderboard-page-data": "LeaderboardPageDataValue",
   "race-result-page-data": "RaceResultPageDataValue",
   "integration-status": "IntegrationStatusValue",
+  "post-apply-persistence": "PostApplyPersistenceValue",
 };

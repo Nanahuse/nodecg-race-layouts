@@ -269,3 +269,11 @@ npm run verify          # typecheck + lint + schema:check + test
 - Graphics view models contain no raw external API responses and do no
   identity resolution themselves.
 - Draft and active Speedrun.com snapshots are stored separately.
+
+## Post-Apply persistence
+
+Broadcast state is committed before spreadsheet persistence begins. Applied player mappings and race history are queued in the persistent `post-apply-persistence` Replicant; failed writes remain FIFO queued and retry on startup, a later apply, or `broadcast.persistence.retry`.
+
+The RaceHistory sheet uses these headers:
+
+`racetime_url`, `racetime_race_id`, `category_slug`, `category_name`, `goal`, `participants_json`, `race_screen_slots_json`, `commentators_json`, `active_revision`, `first_applied_at`, `last_applied_at`.

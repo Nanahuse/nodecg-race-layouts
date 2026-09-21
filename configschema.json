@@ -41,6 +41,11 @@
           "description": "Name of the sheet that holds the category presentation content."
         }
       },
+      "raceHistorySheet": {
+        "type": "string",
+        "minLength": 1,
+        "default": "RaceHistory"
+      },
       "required": ["spreadsheetId"],
       "additionalProperties": false
     }
