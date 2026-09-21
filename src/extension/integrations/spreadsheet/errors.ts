@@ -52,3 +52,5 @@ export class SheetValidationError extends SpreadsheetIntegrationError {
     this.issues = issues;
   }
 }
+
+export class RaceHistorySheetValidationError extends SheetValidationError {}

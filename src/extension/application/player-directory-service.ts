@@ -8,6 +8,7 @@ import type {
 import { createDefaultIntegrationStatus } from "../../replicants/defaults";
 import type { NodeCGLogger, Replicant } from "../../types/nodecg";
 import type { PlayersRepository } from "../integrations/spreadsheet/players-repository";
+import type { SpreadsheetOperationStatusCoordinator } from "./spreadsheet-status-coordinator";
 
 export type PlayerDirectoryServiceOptions = {
   repository: PlayersRepository;
@@ -15,6 +16,7 @@ export type PlayerDirectoryServiceOptions = {
   integrationStatus: Replicant<IntegrationStatus>;
   log: NodeCGLogger;
   sheetName: string;
+  statusCoordinator?: SpreadsheetOperationStatusCoordinator;
 };
 
 function describeError(error: unknown): string {
@@ -33,6 +35,7 @@ export class PlayerDirectoryService {
   private readonly integrationStatus: Replicant<IntegrationStatus>;
   private readonly log: NodeCGLogger;
   private readonly sheetName: string;
+  private readonly coordinator: SpreadsheetOperationStatusCoordinator | null;
 
   constructor(options: PlayerDirectoryServiceOptions) {
     this.repository = options.repository;
@@ -40,29 +43,32 @@ export class PlayerDirectoryService {
     this.integrationStatus = options.integrationStatus;
     this.log = options.log;
     this.sheetName = options.sheetName;
+    this.coordinator = options.statusCoordinator ?? null;
   }
 
   async reloadFromSpreadsheet(): Promise<void> {
-    this.setSpreadsheetStatus("loading", null);
+    const operation = this.coordinator?.begin("loading");
     this.log.info(`[spreadsheet.players.load.started] sheet=${this.sheetName}`);
 
     try {
       const directory = await this.repository.loadAll();
       const playerCount = Object.keys(directory).length;
       this.playerDirectory.value = directory;
-      this.setSpreadsheetStatus("idle", `Loaded ${playerCount} player(s).`);
+      operation?.success(`Loaded ${playerCount} player(s).`);
+      if (!operation) this.setSpreadsheetStatus("idle", `Loaded ${playerCount} player(s).`);
       this.log.info(
         `[spreadsheet.players.load.completed] sheet=${this.sheetName} players=${playerCount}`,
       );
     } catch (error) {
       const message = describeError(error);
-      this.setSpreadsheetStatus("error", message);
+      operation?.failure(message);
+      if (!operation) this.setSpreadsheetStatus("error", message);
       this.log.error(`[spreadsheet.players.load.failed] sheet=${this.sheetName} error=${message}`);
     }
   }
 
   async savePlayers(players: readonly PlayerMapping[]): Promise<void> {
-    this.setSpreadsheetStatus("saving", null);
+    const operation = this.coordinator?.begin("saving");
     this.log.info(
       `[spreadsheet.players.upsert.started] sheet=${this.sheetName} count=${players.length}`,
     );
@@ -76,13 +82,15 @@ export class PlayerDirectoryService {
       }
       this.playerDirectory.value = next;
 
-      this.setSpreadsheetStatus("saved", `Saved ${players.length} player(s).`);
+      operation?.success(`Saved ${players.length} player(s).`);
+      if (!operation) this.setSpreadsheetStatus("saved", `Saved ${players.length} player(s).`);
       this.log.info(
         `[spreadsheet.players.upsert.completed] sheet=${this.sheetName} count=${players.length}`,
       );
     } catch (error) {
       const message = describeError(error);
-      this.setSpreadsheetStatus("error", message);
+      operation?.failure(message);
+      if (!operation) this.setSpreadsheetStatus("error", message);
       this.log.error(
         `[spreadsheet.players.upsert.failed] sheet=${this.sheetName} error=${message}`,
       );

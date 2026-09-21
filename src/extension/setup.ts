@@ -54,12 +54,14 @@ import { registerSpeedrunSnapshotMessages } from "./messages/speedrun-snapshot-m
 import { registerPersistenceMessages } from "./messages/persistence-messages";
 import { PostApplyPersistenceService } from "./application/post-apply-persistence-service";
 import { SpreadsheetRaceHistoryRepository } from "./integrations/spreadsheet/race-history-repository";
+import { SpreadsheetOperationStatusCoordinator } from "./application/spreadsheet-status-coordinator";
 
 export type SpreadsheetIntegration = {
   playerDirectoryService: PlayerDirectoryService;
   categoryMappingsRepository: CategoryMappingsRepository;
   categoryPresentationRepository: CategoryPresentationRepository;
   raceHistoryRepository: SpreadsheetRaceHistoryRepository;
+  status: SpreadsheetOperationStatusCoordinator;
 };
 
 export const defaultScheduler: RaceWatcherScheduler = {
@@ -101,6 +103,10 @@ export function setupSpreadsheetIntegration(nodecg: NodeCG): SpreadsheetIntegrat
   } = parsed.config.spreadsheet;
 
   const client = GoogleSheetsClient.create({ spreadsheetId });
+  const status = new SpreadsheetOperationStatusCoordinator(
+    nodecg.Replicant("integration-status"),
+    nodecg.log,
+  );
 
   const playerDirectoryService = new PlayerDirectoryService({
     repository: new SpreadsheetPlayersRepository(client, { sheetName: playersSheet }),
@@ -108,6 +114,7 @@ export function setupSpreadsheetIntegration(nodecg: NodeCG): SpreadsheetIntegrat
     integrationStatus: nodecg.Replicant<IntegrationStatus>("integration-status"),
     log: nodecg.log,
     sheetName: playersSheet,
+    statusCoordinator: status,
   });
   void playerDirectoryService.reloadFromSpreadsheet();
 
@@ -120,6 +127,7 @@ export function setupSpreadsheetIntegration(nodecg: NodeCG): SpreadsheetIntegrat
       sheetName: categoryPresentationSheet,
     }),
     raceHistoryRepository: new SpreadsheetRaceHistoryRepository(client, raceHistorySheet),
+    status,
   };
 }
 
@@ -331,6 +339,8 @@ export function bootstrapExtension(nodecg: NodeCG): {
         spreadsheet.playerDirectoryService,
         spreadsheet.raceHistoryRepository,
         nodecg.log,
+        () => new Date(),
+        spreadsheet.status,
       )
     : null;
   const broadcastApplyWithPersistence = setupBroadcastApplyService(

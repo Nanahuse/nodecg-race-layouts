@@ -25,7 +25,7 @@ import {
 import { computeDraftBroadcastState } from "./broadcast-status";
 import { validateDraftReadiness } from "./draft-readiness";
 import type { RaceSessionService } from "./race-session-service";
-import type { PostApplyPersistenceService } from "./post-apply-persistence-service";
+import type { PostApplyPersistenceSink } from "./post-apply-persistence-service";
 
 export type BroadcastApplyFailureReason =
   | "draft_changed"
@@ -64,7 +64,7 @@ export type BroadcastApplyServiceOptions = {
   activeSpeedrunSnapshot: Replicant<ActiveSpeedrunSnapshot | null>;
   integrationStatus: Replicant<IntegrationStatus>;
   log: NodeCGLogger;
-  postApplyPersistence?: PostApplyPersistenceService | null;
+  postApplyPersistence?: PostApplyPersistenceSink | null;
 };
 
 function fail(
@@ -95,7 +95,7 @@ export class BroadcastApplyService {
   private readonly log: NodeCGLogger;
 
   private applying = false;
-  private readonly postApplyPersistence: PostApplyPersistenceService | null;
+  private readonly postApplyPersistence: PostApplyPersistenceSink | null;
 
   constructor(options: BroadcastApplyServiceOptions) {
     this.raceSessions = options.raceSessions;
