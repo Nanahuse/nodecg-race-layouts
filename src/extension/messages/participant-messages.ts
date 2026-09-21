@@ -1,36 +1,14 @@
 import type { NodeCG } from "../../types/nodecg";
 import type { ParticipantDraftService } from "../application/participant-draft-service";
-
-export const PARTICIPANT_SET_PLAYER_MESSAGE = "participant.set-player";
-export const PARTICIPANT_SET_SPEEDRUNCOM_MESSAGE = "participant.set-speedruncom";
-export const PARTICIPANT_SET_SPEEDRUNCOM_NONE_MESSAGE = "participant.set-speedruncom-none";
-export const PARTICIPANT_SET_TWITCH_MESSAGE = "participant.set-twitch";
-export const PARTICIPANT_SET_TWITCH_NONE_MESSAGE = "participant.set-twitch-none";
-export const PARTICIPANT_SET_DISPLAY_NAME_MESSAGE = "participant.set-display-name";
-
-export type ParticipantSetPlayerRequest = {
-  expectedDraftRevision: number;
-  racetimeUserId: string;
-  playerId: string;
-};
-
-export type ParticipantSetSpeedrunComRequest = {
-  expectedDraftRevision: number;
-  racetimeUserId: string;
-  speedrunComUserId: string;
-};
-
-export type ParticipantSetTwitchRequest = {
-  expectedDraftRevision: number;
-  racetimeUserId: string;
-  login: string;
-};
-
-export type ParticipantSetDisplayNameRequest = {
-  expectedDraftRevision: number;
-  racetimeUserId: string;
-  displayName: string | null;
-};
+import {
+  PARTICIPANT_SET_PLAYER_MESSAGE,
+  PARTICIPANT_SET_SPEEDRUNCOM_MESSAGE,
+  PARTICIPANT_SET_SPEEDRUNCOM_NONE_MESSAGE,
+  PARTICIPANT_SET_TWITCH_MESSAGE,
+  PARTICIPANT_SET_TWITCH_NONE_MESSAGE,
+  PARTICIPANT_SET_DISPLAY_NAME_MESSAGE,
+} from "../../protocol/participant";
+export * from "../../protocol/participant";
 
 export type ParticipantRacetimeRequest = {
   expectedDraftRevision: number;

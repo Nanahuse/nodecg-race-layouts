@@ -1,37 +1,366 @@
 import { useState } from "react";
-import type { ActiveConfig, DraftConfig, IntegrationStatus, PostApplyPersistenceState, RaceSession } from "../../src/domain";
+import type {
+  ActiveConfig,
+  DraftConfig,
+  DraftPlayer,
+  IntegrationStatus,
+  PlayerDirectory,
+  PostApplyPersistenceState,
+  RaceSession,
+} from "../../src/domain";
+import { resolveDisplayName } from "../../src/domain";
 import { raceApi } from "./api/race-api";
+import { createParticipantApi } from "./api/participant-api";
 import { useReplicant } from "./hooks/use-replicant";
 import { statusTone } from "./model/status";
 
-function Badge({ label, state, message }: { label: string; state: string; message: string | null }) {
-  return <div className={`status ${statusTone(state)}`} title={message ?? undefined}><strong>{label}</strong><span>{state}</span></div>;
+function Badge({
+  label,
+  state,
+  message,
+}: {
+  label: string;
+  state: string;
+  message: string | null;
+}) {
+  return (
+    <div className={`status ${statusTone(state)}`} title={message ?? undefined}>
+      <strong>{label}</strong>
+      <span>{state}</span>
+    </div>
+  );
+}
+
+function Identity({
+  label,
+  link,
+}: {
+  label: string;
+  link: DraftPlayer["speedrunCom"] | DraftPlayer["twitch"];
+}) {
+  if (link.state === "linked")
+    return (
+      <div className="identity">
+        <strong>{label}</strong>
+        <span className="identity-linked">
+          linked:{" "}
+          {"name" in link.value ? `${link.value.name} / ${link.value.userId}` : link.value.login}
+        </span>
+      </div>
+    );
+  return (
+    <div className="identity">
+      <strong>{label}</strong>
+      <span className={link.state === "unresolved" ? "identity-unresolved" : "identity-none"}>
+        {link.state}
+      </span>
+    </div>
+  );
+}
+
+function ParticipantCard({
+  participant,
+  player,
+  entrantName,
+  directory,
+  usedPlayerIds,
+  revision,
+}: {
+  participant: DraftConfig["participants"][number];
+  player: DraftPlayer | undefined;
+  entrantName: string;
+  directory: PlayerDirectory;
+  usedPlayerIds: Set<string>;
+  revision: number;
+}) {
+  const api = createParticipantApi(() => revision);
+  const [displayName, setDisplayName] = useState(player?.manualDisplayName ?? "");
+  const [speedrunId, setSpeedrunId] = useState("");
+  const [twitchLogin, setTwitchLogin] = useState("");
+  const [pending, setPending] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const run = async (
+    operation: string,
+    action: () => Promise<{ ok: boolean; message?: string }>,
+  ) => {
+    setPending(operation);
+    setError(null);
+    try {
+      const result = await action();
+      if (!result.ok) setError(result.message ?? "Participant update failed.");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Participant update failed.");
+    } finally {
+      setPending(null);
+    }
+  };
+  const currentDisplay = player ? (resolveDisplayName(player) ?? player.playerId) : "Unassigned";
+  return (
+    <article className="participant-card">
+      <header>
+        <div>
+          <h4>{entrantName}</h4>
+          <p className="muted">RaceTime ID: {participant.racetimeUserId}</p>
+        </div>
+        <strong>{currentDisplay}</strong>
+      </header>
+      {player ? (
+        <>
+          <label>
+            Player Mapping
+            <select
+              value={player.playerId}
+              disabled={pending !== null}
+              onChange={(event) =>
+                void run("player", () =>
+                  api.setPlayer(participant.racetimeUserId, event.target.value),
+                )
+              }
+            >
+              <option value={player.playerId}>
+                {currentDisplay} — {player.playerId}
+              </option>
+              {Object.values(directory)
+                .filter((candidate) => candidate.playerId !== player.playerId)
+                .map((candidate) => (
+                  <option
+                    key={candidate.playerId}
+                    value={candidate.playerId}
+                    disabled={usedPlayerIds.has(candidate.playerId)}
+                  >
+                    {resolveDisplayName(candidate) ?? candidate.playerId} — {candidate.playerId}
+                    {usedPlayerIds.has(candidate.playerId) ? " (in use)" : ""}
+                  </option>
+                ))}
+            </select>
+          </label>
+          <div className="identity-edit">
+            <label>
+              Display Name
+              <input
+                value={displayName}
+                disabled={pending !== null}
+                onChange={(event) => setDisplayName(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    void run("display", () =>
+                      api.setDisplayName(participant.racetimeUserId, displayName.trim() || null),
+                    );
+                  }
+                }}
+              />
+            </label>
+            <button
+              disabled={pending !== null}
+              onClick={() =>
+                void run("display", () =>
+                  api.setDisplayName(participant.racetimeUserId, displayName.trim() || null),
+                )
+              }
+            >
+              Save
+            </button>
+          </div>
+          <Identity label="Speedrun.com" link={player.speedrunCom} />
+          <div className="identity-edit">
+            <input
+              placeholder="Speedrun.com user ID"
+              value={speedrunId}
+              disabled={pending !== null}
+              onChange={(event) => setSpeedrunId(event.target.value)}
+            />
+            <button
+              disabled={pending !== null || !speedrunId.trim()}
+              onClick={() =>
+                void run("speedrun", () =>
+                  api.setSpeedrunCom(participant.racetimeUserId, speedrunId.trim()),
+                )
+              }
+            >
+              Set
+            </button>
+            <button
+              disabled={pending !== null}
+              onClick={() =>
+                void run("speedrun-none", () => api.setSpeedrunComNone(participant.racetimeUserId))
+              }
+            >
+              None
+            </button>
+          </div>
+          <Identity label="Twitch" link={player.twitch} />
+          <div className="identity-edit">
+            <input
+              placeholder="Twitch login"
+              value={twitchLogin}
+              disabled={pending !== null}
+              onChange={(event) => setTwitchLogin(event.target.value)}
+            />
+            <button
+              disabled={pending !== null || !twitchLogin.trim()}
+              onClick={() =>
+                void run("twitch", () =>
+                  api.setTwitch(participant.racetimeUserId, twitchLogin.trim()),
+                )
+              }
+            >
+              Set
+            </button>
+            <button
+              disabled={pending !== null}
+              onClick={() =>
+                void run("twitch-none", () => api.setTwitchNone(participant.racetimeUserId))
+              }
+            >
+              None
+            </button>
+          </div>
+        </>
+      ) : (
+        <p className="identity-unresolved">No Player Mapping assigned.</p>
+      )}
+      {pending && (
+        <p className="pending" role="status">
+          Updating {pending}…
+        </p>
+      )}
+      {error && (
+        <p className="callout error" role="alert">
+          {error}
+        </p>
+      )}
+    </article>
+  );
 }
 
 export function App() {
   const draft = useReplicant<DraftConfig | null>("draft-config");
   const active = useReplicant<ActiveConfig | null>("active-config");
   const session = useReplicant<RaceSession>("draft-race-session");
+  const directory = useReplicant<PlayerDirectory>("player-directory");
   const integration = useReplicant<IntegrationStatus>("integration-status");
   const persistence = useReplicant<PostApplyPersistenceState>("post-apply-persistence");
   const [url, setUrl] = useState("");
   const [operation, setOperation] = useState<"idle" | "load" | "reconcile">("idle");
   const [error, setError] = useState<string | null>(null);
-  if (![draft, active, session, integration, persistence].every((item) => item.ready)) return <main className="loading">Connecting to NodeCG…</main>;
-  const d = draft.value!, a = active.value!, s = session.value!, i = integration.value!, p = persistence.value!;
+  if (![draft, active, session, directory, integration, persistence].every((item) => item.ready))
+    return <main className="loading">Connecting to NodeCG…</main>;
+  const d = draft.value!;
+  const a = active.value!;
+  const s = session.value!;
+  const dir = directory.value!;
+  const i = integration.value!;
+  const p = persistence.value!;
   const run = async (kind: "load" | "reconcile") => {
-    setOperation(kind); setError(null);
+    setOperation(kind);
+    setError(null);
     try {
-      const response = kind === "load" ? await raceApi.loadRace(url) : await raceApi.reconcileRace(d?.revision ?? 0);
+      const response =
+        kind === "load" ? await raceApi.loadRace(url) : await raceApi.reconcileRace(d.revision);
       if (!response.ok) setError(response.message);
-      else if (kind === "load" && s.canonicalUrl) setUrl(s.canonicalUrl);
-    } catch (cause) { setError(cause instanceof Error ? cause.message : "NodeCG communication error"); }
-    finally { setOperation("idle"); }
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "NodeCG communication error");
+    } finally {
+      setOperation("idle");
+    }
   };
-  return <main><header><h1>Race Control</h1><div className="revisions">Draft r{i.broadcast.draftRevision ?? "—"} · Active r{i.broadcast.activeRevision ?? "—"}</div></header>
-    <section className="statusbar"><Badge label="RaceTime" state={i.racetime.state} message={i.racetime.message}/><Badge label="Speedrun.com" state={i.speedrunCom.state} message={i.speedrunCom.message}/><Badge label="Spreadsheet" state={i.spreadsheet.state} message={i.spreadsheet.message}/><Badge label="Broadcast" state={i.broadcast.state} message={i.broadcast.message}/></section>
-    <div className="layout"><section className="panel"><span className="eyebrow">DRAFT</span><h2>Draft Race</h2><form onSubmit={(e) => { e.preventDefault(); void run("load"); }}><label htmlFor="race-url">RaceTime.gg Race URL</label><div className="formrow"><input id="race-url" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://racetime.gg/..."/><button disabled={operation !== "idle" || !url.trim()}>{operation === "load" ? "Loading…" : "Load Race"}</button></div></form>
-      {i.broadcast.state === "reconciliation_required" && <div className="callout warning" role="status">RaceTime.gg has changed since this draft was created.<button disabled={operation !== "idle"} onClick={() => void run("reconcile")}>{operation === "reconcile" ? "Reconcile…" : "Reconcile Draft"}</button></div>}
-      {error && <div className="callout error" aria-live="polite">{error}</div>}<h3>Current Draft Race</h3>{d?.race ? <dl><dt>Race ID</dt><dd>{d.race.raceId}</dd><dt>Category</dt><dd>{d.race.categoryName}</dd><dt>Goal</dt><dd>{d.race.goal}</dd><dt>Participants</dt><dd>{d.participants.length}</dd><dt>Revision</dt><dd>{d.revision}</dd></dl> : <p>No draft race loaded.</p>}<h3>RaceTime Session</h3><p>Connection: <strong>{s.connection.state}</strong> · Race: {s.race?.status ?? "—"} · Entrants: {s.race?.entrants.length ?? 0} · Revision: {s.revision}</p></section>
-      <section className="panel"><span className="eyebrow">ON AIR</span><h2>Active Race</h2>{a ? <dl><dt>Race ID</dt><dd>{a.race.raceId}</dd><dt>Category</dt><dd>{a.race.categoryName}</dd><dt>Goal</dt><dd>{a.race.goal}</dd><dt>Active revision</dt><dd>{a.revision}</dd></dl> : <p>Nothing is currently applied.</p>}<h2>Persistence</h2><p className={`state ${statusTone(p.state)}`}>{p.state}</p><p>{p.queue.length} pending saves · Last saved: {p.lastSavedActiveRevision ?? "—"}</p>{p.message && <div className="callout error">{p.message}</div>}</section></div></main>;
+  const used = new Set(
+    d.participants.map((item) => item.playerId).filter((id): id is string => id !== null),
+  );
+  return (
+    <main>
+      <header>
+        <h1>Race Control</h1>
+        <div className="revisions">
+          Draft r{i.broadcast.draftRevision ?? "—"} · Active r{i.broadcast.activeRevision ?? "—"}
+        </div>
+      </header>
+      <section className="statusbar">
+        <Badge label="RaceTime" state={i.racetime.state} message={i.racetime.message} />
+        <Badge label="Speedrun.com" state={i.speedrunCom.state} message={i.speedrunCom.message} />
+        <Badge label="Spreadsheet" state={i.spreadsheet.state} message={i.spreadsheet.message} />
+        <Badge label="Broadcast" state={i.broadcast.state} message={i.broadcast.message} />
+      </section>
+      <div className="layout">
+        <section className="panel">
+          <span className="eyebrow">DRAFT</span>
+          <h2>Draft Race</h2>
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              void run("load");
+            }}
+          >
+            <label htmlFor="race-url">RaceTime.gg Race URL</label>
+            <div className="formrow">
+              <input
+                id="race-url"
+                value={url}
+                onChange={(event) => setUrl(event.target.value)}
+                placeholder="https://racetime.gg/..."
+              />
+              <button disabled={operation !== "idle" || !url.trim()}>
+                {operation === "load" ? "Loading…" : "Load Race"}
+              </button>
+            </div>
+          </form>
+          {i.broadcast.state === "reconciliation_required" && (
+            <div className="callout warning">
+              RaceTime.gg has changed.
+              <button disabled={operation !== "idle"} onClick={() => void run("reconcile")}>
+                Reconcile Draft
+              </button>
+            </div>
+          )}
+          {error && <div className="callout error">{error}</div>}
+          <h3>Participants</h3>
+          <div className="participants">
+            {d.participants.map((participant) => (
+              <ParticipantCard
+                key={participant.racetimeUserId}
+                participant={participant}
+                player={participant.playerId ? d.players[participant.playerId] : undefined}
+                entrantName={
+                  s.race?.entrants.find((entrant) => entrant.userId === participant.racetimeUserId)
+                    ?.name ?? participant.racetimeUserId
+                }
+                directory={dir}
+                usedPlayerIds={used}
+                revision={d.revision}
+              />
+            ))}
+          </div>
+          <h3>RaceTime Session</h3>
+          <p>
+            Connection: <strong>{s.connection.state}</strong> · Race: {s.race?.status ?? "—"} ·
+            Entrants: {s.race?.entrants.length ?? 0} · Revision: {s.revision}
+          </p>
+        </section>
+        <section className="panel">
+          <span className="eyebrow">ON AIR</span>
+          <h2>Active Race</h2>
+          {a ? (
+            <dl>
+              <dt>Race ID</dt>
+              <dd>{a.race.raceId}</dd>
+              <dt>Category</dt>
+              <dd>{a.race.categoryName}</dd>
+              <dt>Goal</dt>
+              <dd>{a.race.goal}</dd>
+              <dt>Active revision</dt>
+              <dd>{a.revision}</dd>
+            </dl>
+          ) : (
+            <p>Nothing is currently applied.</p>
+          )}
+          <h2>Persistence</h2>
+          <p className={`state ${statusTone(p.state)}`}>{p.state}</p>
+          <p>
+            {p.queue.length} pending saves · Last saved: {p.lastSavedActiveRevision ?? "—"}
+          </p>
+        </section>
+      </div>
+    </main>
+  );
 }
