@@ -3,6 +3,16 @@
   "title": "nodecg-race-layouts bundle config",
   "type": "object",
   "properties": {
+    "event": {
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "shortName": { "type": ["string", "null"] },
+        "logoUrl": { "type": ["string", "null"] }
+      },
+      "required": ["name"],
+      "additionalProperties": false
+    },
     "spreadsheet": {
       "type": "object",
       "description": "Google Spreadsheet that stores the Players, CategoryMappings and CategoryPresentation sheets.",

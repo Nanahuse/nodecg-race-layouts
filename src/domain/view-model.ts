@@ -10,6 +10,7 @@ import type { RaceScreenSlot } from "./race-screen";
 export type EventView = {
   name: string;
   shortName: string | null;
+  logoUrl?: string | null;
 };
 
 export type CommentatorView = {
@@ -97,7 +98,7 @@ export type LeaderboardPageData = {
   };
 
   presentation: {
-    ruleHeading: string;
+    ruleHeading: string | null;
     ruleLines: string[];
     leaderboardHeading: string;
     sourceLabel: string;
