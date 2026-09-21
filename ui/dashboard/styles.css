@@ -251,6 +251,12 @@ dd {
   border: 1px solid var(--border);
   padding: 10px;
 }
+
+.persistence-item {
+  padding: 0.4rem 0;
+  color: var(--muted);
+  border-top: 1px solid var(--border);
+}
 .presentation-editor {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
