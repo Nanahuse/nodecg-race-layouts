@@ -1,0 +1,107 @@
+:root {
+  --canvas-width: 1920px;
+  --canvas-height: 1080px;
+  --result-width: 1560px;
+}
+
+html,
+body,
+#root {
+  width: var(--canvas-width);
+  height: var(--canvas-height);
+  margin: 0;
+  overflow: hidden;
+  background: transparent;
+}
+
+body {
+  color: white;
+  font-family: sans-serif;
+}
+.result-graphic {
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  padding: 72px 64px;
+}
+.result-list {
+  display: grid;
+  width: var(--result-width);
+  height: 900px;
+  grid-auto-flow: column;
+  grid-template-columns: repeat(var(--columns), minmax(0, 1fr));
+  grid-template-rows: repeat(var(--rows), minmax(0, 1fr));
+  gap: 12px 28px;
+  text-shadow: 0 2px 4px #000;
+}
+.result-row {
+  display: grid;
+  grid-template-columns: 100px minmax(0, 1fr) 150px;
+  align-items: center;
+  min-width: 0;
+  padding: 8px 18px;
+  background: rgb(0 0 0 / 26%);
+  border-top: 1px solid rgb(255 255 255 / 22%);
+}
+.result-place {
+  font-size: 30px;
+  font-weight: 700;
+}
+.result-name {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+.result-name strong {
+  overflow: hidden;
+  font-size: 28px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.result-name small {
+  overflow: hidden;
+  color: rgb(255 255 255 / 72%);
+  font-size: 16px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.result-time {
+  font-size: 28px;
+  text-align: right;
+  white-space: nowrap;
+}
+.result-row[data-status="dnf"],
+.result-row[data-status="dq"] {
+  opacity: 0.84;
+}
+.density-compact .result-row {
+  padding: 6px 14px;
+}
+.density-compact .result-place,
+.density-compact .result-time {
+  font-size: 24px;
+}
+.density-compact .result-name strong {
+  font-size: 24px;
+}
+.density-compact .result-name small {
+  font-size: 14px;
+}
+.density-dense .result-row,
+.density-extra-dense .result-row {
+  padding: 4px 10px;
+}
+.density-dense .result-place,
+.density-dense .result-time,
+.density-extra-dense .result-place,
+.density-extra-dense .result-time {
+  font-size: 21px;
+}
+.density-dense .result-name strong,
+.density-extra-dense .result-name strong {
+  font-size: 20px;
+}
+.density-dense .result-name small,
+.density-extra-dense .result-name small {
+  font-size: 12px;
+}
