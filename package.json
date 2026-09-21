@@ -8,9 +8,10 @@
     "node": ">=24.0.0"
   },
   "scripts": {
-    "build": "npm run build:extension && npm run build:dashboard",
+    "build": "npm run build:extension && npm run build:dashboard && npm run build:graphics",
     "build:extension": "tsc -p tsconfig.build.json",
     "build:dashboard": "vite build --config vite.dashboard.config.ts",
+    "build:graphics": "vite build --config vite.graphics.config.ts",
     "clean": "rimraf dist",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.dashboard.json --noEmit",
     "lint": "oxlint src test scripts ui",
@@ -30,6 +31,13 @@
         "title": "Race Control",
         "file": "race-control.html",
         "fullbleed": true
+      }
+    ],
+    "graphics": [
+      {
+        "file": "race.html",
+        "width": 1920,
+        "height": 1080
       }
     ]
   },
