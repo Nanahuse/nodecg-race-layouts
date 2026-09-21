@@ -120,7 +120,7 @@ export function validatePlayerDirectory(players: readonly PlayerMapping[]): Play
         }
       }
     }
-    for (const rawLogin of twitchLogins) {
+    for (const rawLogin of new Set(twitchLogins.map((login) => login.trim().toLowerCase()))) {
       const login = rawLogin.trim().toLowerCase();
       if (login !== "") {
         const previous = seenTwitchLogins.get(login);

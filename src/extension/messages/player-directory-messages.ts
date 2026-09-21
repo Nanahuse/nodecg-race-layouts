@@ -14,21 +14,34 @@ export * from "../../protocol/player-directory";
 
 export function registerPlayerDirectoryMessages(
   nodecg: NodeCG,
-  service: PlayerMappingManagementService,
+  service: PlayerMappingManagementService | null,
 ): void {
+  const unavailable = {
+    ok: false as const,
+    reason: "player_directory_unavailable" as const,
+    message: "Player directory integration is unavailable.",
+  };
   nodecg.listenFor(PLAYER_DIRECTORY_RELOAD_MESSAGE, async (_data, ack) => {
-    ack(null, await service.reload());
+    ack(null, service ? await service.reload() : unavailable);
   });
   nodecg.listenFor(PLAYER_DIRECTORY_CREATE_MESSAGE, async (data, ack) => {
     const request = data as PlayerDirectoryCreateRequest;
-    ack(null, await service.create(request.input));
+    ack(null, service ? await service.create(request.input) : unavailable);
   });
   nodecg.listenFor(PLAYER_DIRECTORY_UPDATE_MESSAGE, async (data, ack) => {
     const request = data as PlayerDirectoryUpdateRequest;
-    ack(null, await service.update(request.playerId, request.expectedPlayer, request.input));
+    ack(
+      null,
+      service
+        ? await service.update(request.playerId, request.expectedPlayer, request.input)
+        : unavailable,
+    );
   });
   nodecg.listenFor(PLAYER_DIRECTORY_DELETE_MESSAGE, async (data, ack) => {
     const request = data as PlayerDirectoryDeleteRequest;
-    ack(null, await service.delete(request.playerId, request.expectedPlayer));
+    ack(
+      null,
+      service ? await service.delete(request.playerId, request.expectedPlayer) : unavailable,
+    );
   });
 }

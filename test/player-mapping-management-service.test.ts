@@ -7,7 +7,7 @@ import type {
   PostApplyPersistenceState,
 } from "../src/domain";
 import { PlayerMappingManagementService } from "../src/extension/application/player-mapping-management-service";
-import type { PlayersRepository } from "../src/extension/integrations/spreadsheet/players-repository";
+import type { PlayerDirectoryService } from "../src/extension/application/player-directory-service";
 
 const player = (id = "p1"): PlayerMapping => ({
   playerId: id,
@@ -22,14 +22,14 @@ function replicant<T>(value: T) {
 }
 
 function service(directory: PlayerDirectory = {}) {
-  const repository: PlayersRepository = {
-    loadAll: vi.fn(async () => directory),
-    upsert: vi.fn(async () => undefined),
-    delete: vi.fn(async () => undefined),
-  };
+  const directoryService = {
+    reloadFromSpreadsheet: vi.fn(async () => ({ ok: true as const, playerCount: 0 })),
+    savePlayers: vi.fn(async () => undefined),
+    deletePlayer: vi.fn(async () => undefined),
+  } as unknown as PlayerDirectoryService;
   const speedrun = { getUser: vi.fn() };
   const management = new PlayerMappingManagementService({
-    repository,
+    directoryService,
     playerDirectory: replicant(directory),
     draftConfig: replicant({
       participants: [],
@@ -40,7 +40,7 @@ function service(directory: PlayerDirectory = {}) {
     speedrun: speedrun as never,
     log: { info: vi.fn(), error: vi.fn(), warn: vi.fn(), debug: vi.fn(), trace: vi.fn() },
   });
-  return { management, repository };
+  return { management, directoryService };
 }
 
 const input = {
@@ -52,17 +52,17 @@ const input = {
 
 describe("PlayerMappingManagementService", () => {
   it("creates a normalized player only after spreadsheet persistence", async () => {
-    const { management, repository } = service();
+    const { management, directoryService } = service();
     const result = await management.create(input);
     expect(result.ok).toBe(true);
-    expect(repository.upsert).toHaveBeenCalledOnce();
+    expect(directoryService.savePlayers).toHaveBeenCalledOnce();
     if (result.ok) expect(result.player.manualDisplayName).toBe("New Player");
   });
 
   it("rejects blank input and preserves the directory on persistence failure", async () => {
     const current = { p1: player() };
-    const { management, repository } = service(current);
-    vi.mocked(repository.upsert).mockRejectedValueOnce(new Error("sheet down"));
+    const { management, directoryService } = service(current);
+    vi.mocked(directoryService.savePlayers).mockRejectedValueOnce(new Error("sheet down"));
     const result = await management.create({
       ...input,
       manualDisplayName: "  ",
