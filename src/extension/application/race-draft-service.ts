@@ -16,6 +16,11 @@ import {
   createDefaultIntegrationStatus,
 } from "../../replicants/defaults";
 import type { NodeCGLogger, Replicant } from "../../types/nodecg";
+import { jsonEquals } from "../integrations/racetime/equality";
+import {
+  noopAutomaticIdentityResolver,
+  type AutomaticIdentityResolver,
+} from "./automatic-identity-resolution-service";
 import { computeDraftBroadcastState } from "./broadcast-status";
 import {
   nullCategoryPresetProvider,
@@ -31,7 +36,9 @@ import {
 import {
   countUnresolvedPlayers,
   needsDraftReconciliation,
+  participantSpeedrunUserIds,
   reconcileDraft,
+  speedrunUserIdSetsEqual,
 } from "./race-draft-reconciliation";
 import type { RaceSessionService } from "./race-session-service";
 
@@ -175,6 +182,7 @@ export type RaceDraftServiceOptions = {
   log: NodeCGLogger;
   playerIdFactory?: PlayerIdFactory;
   categoryPresets?: CategoryPresetProvider;
+  automaticIdentityResolver?: AutomaticIdentityResolver;
 };
 
 function describeError(error: unknown): string {
@@ -196,6 +204,7 @@ export class RaceDraftService {
   private readonly log: NodeCGLogger;
   private readonly playerIdFactory: PlayerIdFactory;
   private readonly categoryPresets: CategoryPresetProvider;
+  private readonly automaticIdentityResolver: AutomaticIdentityResolver;
 
   private suppressReconcile = false;
 
@@ -209,6 +218,8 @@ export class RaceDraftService {
     this.log = options.log;
     this.playerIdFactory = options.playerIdFactory ?? createRandomPlayerIdFactory();
     this.categoryPresets = options.categoryPresets ?? nullCategoryPresetProvider;
+    this.automaticIdentityResolver =
+      options.automaticIdentityResolver ?? noopAutomaticIdentityResolver;
   }
 
   async loadRace(url: string): Promise<RaceLoadOutcome> {
@@ -248,43 +259,52 @@ export class RaceDraftService {
         categoryPreset,
       });
 
-      const integrityIssues = validateDraftIntegrity(built.draft);
+      // Automatic Speedrun.com identity resolution runs on the candidate, before
+      // the single commit, so the draft is never committed twice.
+      const resolved = await this.automaticIdentityResolver.resolve(
+        built.draft,
+        this.playerDirectory.value ?? {},
+      );
+      const candidate = resolved.draft;
+
+      const integrityIssues = validateDraftIntegrity(candidate);
       if (integrityIssues.length > 0) {
         throw new Error(
           `Draft integrity check failed: ${integrityIssues.map((issue) => issue.message).join("; ")}`,
         );
       }
 
-      this.draftConfig.value = built.draft;
+      this.draftConfig.value = candidate;
       this.draftSpeedrunSnapshot.value = {
-        draftRevision: built.draft.revision,
+        draftRevision: candidate.revision,
         state: "empty",
         snapshot: null,
         message: null,
       };
 
-      const unresolvedPlayerCount = countUnresolvedPlayers(built.draft);
-      this.recomputeBroadcastState(built.draft);
+      const unresolvedPlayerCount = countUnresolvedPlayers(candidate);
+      this.recomputeBroadcastState(candidate);
 
       this.logEvent("player_resolution.completed", {
-        raceId: built.draft.race?.raceId,
-        participantCount: built.draft.participants.length,
+        raceId: candidate.race?.raceId,
+        participantCount: candidate.participants.length,
         matchedCount: built.resolution.summary.matchedCount,
         autoLinkedCount: built.resolution.summary.autoLinkedCount,
         newPlayerCount: built.resolution.summary.newPlayerCount,
         unresolvedPlayerCount,
+        autoSrcLinked: resolved.summary.linked,
       });
       this.logEvent("race.load.completed", {
-        raceId: built.draft.race?.raceId,
-        draftRevision: built.draft.revision,
-        participantCount: built.draft.participants.length,
+        raceId: candidate.race?.raceId,
+        draftRevision: candidate.revision,
+        participantCount: candidate.participants.length,
         unresolvedPlayerCount,
       });
 
       return {
         ok: true,
-        draftRevision: built.draft.revision,
-        participantCount: built.draft.participants.length,
+        draftRevision: candidate.revision,
+        participantCount: candidate.participants.length,
         unresolvedPlayerCount,
       };
     } catch (error) {
@@ -322,19 +342,33 @@ export class RaceDraftService {
         ? await this.loadCategoryPreset(session.race.categorySlug, session.race.goal)
         : undefined;
 
+      const directory = this.playerDirectory.value ?? {};
+      const srcUserIdsBefore = participantSpeedrunUserIds(draft);
+
       const outcome = reconcileDraft({
         draft,
         session,
-        directory: this.playerDirectory.value ?? {},
+        directory,
         playerIdFactory: this.playerIdFactory,
         categoryPreset,
       });
 
-      if (outcome.changed) {
-        this.draftConfig.value = outcome.draft;
-        if (outcome.participantsChanged || outcome.categoryChanged) {
+      // Automatic Speedrun.com identity resolution runs on the reconcile
+      // candidate before the single commit.
+      const resolved = await this.automaticIdentityResolver.resolve(outcome.draft, directory);
+      const candidateNoRevision: DraftConfig = { ...resolved.draft, revision: draft.revision };
+      const changed = !jsonEquals(candidateNoRevision, draft);
+      const finalDraft = changed ? { ...resolved.draft, revision: draft.revision + 1 } : draft;
+
+      if (changed) {
+        this.draftConfig.value = finalDraft;
+        const srcSetChanged = !speedrunUserIdSetsEqual(
+          srcUserIdsBefore,
+          participantSpeedrunUserIds(finalDraft),
+        );
+        if (outcome.participantsChanged || outcome.categoryChanged || srcSetChanged) {
           this.draftSpeedrunSnapshot.value = {
-            draftRevision: outcome.draft.revision,
+            draftRevision: finalDraft.revision,
             state: "empty",
             snapshot: null,
             message: null,
@@ -342,26 +376,28 @@ export class RaceDraftService {
         } else {
           this.draftSpeedrunSnapshot.value = retagDraftSpeedrunSnapshot(
             this.draftSpeedrunSnapshot.value ?? createDefaultDraftSpeedrunSnapshot(),
-            outcome.draft.revision,
+            finalDraft.revision,
           );
         }
       }
 
-      this.recomputeBroadcastState(outcome.draft);
+      this.recomputeBroadcastState(finalDraft);
 
+      const unresolvedPlayerCount = countUnresolvedPlayers(finalDraft);
       this.logEvent("race.reconcile.completed", {
-        draftRevision: outcome.draft.revision,
-        changed: outcome.changed,
-        participantCount: outcome.draft.participants.length,
-        unresolvedPlayerCount: outcome.unresolvedPlayerCount,
+        draftRevision: finalDraft.revision,
+        changed,
+        participantCount: finalDraft.participants.length,
+        unresolvedPlayerCount,
+        autoSrcLinked: resolved.summary.linked,
       });
 
       return {
         ok: true,
-        changed: outcome.changed,
-        draftRevision: outcome.draft.revision,
-        participantCount: outcome.draft.participants.length,
-        unresolvedPlayerCount: outcome.unresolvedPlayerCount,
+        changed,
+        draftRevision: finalDraft.revision,
+        participantCount: finalDraft.participants.length,
+        unresolvedPlayerCount,
       };
     } catch (error) {
       const message = describeError(error);

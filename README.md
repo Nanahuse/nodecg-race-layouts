@@ -168,6 +168,32 @@ participants' linked Speedrun.com identities.
 - Non-invalidating draft edits (presentation, display name, ...) retag the
   snapshot's `draftRevision`; leaderboard-invalidating edits reset it.
 
+### Participant identity resolution
+
+Draft participants start with `speedrunCom = unresolved`. They can be resolved
+automatically on race load / reconcile, or manually through the
+`participant.*` messages (handled in `participant-messages.ts`, workflow in
+`participant-draft-service.ts`).
+
+- Automatic resolution (`automatic-identity-resolution-service.ts`) only touches
+  `unresolved` Speedrun.com identities. It first completes Twitch from
+  `racetime.value.twitchLogin`, then searches Speedrun.com by Twitch login
+  (exact, case-insensitive) and links only a single unambiguous candidate,
+  skipping conflicts already present in the draft or player directory. Any
+  Speedrun.com failure leaves the identity unresolved and never fails the race
+  load / reconcile. Bounded concurrency, no automatic retry.
+- Manual edits: `participant.set-player`, `participant.set-speedruncom`,
+  `participant.set-speedruncom-none`, `participant.set-twitch`,
+  `participant.set-twitch-none` and `participant.set-display-name`. All require
+  `expectedDraftRevision`; the async Speedrun.com lookup re-checks the revision
+  before committing.
+- A `speedruncom`-sourced Twitch link is derived: it follows the linked SRC
+  account and clears when SRC is cleared or has no Twitch login. Operator
+  `manual` / `spreadsheet` links are never overwritten by automation.
+- Snapshots reset only when the participant Speedrun.com user-id set changes;
+  display-name / Twitch-only edits retag. Player directory and active state are
+  never modified.
+
 TypeScript domain types under `src/replicants/value-types.ts` are the single
 source of truth for the Replicants. `npm run schema:generate` writes one
 self-contained draft-07 schema per Replicant into `schemas/`; `npm run

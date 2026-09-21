@@ -7,11 +7,13 @@ import type {
 } from "../domain";
 import { declareReplicants } from "../replicants";
 import type { NodeCG } from "../types/nodecg";
+import { AutomaticIdentityResolutionService } from "./application/automatic-identity-resolution-service";
 import { CategoryDraftService } from "./application/category-draft-service";
 import {
   nullCategoryPresetProvider,
   type CategoryPresetProvider,
 } from "./application/category-preset-provider";
+import { ParticipantDraftService } from "./application/participant-draft-service";
 import { PlayerDirectoryService } from "./application/player-directory-service";
 import { RaceDraftService } from "./application/race-draft-service";
 import { RaceSessionService } from "./application/race-session-service";
@@ -38,6 +40,7 @@ import {
 import { GoogleSheetsClient } from "./integrations/spreadsheet/google-sheets-client";
 import { SpreadsheetPlayersRepository } from "./integrations/spreadsheet/players-repository";
 import { registerCategoryMessages } from "./messages/category-messages";
+import { registerParticipantMessages } from "./messages/participant-messages";
 import { registerRaceMessages } from "./messages/race-messages";
 import { registerSpeedrunMessages } from "./messages/speedrun-messages";
 import { registerSpeedrunSnapshotMessages } from "./messages/speedrun-snapshot-messages";
@@ -120,6 +123,7 @@ function categoryPresetProviderFor(
 export function setupRaceTimeIntegration(
   nodecg: NodeCG,
   spreadsheet: SpreadsheetIntegration | null,
+  speedrunLookup: SpeedrunIntegration["discovery"],
 ): { raceDraft: RaceDraftService; categoryDraft: CategoryDraftService } {
   const raceSessions = new RaceSessionService({
     client: new HttpRaceTimeClient(),
@@ -138,6 +142,11 @@ export function setupRaceTimeIntegration(
   const draftRaceSession = nodecg.Replicant<RaceSession>("draft-race-session");
   const integrationStatus = nodecg.Replicant<IntegrationStatus>("integration-status");
 
+  const automaticIdentityResolver = new AutomaticIdentityResolutionService({
+    lookup: speedrunLookup,
+    log: nodecg.log,
+  });
+
   const raceDraft = new RaceDraftService({
     raceSessions,
     draftRaceSession,
@@ -147,6 +156,7 @@ export function setupRaceTimeIntegration(
     integrationStatus,
     log: nodecg.log,
     categoryPresets: categoryPresetProviderFor(spreadsheet),
+    automaticIdentityResolver,
   });
 
   const categoryDraft = new CategoryDraftService({
@@ -201,20 +211,41 @@ export function setupSpeedrunIntegration(nodecg: NodeCG): SpeedrunIntegration {
   return { discovery, snapshot };
 }
 
+export function setupParticipantDraftService(
+  nodecg: NodeCG,
+  speedrunLookup: SpeedrunIntegration["discovery"],
+): ParticipantDraftService {
+  return new ParticipantDraftService({
+    draftConfig: nodecg.Replicant<DraftConfig>("draft-config"),
+    draftSpeedrunSnapshot: nodecg.Replicant<DraftSpeedrunSnapshot>("draft-speedrun-snapshot"),
+    playerDirectory: nodecg.Replicant<PlayerDirectory>("player-directory"),
+    integrationStatus: nodecg.Replicant<IntegrationStatus>("integration-status"),
+    lookup: speedrunLookup,
+    log: nodecg.log,
+  });
+}
+
 export function bootstrapExtension(nodecg: NodeCG): {
   raceDraft: RaceDraftService;
   categoryDraft: CategoryDraftService;
   speedrunDiscovery: SpeedrunDiscoveryService;
   speedrunSnapshot: SpeedrunSnapshotService;
+  participantDraft: ParticipantDraftService;
 } {
   declareReplicants(nodecg);
   const spreadsheet = setupSpreadsheetIntegration(nodecg);
-  const { raceDraft, categoryDraft } = setupRaceTimeIntegration(nodecg, spreadsheet);
   const { discovery: speedrunDiscovery, snapshot: speedrunSnapshot } =
     setupSpeedrunIntegration(nodecg);
+  const { raceDraft, categoryDraft } = setupRaceTimeIntegration(
+    nodecg,
+    spreadsheet,
+    speedrunDiscovery,
+  );
+  const participantDraft = setupParticipantDraftService(nodecg, speedrunDiscovery);
   registerRaceMessages(nodecg, raceDraft);
   registerCategoryMessages(nodecg, categoryDraft);
   registerSpeedrunMessages(nodecg, speedrunDiscovery);
   registerSpeedrunSnapshotMessages(nodecg, speedrunSnapshot);
-  return { raceDraft, categoryDraft, speedrunDiscovery, speedrunSnapshot };
+  registerParticipantMessages(nodecg, participantDraft);
+  return { raceDraft, categoryDraft, speedrunDiscovery, speedrunSnapshot, participantDraft };
 }

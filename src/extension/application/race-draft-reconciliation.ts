@@ -93,6 +93,36 @@ export function needsDraftReconciliation(draft: DraftConfig, session: RaceSessio
   return false;
 }
 
+/**
+ * Effective Speedrun.com user ids referenced by draft participants. Used to
+ * decide whether a snapshot must be reset (set changed) or merely retagged.
+ */
+export function participantSpeedrunUserIds(draft: DraftConfig): Set<string> {
+  const userIds = new Set<string>();
+  for (const participant of draft.participants) {
+    if (!participant.playerId) {
+      continue;
+    }
+    const player = draft.players[participant.playerId];
+    if (player?.speedrunCom.state === "linked") {
+      userIds.add(player.speedrunCom.value.userId);
+    }
+  }
+  return userIds;
+}
+
+export function speedrunUserIdSetsEqual(a: ReadonlySet<string>, b: ReadonlySet<string>): boolean {
+  if (a.size !== b.size) {
+    return false;
+  }
+  for (const value of a) {
+    if (!b.has(value)) {
+      return false;
+    }
+  }
+  return true;
+}
+
 export function countUnresolvedPlayers(draft: DraftConfig): number {
   const referenced = new Set<PlayerId>();
   for (const participant of draft.participants) {
