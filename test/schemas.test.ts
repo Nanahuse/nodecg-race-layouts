@@ -29,7 +29,7 @@ const defaultsByName = Object.fromEntries(
 
 const validParticipantListData: ParticipantListData = {
   activeRevision: 1,
-  event: { name: "Test Event", shortName: null },
+  event: { name: "Test Event", shortName: null, logoUrl: null },
   category: { name: "Any%" },
   commentators: [],
   participants: [
@@ -44,7 +44,7 @@ const validParticipantListData: ParticipantListData = {
 
 const validLeaderboardPageData: LeaderboardPageData = {
   activeRevision: 1,
-  event: { name: "Test Event", shortName: null },
+  event: { name: "Test Event", shortName: null, logoUrl: null },
   category: { title: "Any%", subtitle: null },
   presentation: {
     ruleHeading: "Rules",
@@ -57,7 +57,7 @@ const validLeaderboardPageData: LeaderboardPageData = {
 
 const validRaceResultPageData: RaceResultPageData = {
   activeRevision: 1,
-  event: { name: "Test Event", shortName: null },
+  event: { name: "Test Event", shortName: null, logoUrl: null },
   category: { name: "Any%" },
   results: [
     {

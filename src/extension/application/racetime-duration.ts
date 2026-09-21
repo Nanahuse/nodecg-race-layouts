@@ -10,9 +10,11 @@ export function formatRaceTimeDuration(value: string): string | null {
   const sec = match[3]
     ? (seconds % 60).toFixed(secPart.includes(".") ? (secPart.split(".")[1]?.length ?? 0) : 0)
     : "0";
+  const [wholeSeconds = "0", fraction] = sec.split(".");
+  const displaySeconds = `${wholeSeconds.padStart(2, "0")}${fraction === undefined ? "" : `.${fraction}`}`;
   const parts =
     hours > 0
-      ? [`${hours}`, String(minutes).padStart(2, "0"), sec.padStart(2, "0")]
-      : [String(hours * 60 + minutes), sec.padStart(2, "0")];
+      ? [`${hours}`, String(minutes).padStart(2, "0"), displaySeconds]
+      : [String(hours * 60 + minutes), displaySeconds];
   return parts.join(":");
 }
