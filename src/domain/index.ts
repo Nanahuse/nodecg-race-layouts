@@ -8,6 +8,7 @@ export * from "./integration-status";
 export * from "./leaderboard-key";
 export * from "./participant";
 export * from "./player";
+export * from "./player-directory-validation";
 export * from "./race";
 export * from "./race-screen";
 export * from "./race-session";

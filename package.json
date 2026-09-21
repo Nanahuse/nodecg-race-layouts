@@ -33,5 +33,9 @@
     "tsx": "^4.23.15",
     "typescript": "^7.0.2",
     "vitest": "^5.0.1"
+  },
+  "dependencies": {
+    "@googleapis/sheets": "^18.0.0",
+    "google-auth-library": "^11.1.0"
   }
 }

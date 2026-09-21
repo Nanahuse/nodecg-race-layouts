@@ -29,4 +29,9 @@ export interface NodeCGLogger {
 export interface NodeCG {
   Replicant<T = unknown>(name: string, opts?: ReplicantOptions<T>): Replicant<T>;
   log: NodeCGLogger;
+  /**
+   * Contents of the bundle's config file (validated against
+   * `configschema.json`). `undefined` when the bundle has no config.
+   */
+  bundleConfig: unknown;
 }

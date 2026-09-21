@@ -12,7 +12,7 @@ export type SpeedrunComStatus = {
   message: string | null;
 };
 
-export type SpreadsheetStatusState = "idle" | "saving" | "saved" | "error";
+export type SpreadsheetStatusState = "idle" | "loading" | "saving" | "saved" | "error";
 
 export type SpreadsheetStatus = {
   state: SpreadsheetStatusState;
