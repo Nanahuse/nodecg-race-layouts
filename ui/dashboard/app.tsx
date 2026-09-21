@@ -11,6 +11,7 @@ import type {
 import { resolveDisplayName } from "../../src/domain";
 import { raceApi } from "./api/race-api";
 import { createParticipantApi } from "./api/participant-api";
+import { createRacePresentationApi } from "./api/race-presentation-api";
 import { useReplicant } from "./hooks/use-replicant";
 import { statusTone } from "./model/status";
 import { resetParticipantLocalState } from "./model/participant-state";
@@ -243,6 +244,125 @@ function ParticipantCard({
   );
 }
 
+function PresentationEditor({
+  draft,
+  session,
+  directory,
+}: {
+  draft: DraftConfig;
+  session: RaceSession;
+  directory: PlayerDirectory;
+}) {
+  const api = createRacePresentationApi(() => draft.revision);
+  const raceKey = draft.race?.raceId ?? "none";
+  const [slots, setSlots] = useState(draft.raceScreenSlots);
+  const [commentators, setCommentators] = useState<string[]>(draft.commentatorPlayerIds);
+  const [pending, setPending] = useState<"slots" | "commentators" | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    setSlots(draft.raceScreenSlots);
+    setCommentators(draft.commentatorPlayerIds);
+    setError(null);
+  }, [raceKey]);
+  const entrants = session.race?.entrants ?? [];
+  const save = async (kind: "slots" | "commentators") => {
+    setPending(kind);
+    setError(null);
+    try {
+      const result =
+        kind === "slots"
+          ? await api.setSlots(slots)
+          : await api.setCommentators(commentators.filter(Boolean));
+      if (!result.ok) setError(result.message);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Presentation update failed.");
+    } finally {
+      setPending(null);
+    }
+  };
+  const slotValues = Object.values(slots);
+  const playerCandidates = Object.values({ ...directory, ...draft.players });
+  return (
+    <>
+      <h3>Race Screen</h3>
+      <div className="presentation-editor">
+        {([1, 2, 3, 4] as const).map((slot) => (
+          <label key={slot}>
+            P{slot}
+            <select
+              value={slots[slot] ?? ""}
+              disabled={pending !== null}
+              onChange={(event) => setSlots({ ...slots, [slot]: event.target.value || null })}
+            >
+              <option value="">Unassigned</option>
+              {draft.participants.map((participant) => {
+                const entrant = entrants.find((item) => item.userId === participant.racetimeUserId);
+                const used =
+                  slotValues.includes(participant.racetimeUserId) &&
+                  slots[slot] !== participant.racetimeUserId;
+                const player = participant.playerId
+                  ? draft.players[participant.playerId]
+                  : undefined;
+                return (
+                  <option
+                    key={participant.racetimeUserId}
+                    value={participant.racetimeUserId}
+                    disabled={used}
+                  >
+                    {entrant?.name ?? participant.racetimeUserId}
+                    {player ? ` — ${resolveDisplayName(player) ?? player.playerId}` : ""}
+                    {used ? " (in use)" : ""}
+                  </option>
+                );
+              })}
+            </select>
+          </label>
+        ))}
+      </div>
+      <button disabled={pending !== null} onClick={() => void save("slots")}>
+        {pending === "slots" ? "Saving slots…" : "Save Slots"}
+      </button>
+      <h3>Commentators</h3>
+      <div className="presentation-editor">
+        {[0, 1, 2].map((index) => (
+          <label key={index}>
+            {index + 1}
+            <select
+              value={commentators[index] ?? ""}
+              disabled={pending !== null}
+              onChange={(event) => {
+                const next = [...commentators];
+                next[index] = event.target.value;
+                setCommentators(next);
+              }}
+            >
+              <option value="">Unassigned</option>
+              {playerCandidates.map((player) => {
+                const used =
+                  commentators.includes(player.playerId) && commentators[index] !== player.playerId;
+                return (
+                  <option key={player.playerId} value={player.playerId} disabled={used}>
+                    {resolveDisplayName(player) ?? player.playerId}
+                    {used ? " (in use)" : ""}
+                  </option>
+                );
+              })}
+            </select>
+          </label>
+        ))}
+      </div>
+      <button disabled={pending !== null} onClick={() => void save("commentators")}>
+        {pending === "commentators" ? "Saving commentators…" : "Save Commentators"}
+      </button>
+      {error && (
+        <p className="callout error" role="alert">
+          {error}
+        </p>
+      )}
+    </>
+  );
+}
+
 export function App() {
   const draft = useReplicant<DraftConfig | null>("draft-config");
   const active = useReplicant<ActiveConfig | null>("active-config");
@@ -341,6 +461,7 @@ export function App() {
             ))}
           </div>
           <h3>RaceTime Session</h3>
+          <PresentationEditor draft={d} session={s} directory={dir} />
           <p>
             Connection: <strong>{s.connection.state}</strong> · Race: {s.race?.status ?? "—"} ·
             Entrants: {s.race?.entrants.length ?? 0} · Revision: {s.revision}
