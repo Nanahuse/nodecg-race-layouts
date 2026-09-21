@@ -1,23 +1,10 @@
 import type { NodeCG } from "../../types/nodecg";
 import type { RacePresentationDraftService } from "../application/race-presentation-draft-service";
-
-export const RACE_SCREEN_SET_SLOTS_MESSAGE = "race-screen.set-slots";
-export const COMMENTATORS_SET_MESSAGE = "commentators.set";
-
-export type SetRaceScreenSlotsRequest = {
-  expectedDraftRevision: number;
-  slots: {
-    1: string | null;
-    2: string | null;
-    3: string | null;
-    4: string | null;
-  };
-};
-
-export type SetCommentatorsRequest = {
-  expectedDraftRevision: number;
-  playerIds: string[];
-};
+import {
+  COMMENTATORS_SET_MESSAGE,
+  RACE_SCREEN_SET_SLOTS_MESSAGE,
+} from "../../protocol/race-presentation";
+export * from "../../protocol/race-presentation";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
