@@ -48,4 +48,16 @@ describe("ParticipantListGraphic", () => {
   it("renders no content when data is unavailable", () => {
     expect(renderToStaticMarkup(createElement(ParticipantListGraphic, { data: null }))).toBe("");
   });
+
+  it("renders long names in the 24-participant fixture", () => {
+    const data = makeData(24);
+    data.participants[0] = {
+      ...data.participants[0],
+      displayName: "A very long participant display name that should be ellipsized",
+      speedrunComName: "A very long Speedrun.com participant name",
+    };
+    const html = renderToStaticMarkup(createElement(ParticipantListGraphic, { data }));
+    expect(html).toContain("A very long participant display name");
+    expect(html).not.toContain("A very long Speedrun.com participant name");
+  });
 });

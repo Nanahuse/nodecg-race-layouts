@@ -52,4 +52,16 @@ describe("ResultGraphic", () => {
   it("renders no content when data is unavailable", () => {
     expect(renderToStaticMarkup(createElement(ResultGraphic, { data: null }))).toBe("");
   });
+
+  it("renders long names in the 24-result fixture", () => {
+    const data = makeData(24);
+    data.results[0] = {
+      ...data.results[0],
+      name: "A very long result runner name that should be ellipsized",
+      secondaryName: "A very long secondary result name",
+    };
+    const html = renderToStaticMarkup(createElement(ResultGraphic, { data }));
+    expect(html).toContain("A very long result runner name");
+    expect(html).toContain("A very long secondary result name");
+  });
 });

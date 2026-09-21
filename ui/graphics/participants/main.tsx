@@ -3,6 +3,7 @@ import type { ParticipantListData } from "../../../src/domain";
 import { useReplicant } from "../common/use-replicant";
 import { ParticipantListGraphic } from "./participant-list-graphic";
 import "./participants.css";
+import "../common/graphics-base.css";
 
 export function ParticipantListPage() {
   const list = useReplicant<ParticipantListData | null>("participant-list-data");

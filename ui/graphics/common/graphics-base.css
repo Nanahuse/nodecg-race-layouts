@@ -1,0 +1,25 @@
+:root {
+  --canvas-width: 1920px;
+  --canvas-height: 1080px;
+}
+
+html,
+body,
+#root {
+  width: var(--canvas-width);
+  height: var(--canvas-height);
+  margin: 0;
+  overflow: hidden;
+  background: transparent;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  color: white;
+  font-family: sans-serif;
+}

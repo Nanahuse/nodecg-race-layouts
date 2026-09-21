@@ -33,4 +33,26 @@ describe("RaceGraphic", () => {
   it("renders no content while overlay data is unavailable", () => {
     expect(renderToStaticMarkup(createElement(RaceGraphic, { data: null }))).toBe("");
   });
+
+  it("renders the maximum commentary and long player content", () => {
+    const maximum = {
+      ...data,
+      commentators: ["Alice", "Bob", "Carol"].map((displayName, index) => ({
+        playerId: `caster-${index}`,
+        displayName,
+        twitchLogin: `very-long-twitch-login-${index}`,
+      })),
+      players: data.players.map((player) => ({
+        ...player,
+        displayName: "A very long player display name that must stay within its HUD",
+      })) as RaceOverlayData["players"],
+      worldRecord: {
+        time: "10:00",
+        holders: ["A very long holder name", "Another very long holder name"],
+      },
+    };
+    const html = renderToStaticMarkup(createElement(RaceGraphic, { data: maximum }));
+    expect(html.match(/class="player-hud/g)).toHaveLength(4);
+    expect(html).toContain("Carol");
+  });
 });

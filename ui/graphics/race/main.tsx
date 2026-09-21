@@ -3,6 +3,7 @@ import type { RaceOverlayData } from "../../../src/domain";
 import { useReplicant } from "../common/use-replicant";
 import { RaceGraphic } from "./race-graphic";
 import "./race.css";
+import "../common/graphics-base.css";
 
 export function RacePage() {
   const overlay = useReplicant<RaceOverlayData | null>("race-overlay-data");

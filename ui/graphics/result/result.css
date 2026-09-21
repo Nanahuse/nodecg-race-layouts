@@ -1,22 +1,5 @@
 :root {
-  --canvas-width: 1920px;
-  --canvas-height: 1080px;
   --result-width: 1560px;
-}
-
-html,
-body,
-#root {
-  width: var(--canvas-width);
-  height: var(--canvas-height);
-  margin: 0;
-  overflow: hidden;
-  background: transparent;
-}
-
-body {
-  color: white;
-  font-family: sans-serif;
 }
 .result-graphic {
   box-sizing: border-box;
@@ -27,6 +10,7 @@ body {
 .result-list {
   display: grid;
   width: var(--result-width);
+  min-width: 0;
   height: 900px;
   grid-auto-flow: column;
   grid-template-columns: repeat(var(--columns), minmax(0, 1fr));
