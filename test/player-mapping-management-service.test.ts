@@ -8,6 +8,13 @@ import type {
 } from "../src/domain";
 import { PlayerMappingManagementService } from "../src/extension/application/player-mapping-management-service";
 import type { PlayerDirectoryService } from "../src/extension/application/player-directory-service";
+import { registerPlayerDirectoryMessages } from "../src/extension/messages/player-directory-messages";
+import {
+  PLAYER_DIRECTORY_CREATE_MESSAGE,
+  PLAYER_DIRECTORY_DELETE_MESSAGE,
+  PLAYER_DIRECTORY_RELOAD_MESSAGE,
+  PLAYER_DIRECTORY_UPDATE_MESSAGE,
+} from "../src/protocol/player-directory";
 
 const player = (id = "p1"): PlayerMapping => ({
   playerId: id,
@@ -85,5 +92,28 @@ describe("PlayerMappingManagementService", () => {
       ok: false,
       reason: "player_not_found",
     });
+  });
+
+  it("keeps all handlers available when spreadsheet integration is unavailable", async () => {
+    const handlers = new Map<
+      string,
+      (data: unknown, ack: (error: Error | null, value?: unknown) => void) => Promise<void>
+    >();
+    registerPlayerDirectoryMessages(
+      { listenFor: (name, handler) => handlers.set(name, handler as never) } as never,
+      null,
+    );
+    for (const name of [
+      PLAYER_DIRECTORY_RELOAD_MESSAGE,
+      PLAYER_DIRECTORY_CREATE_MESSAGE,
+      PLAYER_DIRECTORY_UPDATE_MESSAGE,
+      PLAYER_DIRECTORY_DELETE_MESSAGE,
+    ]) {
+      expect(handlers.has(name)).toBe(true);
+      const response = await new Promise<unknown>((resolve) => {
+        void handlers.get(name)?.({}, (_error, value) => resolve(value));
+      });
+      expect(response).toMatchObject({ ok: false, reason: "player_directory_unavailable" });
+    }
   });
 });

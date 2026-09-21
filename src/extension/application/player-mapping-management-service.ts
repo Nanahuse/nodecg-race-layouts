@@ -21,7 +21,7 @@ import type {
 
 export type PlayerMappingManagementOptions = {
   directoryService: PlayerDirectoryService;
-  playerDirectory: Replicant<PlayerDirectory>;
+  playerDirectory: { readonly value: PlayerDirectory };
   draftConfig: Replicant<DraftConfig>;
   activeConfig: Replicant<ActiveConfig | null>;
   persistence: Replicant<PostApplyPersistenceState>;
@@ -76,10 +76,6 @@ export class PlayerMappingManagementService {
     if (validation) return validation;
     try {
       await this.options.directoryService.savePlayers([built.player]);
-      this.options.playerDirectory.value = {
-        ...this.options.playerDirectory.value,
-        [playerId]: built.player,
-      };
       return { ok: true, player: built.player };
     } catch (error) {
       return failure("operation_failed", error instanceof Error ? error.message : String(error));
@@ -103,10 +99,6 @@ export class PlayerMappingManagementService {
     if (validation) return validation;
     try {
       await this.options.directoryService.savePlayers([built.player]);
-      this.options.playerDirectory.value = {
-        ...this.options.playerDirectory.value,
-        [playerId]: built.player,
-      };
       return { ok: true, player: built.player };
     } catch (error) {
       return failure("operation_failed", error instanceof Error ? error.message : String(error));
@@ -125,9 +117,6 @@ export class PlayerMappingManagementService {
     if (inUse) return failure("player_in_use", inUse);
     try {
       await this.options.directoryService.deletePlayer(playerId);
-      const next = { ...this.options.playerDirectory.value };
-      delete next[playerId];
-      this.options.playerDirectory.value = next;
       return { ok: true, playerId };
     } catch (error) {
       return failure("operation_failed", error instanceof Error ? error.message : String(error));
