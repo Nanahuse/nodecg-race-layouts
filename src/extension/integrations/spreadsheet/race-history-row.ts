@@ -14,6 +14,12 @@ export const RACE_HISTORY_COLUMNS = [
 ] as const;
 export type RaceHistoryColumn = (typeof RACE_HISTORY_COLUMNS)[number];
 export type RaceHistoryRow = Record<RaceHistoryColumn, string>;
+function plainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+function nonEmptyString(value: unknown): value is string {
+  return typeof value === "string" && value.trim() !== "";
+}
 export function raceHistoryPayloadToRow(
   payload: RaceHistoryPayload,
   revision: number,
@@ -43,6 +49,12 @@ export function parseRaceHistoryRow(row: RaceHistoryRow):
       lastAppliedAt: string;
     }
   | { ok: false; message: string } {
+  if (
+    ![row.racetime_url, row.racetime_race_id, row.category_slug, row.category_name, row.goal].every(
+      nonEmptyString,
+    )
+  )
+    return { ok: false, message: "Required RaceHistory text field is empty." };
   const revision = Number(row.active_revision);
   if (
     !Number.isInteger(revision) ||
@@ -58,13 +70,32 @@ export function parseRaceHistoryRow(row: RaceHistoryRow):
     const slots = JSON.parse(row.race_screen_slots_json);
     const commentators = JSON.parse(row.commentators_json);
     if (
-      !participants ||
-      typeof participants !== "object" ||
-      !slots ||
-      typeof slots !== "object" ||
-      !Array.isArray(commentators)
+      !plainObject(participants) ||
+      Object.entries(participants).some(
+        ([key, value]) => !nonEmptyString(key) || !nonEmptyString(value),
+      )
     )
-      return { ok: false, message: "Invalid RaceHistory JSON shape." };
+      return { ok: false, message: "Invalid participants_json shape." };
+    if (
+      !plainObject(slots) ||
+      Object.keys(slots).length !== 4 ||
+      !["1", "2", "3", "4"].every((key) => nonEmptyString(slots[key])) ||
+      new Set([slots["1"], slots["2"], slots["3"], slots["4"]]).size !== 4
+    )
+      return { ok: false, message: "Invalid race_screen_slots_json shape." };
+    if (
+      !["1", "2", "3", "4"].every((key) =>
+        Object.prototype.hasOwnProperty.call(participants, slots[key] as string),
+      )
+    )
+      return { ok: false, message: "RaceHistory slot references unknown participant." };
+    if (
+      !Array.isArray(commentators) ||
+      commentators.length > 3 ||
+      commentators.some((value) => !nonEmptyString(value)) ||
+      new Set(commentators).size !== commentators.length
+    )
+      return { ok: false, message: "Invalid commentators_json shape." };
     return {
       ok: true,
       payload: {
@@ -73,9 +104,9 @@ export function parseRaceHistoryRow(row: RaceHistoryRow):
         categorySlug: row.category_slug,
         categoryName: row.category_name,
         goal: row.goal,
-        participants,
-        raceScreenSlots: slots,
-        commentatorPlayerIds: commentators,
+        participants: participants as Record<string, string>,
+        raceScreenSlots: slots as { 1: string; 2: string; 3: string; 4: string },
+        commentatorPlayerIds: commentators as string[],
       },
       activeRevision: revision,
       firstAppliedAt: row.first_applied_at,

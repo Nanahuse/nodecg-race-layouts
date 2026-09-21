@@ -7,6 +7,7 @@ import { persistenceItemFromConfig } from "../../domain";
 import type { NodeCGLogger, Replicant } from "../../types/nodecg";
 import type { PlayerDirectoryService } from "./player-directory-service";
 import type { RaceHistoryRepository } from "../integrations/spreadsheet/race-history-repository";
+import type { SpreadsheetOperationStatusCoordinator } from "./spreadsheet-status-coordinator";
 
 export type PostApplyPersistenceFlushResult =
   | { ok: true; processed: number; remaining: number }
@@ -16,7 +17,10 @@ export type PostApplyPersistenceFlushResult =
       message: string;
       remaining: number;
     };
-export class PostApplyPersistenceService {
+export interface PostApplyPersistenceSink {
+  enqueue(config: ActiveConfig): void;
+}
+export class PostApplyPersistenceService implements PostApplyPersistenceSink {
   private flushing = false;
   constructor(
     private readonly state: Replicant<PostApplyPersistenceState>,
@@ -24,6 +28,7 @@ export class PostApplyPersistenceService {
     private readonly history: RaceHistoryRepository,
     private readonly log: NodeCGLogger,
     private readonly now: () => Date = () => new Date(),
+    private readonly coordinator: SpreadsheetOperationStatusCoordinator | null = null,
   ) {}
   enqueue(config: ActiveConfig): void {
     const item = persistenceItemFromConfig(config, this.now().toISOString());
@@ -31,7 +36,7 @@ export class PostApplyPersistenceService {
     if (current.queue.some((queued) => queued.activeRevision === item.activeRevision)) return;
     this.state.value = {
       ...current,
-      state: "pending",
+      state: this.flushing ? "saving" : "pending",
       queue: [...current.queue, item],
       message: null,
     };
@@ -55,6 +60,7 @@ export class PostApplyPersistenceService {
         const item = this.state.value.queue[0];
         if (!item) break;
         this.updateItem(item.activeRevision, { attempts: item.attempts + 1 }, "saving");
+        const operation = this.coordinator?.begin("saving");
         try {
           await this.players.savePlayers(item.players);
           await this.history.upsert(item.raceHistory, item.activeRevision, item.appliedAt);
@@ -69,9 +75,11 @@ export class PostApplyPersistenceService {
             message: null,
           };
           processed += 1;
+          operation?.success();
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error);
           this.updateItem(item.activeRevision, { lastError: message }, "error", message);
+          operation?.failure(message);
           return {
             ok: false,
             reason: "persistence_failed",
