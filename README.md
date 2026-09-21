@@ -124,6 +124,28 @@ persisted preset:
 - Changing the leaderboard conditions invalidates `draft-speedrun-snapshot`;
   presentation edits never do.
 
+### Speedrun.com discovery
+
+`src/extension/integrations/speedruncom` is a read-only Speedrun.com API v1
+client. It never mutates the draft, active state or player directory; it only
+updates `integration-status.speedrunCom`.
+
+- `client.ts` performs the HTTP calls with the Node.js global `fetch`, a 10s
+  timeout, `AbortSignal` support, a descriptive `User-Agent`, pagination
+  (`max`/`offset`, bounded by a max page count) and a small in-memory cache with
+  request coalescing.
+- `parser.ts` removes the `{ data }` / `{ data, pagination }` envelopes;
+  `mapper.ts` validates only the fields we use and normalizes them.
+- Errors are structured (`not_found`, `rate_limited` with `Retry-After`,
+  `timeout`, `network_error`, `invalid_json`, `invalid_payload`, ...); no
+  automatic retry.
+- `speedrun-discovery-service.ts` exposes game search / detail / options,
+  category variables and user search / detail, and drives the in-flight-aware
+  `integration-status.speedrunCom` (`fetching`/`ready`/`error`).
+- `speedrun.games.search`, `speedrun.game.get`, `speedrun.game.options`,
+  `speedrun.category.variables`, `speedrun.users.search` and `speedrun.user.get`
+  are registered in `messages/speedrun-messages.ts`.
+
 TypeScript domain types under `src/replicants/value-types.ts` are the single
 source of truth for the Replicants. `npm run schema:generate` writes one
 self-contained draft-07 schema per Replicant into `schemas/`; `npm run

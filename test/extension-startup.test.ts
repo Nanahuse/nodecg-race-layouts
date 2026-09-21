@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 
 import type { CategoryDraftService } from "../src/extension/application/category-draft-service";
 import type { RaceDraftService } from "../src/extension/application/race-draft-service";
+import type { SpeedrunDiscoveryService } from "../src/extension/application/speedrun-discovery-service";
 import { registerCategoryMessages } from "../src/extension/messages/category-messages";
 import { registerRaceMessages } from "../src/extension/messages/race-messages";
+import { registerSpeedrunMessages } from "../src/extension/messages/speedrun-messages";
 import { bootstrapExtension } from "../src/extension/setup";
 import type { MessageHandler, NodeCG } from "../src/types/nodecg";
 import { createFakeLogger, TrackingReplicant } from "./support/fakes";
@@ -29,6 +31,7 @@ function makeFakeNodeCG(bundleConfig: unknown) {
     },
     log: fakeLogger.logger,
     bundleConfig,
+    bundleVersion: "0.0.0",
   } as unknown as NodeCG;
 
   return { nodecg, listened, handlers };
@@ -48,6 +51,12 @@ describe("bootstrapExtension", () => {
     expect(listened).toContain("category.presentation.update");
     expect(listened).toContain("category.presentation.save");
     expect(listened).toContain("category.presentation.revert");
+    expect(listened).toContain("speedrun.games.search");
+    expect(listened).toContain("speedrun.game.get");
+    expect(listened).toContain("speedrun.game.options");
+    expect(listened).toContain("speedrun.category.variables");
+    expect(listened).toContain("speedrun.users.search");
+    expect(listened).toContain("speedrun.user.get");
   });
 
   it("registers messages with an invalid spreadsheet config", () => {
@@ -56,6 +65,7 @@ describe("bootstrapExtension", () => {
     expect(() => bootstrapExtension(nodecg)).not.toThrow();
     expect(listened).toContain("race.load");
     expect(listened).toContain("category.select");
+    expect(listened).toContain("speedrun.games.search");
   });
 });
 
@@ -151,6 +161,35 @@ describe("registerCategoryMessages", () => {
       changed: true,
       draftRevision: 2,
       savedMappingState: "none",
+    });
+  });
+});
+
+describe("registerSpeedrunMessages", () => {
+  it("acknowledges speedrun.games.search with the structured result", async () => {
+    const { nodecg, handlers } = makeFakeNodeCG(undefined);
+    const service = {
+      searchGames: async () => ({
+        ok: true,
+        games: [{ id: "g1", name: "Game", abbreviation: "g" }],
+      }),
+      getGame: async () => ({ ok: false, reason: "not_found", message: "x" }),
+      getGameOptions: async () => ({ ok: false, reason: "not_found", message: "x" }),
+      getCategoryVariables: async () => ({ ok: true, variables: [] }),
+      searchUsers: async () => ({ ok: true, users: [] }),
+      getUser: async () => ({ ok: false, reason: "not_found", message: "x" }),
+    } as unknown as SpeedrunDiscoveryService;
+
+    registerSpeedrunMessages(nodecg, service);
+
+    const results: unknown[] = [];
+    await handlers.get("speedrun.games.search")?.({ query: "mario" }, (_e, r) => {
+      results.push(r);
+    });
+
+    expect(results[0]).toEqual({
+      ok: true,
+      games: [{ id: "g1", name: "Game", abbreviation: "g" }],
     });
   });
 });

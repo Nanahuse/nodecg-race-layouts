@@ -15,7 +15,9 @@ import {
 import { PlayerDirectoryService } from "./application/player-directory-service";
 import { RaceDraftService } from "./application/race-draft-service";
 import { RaceSessionService } from "./application/race-session-service";
+import { SpeedrunDiscoveryService } from "./application/speedrun-discovery-service";
 import { parseBundleConfig } from "./config";
+import { HttpSpeedrunComClient } from "./integrations/speedruncom/client";
 import { HttpRaceTimeClient } from "./integrations/racetime/client";
 import { RaceTimeWebSocketError } from "./integrations/racetime/errors";
 import type {
@@ -35,6 +37,7 @@ import { GoogleSheetsClient } from "./integrations/spreadsheet/google-sheets-cli
 import { SpreadsheetPlayersRepository } from "./integrations/spreadsheet/players-repository";
 import { registerCategoryMessages } from "./messages/category-messages";
 import { registerRaceMessages } from "./messages/race-messages";
+import { registerSpeedrunMessages } from "./messages/speedrun-messages";
 
 export type SpreadsheetIntegration = {
   playerDirectoryService: PlayerDirectoryService;
@@ -162,14 +165,32 @@ export function setupRaceTimeIntegration(
   return { raceDraft, categoryDraft };
 }
 
+/**
+ * Set up the Speedrun.com discovery integration. It is read-only and only
+ * updates `integration-status.speedrunCom`.
+ */
+export function setupSpeedrunIntegration(nodecg: NodeCG): SpeedrunDiscoveryService {
+  const client = new HttpSpeedrunComClient({
+    userAgent: `nodecg-race-layouts/${nodecg.bundleVersion}`,
+  });
+  return new SpeedrunDiscoveryService({
+    client,
+    integrationStatus: nodecg.Replicant<IntegrationStatus>("integration-status"),
+    log: nodecg.log,
+  });
+}
+
 export function bootstrapExtension(nodecg: NodeCG): {
   raceDraft: RaceDraftService;
   categoryDraft: CategoryDraftService;
+  speedrunDiscovery: SpeedrunDiscoveryService;
 } {
   declareReplicants(nodecg);
   const spreadsheet = setupSpreadsheetIntegration(nodecg);
   const { raceDraft, categoryDraft } = setupRaceTimeIntegration(nodecg, spreadsheet);
+  const speedrunDiscovery = setupSpeedrunIntegration(nodecg);
   registerRaceMessages(nodecg, raceDraft);
   registerCategoryMessages(nodecg, categoryDraft);
-  return { raceDraft, categoryDraft };
+  registerSpeedrunMessages(nodecg, speedrunDiscovery);
+  return { raceDraft, categoryDraft, speedrunDiscovery };
 }
