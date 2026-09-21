@@ -1,9 +1,9 @@
 {
   "compilerOptions": {
-    "target": "ES2022",
+    "target": "ES2023",
     "module": "CommonJS",
-    "moduleResolution": "Node",
-    "lib": ["ES2022"],
+    "moduleResolution": "Node10",
+    "lib": ["ES2023"],
     "types": ["node"],
     "strict": true,
     "noUncheckedIndexedAccess": true,
@@ -19,5 +19,5 @@
     "outDir": "dist",
     "rootDir": "."
   },
-  "include": ["src/**/*.ts", "test/**/*.ts", "scripts/**/*.ts", "*.config.ts"]
+  "include": ["src/**/*.ts", "test/**/*.ts", "scripts/**/*.ts", "*.config.mts"]
 }

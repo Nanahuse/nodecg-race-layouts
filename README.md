@@ -2,6 +2,10 @@
 
 NodeCG layouts for RTA race events.
 
+## Requirements
+
+- Node.js 24 or newer (see `.node-version` / `.nvmrc`).
+
 ## Foundation
 
 The repository currently contains the **foundation layer only**: domain types,
