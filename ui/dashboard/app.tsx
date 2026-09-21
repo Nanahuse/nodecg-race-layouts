@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type {
   ActiveConfig,
   DraftConfig,
@@ -13,6 +13,7 @@ import { raceApi } from "./api/race-api";
 import { createParticipantApi } from "./api/participant-api";
 import { useReplicant } from "./hooks/use-replicant";
 import { statusTone } from "./model/status";
+import { resetParticipantLocalState } from "./model/participant-state";
 
 function Badge({
   label,
@@ -79,6 +80,14 @@ function ParticipantCard({
   const [twitchLogin, setTwitchLogin] = useState("");
   const [pending, setPending] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    const next = resetParticipantLocalState(player);
+    setDisplayName(next.displayName);
+    setSpeedrunId(next.speedrunId);
+    setTwitchLogin(next.twitchLogin);
+    setError(next.error);
+    setPending(null);
+  }, [player?.playerId]);
   const run = async (
     operation: string,
     action: () => Promise<{ ok: boolean; message?: string }>,
