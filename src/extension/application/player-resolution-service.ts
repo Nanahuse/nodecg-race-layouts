@@ -108,6 +108,18 @@ export function playerMappingToDraftPlayer(
   };
 }
 
+/**
+ * Convert a persistent player into a draft player, preserving its RaceTime
+ * link (linked / none) as spreadsheet-sourced.
+ */
+export function persistentPlayerToDraftPlayer(mapping: PlayerMapping): DraftPlayer {
+  const racetime: DraftRaceTimeAccountLink =
+    mapping.racetime.state === "linked"
+      ? { state: "linked", value: mapping.racetime.value, source: "spreadsheet" }
+      : { state: "none", source: "spreadsheet" };
+  return playerMappingToDraftPlayer(mapping, racetime);
+}
+
 function createNewDraftPlayer(
   playerId: PlayerId,
   entrant: RaceTimeEntrant,

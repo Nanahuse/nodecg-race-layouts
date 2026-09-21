@@ -194,6 +194,29 @@ automatically on race load / reconcile, or manually through the
   display-name / Twitch-only edits retag. Player directory and active state are
   never modified.
 
+### Race screen & commentators
+
+`race-screen.set-slots` and `commentators.set` (handled in
+`race-presentation-messages.ts`, workflow in `race-presentation-draft-service.ts`)
+edit the draft's broadcast structure. Both require `expectedDraftRevision` and
+never reset the snapshot (slots and commentators do not affect leaderboard
+conditions), so a ready snapshot is retagged.
+
+- Slots are set all at once (`{ 1..4: string | null }`, RaceTime user ids) so a
+  swap is atomic. `null` is allowed in the draft; unknown participants and
+  duplicates are rejected.
+- Commentators are set as an ordered array of player ids (0–3). Draft players are
+  reused as-is; players only in the player directory are imported via
+  `persistentPlayerToDraftPlayer`. Participant/commentator overlap is allowed.
+- `pruneUnreferencedDraftPlayers` is shared by participant and commentator
+  editing.
+
+Draft integrity (what may be saved) and draft readiness (what may be applied)
+are separate: `validateDraftIntegrity` allows null slots, while
+`validateDraftReadiness` requires all four slots, valid commentators, a category
+selection and resolvable identities. `computeDraftBroadcastState` combines
+readiness with snapshot state, so a draft with an empty slot is never `ready`.
+
 TypeScript domain types under `src/replicants/value-types.ts` are the single
 source of truth for the Replicants. `npm run schema:generate` writes one
 self-contained draft-07 schema per Replicant into `schemas/`; `npm run
