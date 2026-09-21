@@ -99,6 +99,14 @@ describe("needsDraftReconciliation", () => {
     expect(needsDraftReconciliation(draft, next)).toBe(true);
   });
 
+  it("detects a category name change", () => {
+    const next: RaceSession = {
+      ...session,
+      race: session.race ? { ...session.race, categoryName: "New Name" } : null,
+    };
+    expect(needsDraftReconciliation(draft, next)).toBe(true);
+  });
+
   it("ignores a race status change", () => {
     const next: RaceSession = {
       ...session,
@@ -322,9 +330,10 @@ describe("reconcileDraft", () => {
       playerIdFactory: sequentialIds("r"),
     });
 
-    expect(outcome.changed).toBe(false);
-    expect(outcome.draft).toBe(draft);
+    expect(outcome.categoryChanged).toBe(false);
+    expect(outcome.draft.race?.categoryName).toBe("New Name");
     expect(outcome.draft.categorySelection).toEqual(draft.categorySelection);
+    expect(outcome.draft.revision).toBe(draft.revision + 1);
   });
 
   it("does not change the revision when there is no relevant difference", () => {

@@ -43,3 +43,21 @@ export type CategoryPresentation = {
 
   leaderboardHeading: string;
 };
+
+/** RaceTime.gg side of a reusable category mapping. */
+export type RaceCategoryReference = {
+  categorySlug: string;
+  categoryName: string;
+  goal: string;
+};
+
+/**
+ * A reusable preset that maps a RaceTime.gg category + goal to a Speedrun.com
+ * category selection. This is distinct from the selection currently used by a
+ * race (`CategorySelectionState`): the mapping is persisted, the selection is
+ * per-race.
+ */
+export type CategoryMapping = {
+  racetime: RaceCategoryReference;
+  speedrunCom: SpeedrunCategorySelection;
+};

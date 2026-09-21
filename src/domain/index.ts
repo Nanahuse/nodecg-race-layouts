@@ -1,5 +1,7 @@
 export * from "./account-link";
 export * from "./category";
+export * from "./category-selection";
+export * from "./category-validation";
 export * from "./config";
 export * from "./display-name";
 export * from "./identity";

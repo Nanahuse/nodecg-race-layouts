@@ -1,5 +1,7 @@
 import type {
   BroadcastStatusState,
+  CategoryMapping,
+  CategoryPresentation,
   DraftConfig,
   DraftRaceScreenSlots,
   DraftSpeedrunSnapshot,
@@ -7,11 +9,17 @@ import type {
   PlayerDirectory,
   RaceSession,
 } from "../../domain";
+import { categorySelectionFromMapping } from "../../domain";
 import {
   createDefaultDraftConfig,
   createDefaultIntegrationStatus,
 } from "../../replicants/defaults";
 import type { NodeCGLogger, Replicant } from "../../types/nodecg";
+import {
+  nullCategoryPresetProvider,
+  type CategoryPreset,
+  type CategoryPresetProvider,
+} from "./category-preset-provider";
 import {
   createRandomPlayerIdFactory,
   resolvePlayers,
@@ -64,6 +72,8 @@ export type BuildInitialDraftOptions = {
   directory: PlayerDirectory;
   playerIdFactory: PlayerIdFactory;
   revision: number;
+  /** Persisted category preset for this race's category key, if any. */
+  categoryPreset?: CategoryPreset;
 };
 
 /**
@@ -106,8 +116,8 @@ export function buildInitialDraft(options: BuildInitialDraftOptions): InitialDra
       players: resolution.players,
       raceScreenSlots,
       commentatorPlayerIds: [],
-      categorySelection: { selection: null, source: null, savedMappingState: "none" },
-      categoryPresentation: null,
+      categorySelection: categorySelectionFromMapping(options.categoryPreset?.mapping ?? null),
+      categoryPresentation: options.categoryPreset?.presentation ?? null,
     },
   };
 }
@@ -162,6 +172,7 @@ export type RaceDraftServiceOptions = {
   integrationStatus: Replicant<IntegrationStatus>;
   log: NodeCGLogger;
   playerIdFactory?: PlayerIdFactory;
+  categoryPresets?: CategoryPresetProvider;
 };
 
 function describeError(error: unknown): string {
@@ -182,6 +193,7 @@ export class RaceDraftService {
   private readonly integrationStatus: Replicant<IntegrationStatus>;
   private readonly log: NodeCGLogger;
   private readonly playerIdFactory: PlayerIdFactory;
+  private readonly categoryPresets: CategoryPresetProvider;
 
   private suppressReconcile = false;
 
@@ -194,6 +206,7 @@ export class RaceDraftService {
     this.integrationStatus = options.integrationStatus;
     this.log = options.log;
     this.playerIdFactory = options.playerIdFactory ?? createRandomPlayerIdFactory();
+    this.categoryPresets = options.categoryPresets ?? nullCategoryPresetProvider;
   }
 
   async loadRace(url: string): Promise<RaceLoadOutcome> {
@@ -219,12 +232,18 @@ export class RaceDraftService {
 
       this.setBroadcastState("resolving", null, this.currentDraftRevision());
 
+      const race = result.session.race;
+      const categoryPreset = race
+        ? await this.loadCategoryPreset(race.categorySlug, race.goal)
+        : { mapping: null, presentation: null };
+
       const revision = (this.draftConfig.value?.revision ?? 0) + 1;
       const built = buildInitialDraft({
         session: result.session,
         directory: this.playerDirectory.value ?? {},
         playerIdFactory: this.playerIdFactory,
         revision,
+        categoryPreset,
       });
 
       const integrityIssues = validateDraftIntegrity(built.draft);
@@ -298,11 +317,19 @@ export class RaceDraftService {
     this.logEvent("race.reconcile.started", { draftRevision: draft.revision });
 
     try {
+      const categoryKeyChanged =
+        draft.race?.categorySlug !== session.race.categorySlug ||
+        draft.race?.goal !== session.race.goal;
+      const categoryPreset = categoryKeyChanged
+        ? await this.loadCategoryPreset(session.race.categorySlug, session.race.goal)
+        : undefined;
+
       const outcome = reconcileDraft({
         draft,
         session,
         directory: this.playerDirectory.value ?? {},
         playerIdFactory: this.playerIdFactory,
+        categoryPreset,
       });
 
       if (outcome.changed) {
@@ -370,6 +397,45 @@ export class RaceDraftService {
       raceId: draft.race.raceId,
       draftRevision: draft.revision,
     });
+  }
+
+  private async loadCategoryPreset(categorySlug: string, goal: string): Promise<CategoryPreset> {
+    const mapping = await this.lookupMapping(categorySlug, goal);
+    const presentation = await this.lookupPresentation(categorySlug, goal);
+    return { mapping, presentation };
+  }
+
+  private async lookupMapping(categorySlug: string, goal: string): Promise<CategoryMapping | null> {
+    try {
+      const mapping = await this.categoryPresets.findMapping(categorySlug, goal);
+      this.logEvent("category.mapping.lookup.completed", {
+        categorySlug,
+        goal,
+        found: mapping !== null,
+      });
+      return mapping;
+    } catch (error) {
+      this.logEvent("category.mapping.lookup.failed", { categorySlug, goal, error }, "error");
+      return null;
+    }
+  }
+
+  private async lookupPresentation(
+    categorySlug: string,
+    goal: string,
+  ): Promise<CategoryPresentation | null> {
+    try {
+      const presentation = await this.categoryPresets.findPresentation(categorySlug, goal);
+      this.logEvent("category.presentation.lookup.completed", {
+        categorySlug,
+        goal,
+        found: presentation !== null,
+      });
+      return presentation;
+    } catch (error) {
+      this.logEvent("category.presentation.lookup.failed", { categorySlug, goal, error }, "error");
+      return null;
+    }
   }
 
   private currentDraftRevision(): number | null {
