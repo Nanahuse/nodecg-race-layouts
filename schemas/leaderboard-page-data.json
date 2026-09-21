@@ -1,0 +1,131 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "anyOf": [
+    {
+      "$ref": "#/definitions/LeaderboardPageData"
+    },
+    {
+      "type": "null"
+    }
+  ],
+  "definitions": {
+    "EventView": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "shortName": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "name",
+        "shortName"
+      ],
+      "type": "object"
+    },
+    "LeaderboardPageData": {
+      "additionalProperties": false,
+      "properties": {
+        "activeRevision": {
+          "type": "number"
+        },
+        "category": {
+          "additionalProperties": false,
+          "properties": {
+            "subtitle": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "title": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "title",
+            "subtitle"
+          ],
+          "type": "object"
+        },
+        "event": {
+          "$ref": "#/definitions/EventView"
+        },
+        "leaderboard": {
+          "items": {
+            "$ref": "#/definitions/LeaderboardPageEntry"
+          },
+          "type": "array"
+        },
+        "presentation": {
+          "additionalProperties": false,
+          "properties": {
+            "leaderboardHeading": {
+              "type": "string"
+            },
+            "ruleHeading": {
+              "type": "string"
+            },
+            "ruleLines": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "sourceLabel": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "ruleHeading",
+            "ruleLines",
+            "leaderboardHeading",
+            "sourceLabel"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "activeRevision",
+        "event",
+        "category",
+        "presentation",
+        "leaderboard"
+      ],
+      "type": "object"
+    },
+    "LeaderboardPageEntry": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "rank": {
+          "type": "number"
+        },
+        "secondaryName": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "time": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "rank",
+        "name",
+        "secondaryName",
+        "time"
+      ],
+      "type": "object"
+    }
+  },
+  "title": "leaderboard-page-data"
+}

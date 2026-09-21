@@ -1,0 +1,156 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "anyOf": [
+    {
+      "$ref": "#/definitions/ParticipantListData"
+    },
+    {
+      "type": "null"
+    }
+  ],
+  "definitions": {
+    "CommentatorView": {
+      "additionalProperties": false,
+      "properties": {
+        "displayName": {
+          "type": "string"
+        },
+        "playerId": {
+          "$ref": "#/definitions/PlayerId"
+        },
+        "twitchLogin": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "playerId",
+        "displayName",
+        "twitchLogin"
+      ],
+      "type": "object"
+    },
+    "EventView": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "shortName": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "name",
+        "shortName"
+      ],
+      "type": "object"
+    },
+    "ParticipantListData": {
+      "additionalProperties": false,
+      "properties": {
+        "activeRevision": {
+          "type": "number"
+        },
+        "category": {
+          "additionalProperties": false,
+          "properties": {
+            "name": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "name"
+          ],
+          "type": "object"
+        },
+        "commentators": {
+          "items": {
+            "$ref": "#/definitions/CommentatorView"
+          },
+          "maxItems": 3,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "event": {
+          "$ref": "#/definitions/EventView"
+        },
+        "participants": {
+          "items": {
+            "$ref": "#/definitions/ParticipantListEntry"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "activeRevision",
+        "event",
+        "category",
+        "commentators",
+        "participants"
+      ],
+      "type": "object"
+    },
+    "ParticipantListEntry": {
+      "additionalProperties": false,
+      "properties": {
+        "displayName": {
+          "type": "string"
+        },
+        "personalBest": {
+          "$ref": "#/definitions/PlayerPersonalBestView"
+        },
+        "racetimeUserId": {
+          "$ref": "#/definitions/RaceTimeUserId"
+        },
+        "speedrunComName": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "racetimeUserId",
+        "displayName",
+        "speedrunComName",
+        "personalBest"
+      ],
+      "type": "object"
+    },
+    "PlayerId": {
+      "type": "string"
+    },
+    "PlayerPersonalBestView": {
+      "additionalProperties": false,
+      "properties": {
+        "rank": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "time": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "time",
+        "rank"
+      ],
+      "type": "object"
+    },
+    "RaceTimeUserId": {
+      "type": "string"
+    }
+  },
+  "title": "participant-list-data"
+}

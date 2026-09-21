@@ -1,0 +1,197 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "anyOf": [
+    {
+      "$ref": "#/definitions/RaceOverlayData"
+    },
+    {
+      "type": "null"
+    }
+  ],
+  "definitions": {
+    "CommentatorView": {
+      "additionalProperties": false,
+      "properties": {
+        "displayName": {
+          "type": "string"
+        },
+        "playerId": {
+          "$ref": "#/definitions/PlayerId"
+        },
+        "twitchLogin": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "playerId",
+        "displayName",
+        "twitchLogin"
+      ],
+      "type": "object"
+    },
+    "EventView": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "shortName": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "name",
+        "shortName"
+      ],
+      "type": "object"
+    },
+    "PlayerId": {
+      "type": "string"
+    },
+    "PlayerPersonalBestView": {
+      "additionalProperties": false,
+      "properties": {
+        "rank": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "time": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "time",
+        "rank"
+      ],
+      "type": "object"
+    },
+    "RaceOverlayData": {
+      "additionalProperties": false,
+      "properties": {
+        "activeRevision": {
+          "type": "number"
+        },
+        "category": {
+          "additionalProperties": false,
+          "properties": {
+            "name": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "name"
+          ],
+          "type": "object"
+        },
+        "commentators": {
+          "items": {
+            "$ref": "#/definitions/CommentatorView"
+          },
+          "maxItems": 3,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "event": {
+          "$ref": "#/definitions/EventView"
+        },
+        "players": {
+          "$ref": "#/definitions/RaceOverlayPlayers"
+        },
+        "worldRecord": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/WorldRecordView"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "activeRevision",
+        "event",
+        "category",
+        "worldRecord",
+        "commentators",
+        "players"
+      ],
+      "type": "object"
+    },
+    "RaceOverlayPlayer": {
+      "additionalProperties": false,
+      "properties": {
+        "displayName": {
+          "type": "string"
+        },
+        "personalBest": {
+          "$ref": "#/definitions/PlayerPersonalBestView"
+        },
+        "slot": {
+          "$ref": "#/definitions/RaceScreenSlot"
+        },
+        "twitchLogin": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "slot",
+        "displayName",
+        "twitchLogin",
+        "personalBest"
+      ],
+      "type": "object"
+    },
+    "RaceOverlayPlayers": {
+      "items": {
+        "$ref": "#/definitions/RaceOverlayPlayer"
+      },
+      "maxItems": 4,
+      "minItems": 4,
+      "type": "array"
+    },
+    "RaceScreenSlot": {
+      "enum": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "type": "number"
+    },
+    "WorldRecordView": {
+      "additionalProperties": false,
+      "properties": {
+        "holders": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "time": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "time",
+        "holders"
+      ],
+      "type": "object"
+    }
+  },
+  "title": "race-overlay-data"
+}

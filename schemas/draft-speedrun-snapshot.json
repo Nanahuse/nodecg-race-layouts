@@ -1,0 +1,265 @@
+{
+  "$ref": "#/definitions/DraftSpeedrunSnapshot",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "definitions": {
+    "DraftSpeedrunSnapshot": {
+      "additionalProperties": false,
+      "properties": {
+        "draftRevision": {
+          "type": "number"
+        },
+        "message": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "snapshot": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/SpeedrunSnapshot"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "state": {
+          "enum": [
+            "empty",
+            "fetching",
+            "ready",
+            "error"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "draftRevision",
+        "state",
+        "snapshot",
+        "message"
+      ],
+      "type": "object"
+    },
+    "LeaderboardEntry": {
+      "additionalProperties": false,
+      "properties": {
+        "formattedTime": {
+          "type": "string"
+        },
+        "rank": {
+          "type": "number"
+        },
+        "speedrunComName": {
+          "type": "string"
+        },
+        "speedrunComUserId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "timeSeconds": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "rank",
+        "speedrunComUserId",
+        "speedrunComName",
+        "timeSeconds",
+        "formattedTime"
+      ],
+      "type": "object"
+    },
+    "LeaderboardKey": {
+      "additionalProperties": false,
+      "properties": {
+        "categoryId": {
+          "type": "string"
+        },
+        "emulator": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "gameId": {
+          "type": "string"
+        },
+        "levelId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "platformId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "regionId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "timingMethod": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/TimingMethod"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "variables": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        }
+      },
+      "required": [
+        "gameId",
+        "categoryId",
+        "levelId",
+        "variables",
+        "platformId",
+        "regionId",
+        "emulator",
+        "timingMethod"
+      ],
+      "type": "object"
+    },
+    "PersonalBest": {
+      "additionalProperties": false,
+      "properties": {
+        "formattedTime": {
+          "type": "string"
+        },
+        "rank": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "timeSeconds": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "timeSeconds",
+        "formattedTime",
+        "rank"
+      ],
+      "type": "object"
+    },
+    "SpeedrunSnapshot": {
+      "additionalProperties": false,
+      "properties": {
+        "fetchedAt": {
+          "type": "string"
+        },
+        "leaderboard": {
+          "items": {
+            "$ref": "#/definitions/LeaderboardEntry"
+          },
+          "type": "array"
+        },
+        "leaderboardKey": {
+          "$ref": "#/definitions/LeaderboardKey"
+        },
+        "personalBests": {
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "$ref": "#/definitions/PersonalBest"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "type": "object"
+        },
+        "snapshotId": {
+          "type": "string"
+        },
+        "worldRecord": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/WorldRecord"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "snapshotId",
+        "fetchedAt",
+        "leaderboardKey",
+        "worldRecord",
+        "leaderboard",
+        "personalBests"
+      ],
+      "type": "object"
+    },
+    "TimingMethod": {
+      "enum": [
+        "realtime",
+        "realtime_noloads",
+        "ingame"
+      ],
+      "type": "string"
+    },
+    "WorldRecord": {
+      "additionalProperties": false,
+      "properties": {
+        "formattedTime": {
+          "type": "string"
+        },
+        "holders": {
+          "items": {
+            "$ref": "#/definitions/WorldRecordHolder"
+          },
+          "type": "array"
+        },
+        "timeSeconds": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "timeSeconds",
+        "formattedTime",
+        "holders"
+      ],
+      "type": "object"
+    },
+    "WorldRecordHolder": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "userId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "userId",
+        "name"
+      ],
+      "type": "object"
+    }
+  },
+  "title": "draft-speedrun-snapshot"
+}

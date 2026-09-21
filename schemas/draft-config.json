@@ -1,0 +1,572 @@
+{
+  "$ref": "#/definitions/DraftConfig",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "definitions": {
+    "CategoryPresentation": {
+      "additionalProperties": false,
+      "properties": {
+        "leaderboardHeading": {
+          "type": "string"
+        },
+        "ruleHeading": {
+          "type": "string"
+        },
+        "ruleLines": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "subtitle": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "title": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "title",
+        "subtitle",
+        "ruleHeading",
+        "ruleLines",
+        "leaderboardHeading"
+      ],
+      "type": "object"
+    },
+    "CategorySelectionSource": {
+      "enum": [
+        "saved_mapping",
+        "manual"
+      ],
+      "type": "string"
+    },
+    "CategorySelectionState": {
+      "additionalProperties": false,
+      "properties": {
+        "savedMappingState": {
+          "enum": [
+            "none",
+            "matches",
+            "overridden"
+          ],
+          "type": "string"
+        },
+        "selection": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/SpeedrunCategorySelection"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "source": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/CategorySelectionSource"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "selection",
+        "source",
+        "savedMappingState"
+      ],
+      "type": "object"
+    },
+    "DraftConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "categoryPresentation": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/CategoryPresentation"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "categorySelection": {
+          "$ref": "#/definitions/CategorySelectionState"
+        },
+        "commentatorPlayerIds": {
+          "items": {
+            "$ref": "#/definitions/PlayerId"
+          },
+          "maxItems": 3,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "participants": {
+          "items": {
+            "$ref": "#/definitions/DraftRaceParticipant"
+          },
+          "type": "array"
+        },
+        "players": {
+          "additionalProperties": {
+            "$ref": "#/definitions/DraftPlayer"
+          },
+          "type": "object"
+        },
+        "race": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/RaceReference"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "raceScreenSlots": {
+          "$ref": "#/definitions/DraftRaceScreenSlots"
+        },
+        "revision": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "revision",
+        "race",
+        "participants",
+        "players",
+        "raceScreenSlots",
+        "commentatorPlayerIds",
+        "categorySelection",
+        "categoryPresentation"
+      ],
+      "type": "object"
+    },
+    "DraftNoneAccountLink": {
+      "additionalProperties": false,
+      "properties": {
+        "source": {
+          "enum": [
+            "spreadsheet",
+            "manual"
+          ],
+          "type": "string"
+        },
+        "state": {
+          "const": "none",
+          "type": "string"
+        }
+      },
+      "required": [
+        "state",
+        "source"
+      ],
+      "type": "object"
+    },
+    "DraftPlayer": {
+      "additionalProperties": false,
+      "properties": {
+        "manualDisplayName": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "playerId": {
+          "$ref": "#/definitions/PlayerId"
+        },
+        "racetime": {
+          "$ref": "#/definitions/DraftRaceTimeAccountLink"
+        },
+        "speedrunCom": {
+          "$ref": "#/definitions/DraftSpeedrunComAccountLink"
+        },
+        "twitch": {
+          "$ref": "#/definitions/DraftTwitchAccountLink"
+        }
+      },
+      "required": [
+        "playerId",
+        "manualDisplayName",
+        "racetime",
+        "speedrunCom",
+        "twitch"
+      ],
+      "type": "object"
+    },
+    "DraftRaceParticipant": {
+      "additionalProperties": false,
+      "properties": {
+        "playerId": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/PlayerId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "racetimeUserId": {
+          "$ref": "#/definitions/RaceTimeUserId"
+        }
+      },
+      "required": [
+        "racetimeUserId",
+        "playerId"
+      ],
+      "type": "object"
+    },
+    "DraftRaceScreenSlots": {
+      "additionalProperties": false,
+      "properties": {
+        "1": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/RaceTimeUserId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "2": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/RaceTimeUserId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "3": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/RaceTimeUserId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "4": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/RaceTimeUserId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "1",
+        "2",
+        "3",
+        "4"
+      ],
+      "type": "object"
+    },
+    "DraftRaceTimeAccountLink": {
+      "anyOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "source": {
+              "$ref": "#/definitions/LinkSource"
+            },
+            "state": {
+              "const": "linked",
+              "type": "string"
+            },
+            "value": {
+              "$ref": "#/definitions/RaceTimeIdentity"
+            }
+          },
+          "required": [
+            "state",
+            "value",
+            "source"
+          ],
+          "type": "object"
+        },
+        {
+          "$ref": "#/definitions/DraftNoneAccountLink"
+        },
+        {
+          "$ref": "#/definitions/DraftUnresolvedAccountLink"
+        }
+      ]
+    },
+    "DraftSpeedrunComAccountLink": {
+      "anyOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "source": {
+              "$ref": "#/definitions/LinkSource"
+            },
+            "state": {
+              "const": "linked",
+              "type": "string"
+            },
+            "value": {
+              "$ref": "#/definitions/SpeedrunComIdentity"
+            }
+          },
+          "required": [
+            "state",
+            "value",
+            "source"
+          ],
+          "type": "object"
+        },
+        {
+          "$ref": "#/definitions/DraftNoneAccountLink"
+        },
+        {
+          "$ref": "#/definitions/DraftUnresolvedAccountLink"
+        }
+      ]
+    },
+    "DraftTwitchAccountLink": {
+      "anyOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "source": {
+              "$ref": "#/definitions/LinkSource"
+            },
+            "state": {
+              "const": "linked",
+              "type": "string"
+            },
+            "value": {
+              "$ref": "#/definitions/TwitchIdentity"
+            }
+          },
+          "required": [
+            "state",
+            "value",
+            "source"
+          ],
+          "type": "object"
+        },
+        {
+          "$ref": "#/definitions/DraftNoneAccountLink"
+        },
+        {
+          "$ref": "#/definitions/DraftUnresolvedAccountLink"
+        }
+      ]
+    },
+    "DraftUnresolvedAccountLink": {
+      "additionalProperties": false,
+      "properties": {
+        "state": {
+          "const": "unresolved",
+          "type": "string"
+        }
+      },
+      "required": [
+        "state"
+      ],
+      "type": "object"
+    },
+    "LinkSource": {
+      "enum": [
+        "spreadsheet",
+        "racetime",
+        "speedruncom",
+        "auto",
+        "manual"
+      ],
+      "type": "string"
+    },
+    "PlayerId": {
+      "type": "string"
+    },
+    "RaceReference": {
+      "additionalProperties": false,
+      "properties": {
+        "canonicalUrl": {
+          "type": "string"
+        },
+        "categoryName": {
+          "type": "string"
+        },
+        "categorySlug": {
+          "type": "string"
+        },
+        "goal": {
+          "type": "string"
+        },
+        "raceId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "canonicalUrl",
+        "raceId",
+        "categorySlug",
+        "categoryName",
+        "goal"
+      ],
+      "type": "object"
+    },
+    "RaceTimeIdentity": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "twitchLogin": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "userId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "userId",
+        "name",
+        "twitchLogin"
+      ],
+      "type": "object"
+    },
+    "RaceTimeUserId": {
+      "type": "string"
+    },
+    "SpeedrunCategorySelection": {
+      "additionalProperties": false,
+      "properties": {
+        "categoryId": {
+          "type": "string"
+        },
+        "categoryName": {
+          "type": "string"
+        },
+        "emulator": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "gameId": {
+          "type": "string"
+        },
+        "gameName": {
+          "type": "string"
+        },
+        "levelId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "platformId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "regionId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "timingMethod": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/TimingMethod"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "variables": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        }
+      },
+      "required": [
+        "gameId",
+        "gameName",
+        "categoryId",
+        "categoryName",
+        "levelId",
+        "variables",
+        "platformId",
+        "regionId",
+        "emulator",
+        "timingMethod"
+      ],
+      "type": "object"
+    },
+    "SpeedrunComIdentity": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "twitchLogin": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "userId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "userId",
+        "name",
+        "twitchLogin"
+      ],
+      "type": "object"
+    },
+    "TimingMethod": {
+      "enum": [
+        "realtime",
+        "realtime_noloads",
+        "ingame"
+      ],
+      "type": "string"
+    },
+    "TwitchIdentity": {
+      "additionalProperties": false,
+      "properties": {
+        "login": {
+          "type": "string"
+        },
+        "userId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "userId",
+        "login"
+      ],
+      "type": "object"
+    }
+  },
+  "title": "draft-config"
+}

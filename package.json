@@ -1,0 +1,40 @@
+{
+  "name": "nodecg-race-layouts",
+  "version": "0.1.0",
+  "private": true,
+  "description": "NodeCG layouts for RTA race events",
+  "license": "Apache-2.0",
+  "engines": {
+    "node": ">=18.18"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "clean": "rimraf dist",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint \"src/**/*.ts\" \"test/**/*.ts\" \"scripts/**/*.ts\"",
+    "format:check": "prettier --check \"**/*.{ts,json,md}\"",
+    "format": "prettier --write \"**/*.{ts,json,md}\"",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "schema:generate": "tsx scripts/generate-schemas.ts",
+    "schema:check": "tsx scripts/generate-schemas.ts --check",
+    "verify": "npm run typecheck && npm run lint && npm run schema:check && npm run test"
+  },
+  "nodecg": {
+    "compatibleRange": "^2.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^18.19.0",
+    "@typescript-eslint/eslint-plugin": "^7.18.0",
+    "@typescript-eslint/parser": "^7.18.0",
+    "ajv": "^8.17.1",
+    "eslint": "^8.57.1",
+    "eslint-config-prettier": "^9.1.0",
+    "prettier": "^3.3.3",
+    "rimraf": "^5.0.10",
+    "ts-json-schema-generator": "2.3.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.5.4",
+    "vitest": "^1.6.1"
+  }
+}
