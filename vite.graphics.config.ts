@@ -11,6 +11,7 @@ export default defineConfig({
       input: {
         race: "ui/graphics/race.html",
         participants: "ui/graphics/participants.html",
+        leaderboard: "ui/graphics/leaderboard.html",
       },
     },
   },
