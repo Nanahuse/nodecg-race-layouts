@@ -69,9 +69,12 @@ describe("RaceSessionService load", () => {
   it("rejects an invalid URL without creating a session", async () => {
     const { service, draft } = setup();
 
-    const ok = await service.loadRace("draft", "https://example.com/foo/bar");
+    const result = await service.loadRace("draft", "https://example.com/foo/bar");
 
-    expect(ok).toBe(false);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.reason).toBe("invalid_url");
+    }
     expect(draft.value.race).toBeNull();
     expect(draft.value.revision).toBe(0);
   });
@@ -85,9 +88,12 @@ describe("RaceSessionService load", () => {
     client.handler = async () => {
       throw new RaceNotFoundError("nope");
     };
-    const ok = await service.loadRace("draft", URL_B);
+    const result = await service.loadRace("draft", URL_B);
 
-    expect(ok).toBe(false);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.reason).toBe("not_found");
+    }
     expect(draft.value).toBe(before);
     expect(draft.value.race?.raceId).toBe("ootr/race-a");
     expect(factory.sockets).toHaveLength(socketsBefore);

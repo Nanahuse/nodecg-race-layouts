@@ -107,11 +107,13 @@ export class TrackingReplicant<T> implements Replicant<T> {
   readonly name: string;
   readonly events: string[];
   private currentValue: T;
+  private readonly onSet: ((value: T) => void) | undefined;
 
-  constructor(name: string, value: T, events: string[] = []) {
+  constructor(name: string, value: T, events: string[] = [], onSet?: (value: T) => void) {
     this.name = name;
     this.currentValue = value;
     this.events = events;
+    this.onSet = onSet;
   }
 
   get value(): T {
@@ -121,6 +123,7 @@ export class TrackingReplicant<T> implements Replicant<T> {
   set value(next: T) {
     this.currentValue = next;
     this.events.push(`set:${this.name}`);
+    this.onSet?.(next);
   }
 
   on(): void {

@@ -7,7 +7,7 @@ import type {
 import { createDefaultIntegrationStatus } from "../../replicants/defaults";
 import type { NodeCGLogger, Replicant } from "../../types/nodecg";
 import type { RaceTimeClient } from "../integrations/racetime/client";
-import { describeRaceTimeError } from "../integrations/racetime/errors";
+import { describeRaceTimeError, RaceTimeError } from "../integrations/racetime/errors";
 import { jsonEquals } from "../integrations/racetime/equality";
 import { canonicalizeRaceUrl, type CanonicalRaceUrl } from "../integrations/racetime/url";
 import {
@@ -21,6 +21,40 @@ import {
 export type RaceSessionRole = "draft" | "active";
 
 export const RACE_SESSION_ROLES: readonly RaceSessionRole[] = ["draft", "active"];
+
+export type RaceSessionLoadFailureReason =
+  | "invalid_url"
+  | "not_found"
+  | "timeout"
+  | "network_error"
+  | "http_error"
+  | "invalid_payload"
+  | "aborted"
+  | "unknown";
+
+export type RaceSessionLoadResult =
+  | { ok: true; session: RaceSession }
+  | { ok: false; reason: RaceSessionLoadFailureReason; message: string };
+
+export type RaceSessionChangeListener = (role: RaceSessionRole, session: RaceSession) => void;
+
+function toFailureReason(error: unknown): RaceSessionLoadFailureReason {
+  if (error instanceof RaceTimeError) {
+    switch (error.code) {
+      case "invalid_url":
+      case "not_found":
+      case "timeout":
+      case "network_error":
+      case "http_error":
+      case "invalid_payload":
+      case "aborted":
+        return error.code;
+      default:
+        return "unknown";
+    }
+  }
+  return "unknown";
+}
 
 export type RaceSessionServiceOptions = {
   client: RaceTimeClient;
@@ -67,6 +101,7 @@ export class RaceSessionService {
 
   private readonly sessions = new Map<RaceSessionRole, RaceSession>();
   private readonly watchers = new Map<RaceSessionRole, RaceWatcher>();
+  private sessionChangeListener: RaceSessionChangeListener | null = null;
 
   constructor(options: RaceSessionServiceOptions) {
     this.client = options.client;
@@ -83,7 +118,7 @@ export class RaceSessionService {
    * existing watcher is stopped, so a failed load leaves the previous session
    * untouched.
    */
-  async loadRace(role: RaceSessionRole, url: string): Promise<boolean> {
+  async loadRace(role: RaceSessionRole, url: string): Promise<RaceSessionLoadResult> {
     this.logEvent("racetime.session.load.started", { role, url });
 
     let canonical: CanonicalRaceUrl;
@@ -91,7 +126,7 @@ export class RaceSessionService {
       canonical = canonicalizeRaceUrl(url);
     } catch (error) {
       this.logEvent("racetime.session.load.failed", { role, url, error });
-      return false;
+      return { ok: false, reason: "invalid_url", message: describeRaceTimeError(error) };
     }
 
     const hadCurrent = this.watchers.has(role);
@@ -114,13 +149,17 @@ export class RaceSessionService {
       this.watchers.set(role, watcher);
       this.applyWatcherState(role, initial);
 
+      const session = this.sessions.get(role);
       this.logEvent("racetime.session.load.completed", {
         role,
         url: canonical.canonicalUrl,
         raceId: initial.race?.raceId,
-        revision: this.sessions.get(role)?.revision,
+        revision: session?.revision,
       });
-      return true;
+      if (!session) {
+        return { ok: false, reason: "unknown", message: "Race session was not created." };
+      }
+      return { ok: true, session };
     } catch (error) {
       watcher.stop();
       this.logEvent("racetime.session.load.failed", {
@@ -135,8 +174,20 @@ export class RaceSessionService {
           connection: { state: "error", message: describeRaceTimeError(error) },
         });
       }
-      return false;
+      return {
+        ok: false,
+        reason: toFailureReason(error),
+        message: describeRaceTimeError(error),
+      };
     }
+  }
+
+  /**
+   * Register a listener invoked whenever a role's session value changes. Used
+   * by the draft workflow to detect RaceTime-side structural changes.
+   */
+  setSessionChangeListener(listener: RaceSessionChangeListener | null): void {
+    this.sessionChangeListener = listener;
   }
 
   stopRace(role: RaceSessionRole): void {
@@ -215,6 +266,7 @@ export class RaceSessionService {
     this.sessions.set(role, next);
     this.replicants[role].value = next;
     this.updateIntegrationStatus();
+    this.sessionChangeListener?.(role, next);
   }
 
   private updateIntegrationStatus(): void {
