@@ -47,4 +47,6 @@ export interface NodeCG {
    * `configschema.json`). `undefined` when the bundle has no config.
    */
   bundleConfig: unknown;
+  /** The version (from package.json) of the bundle. */
+  bundleVersion: string;
 }
