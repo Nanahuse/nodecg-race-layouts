@@ -46,6 +46,10 @@ export class PlayerDirectoryService {
     this.coordinator = options.statusCoordinator ?? null;
   }
 
+  getRepository(): PlayersRepository {
+    return this.repository;
+  }
+
   async reloadFromSpreadsheet(): Promise<void> {
     const operation = this.coordinator?.begin("loading");
     this.log.info(`[spreadsheet.players.load.started] sheet=${this.sheetName}`);

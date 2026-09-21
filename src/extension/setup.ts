@@ -55,6 +55,8 @@ import { registerPersistenceMessages } from "./messages/persistence-messages";
 import { PostApplyPersistenceService } from "./application/post-apply-persistence-service";
 import { SpreadsheetRaceHistoryRepository } from "./integrations/spreadsheet/race-history-repository";
 import { SpreadsheetOperationStatusCoordinator } from "./application/spreadsheet-status-coordinator";
+import { PlayerMappingManagementService } from "./application/player-mapping-management-service";
+import { registerPlayerDirectoryMessages } from "./messages/player-directory-messages";
 
 export type SpreadsheetIntegration = {
   playerDirectoryService: PlayerDirectoryService;
@@ -349,6 +351,17 @@ export function bootstrapExtension(nodecg: NodeCG): {
     raceSessions,
     postApplyPersistence,
   );
+  const playerMappingManagement = spreadsheet
+    ? new PlayerMappingManagementService({
+        repository: spreadsheet.playerDirectoryService.getRepository(),
+        playerDirectory: nodecg.Replicant<PlayerDirectory>("player-directory"),
+        draftConfig: nodecg.Replicant<DraftConfig>("draft-config"),
+        activeConfig: nodecg.Replicant<ActiveConfig | null>("active-config"),
+        persistence: nodecg.Replicant("post-apply-persistence"),
+        speedrun: speedrunDiscovery,
+        log: nodecg.log,
+      })
+    : null;
   registerPersistenceMessages(nodecg, postApplyPersistence);
   postApplyPersistence?.resume();
   const graphicsProjection = setupGraphicsProjection(nodecg);
@@ -359,6 +372,7 @@ export function bootstrapExtension(nodecg: NodeCG): {
   registerParticipantMessages(nodecg, participantDraft);
   registerRacePresentationMessages(nodecg, racePresentationDraft);
   registerBroadcastMessages(nodecg, broadcastApplyWithPersistence);
+  if (playerMappingManagement) registerPlayerDirectoryMessages(nodecg, playerMappingManagement);
   return {
     raceDraft,
     categoryDraft,
