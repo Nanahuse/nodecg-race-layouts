@@ -16,6 +16,7 @@ export const REPLICANT_NAMES = [
   "leaderboard-page-data",
   "race-result-page-data",
   "integration-status",
+  "post-apply-persistence",
 ] as const;
 
 export type ReplicantName = (typeof REPLICANT_NAMES)[number];

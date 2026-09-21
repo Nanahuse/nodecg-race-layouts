@@ -85,6 +85,12 @@ const validFixtures: Record<ReplicantName, unknown> = {
   "leaderboard-page-data": validLeaderboardPageData,
   "race-result-page-data": validRaceResultPageData,
   "integration-status": createDefaultIntegrationStatus(),
+  "post-apply-persistence": {
+    state: "idle",
+    queue: [],
+    lastSavedActiveRevision: null,
+    message: null,
+  },
 };
 
 const invalidFixtures: Record<ReplicantName, unknown> = {
@@ -100,6 +106,7 @@ const invalidFixtures: Record<ReplicantName, unknown> = {
   "leaderboard-page-data": {},
   "race-result-page-data": {},
   "integration-status": {},
+  "post-apply-persistence": {},
 };
 
 describe.each(REPLICANT_NAMES)("replicant schema: %s", (name) => {

@@ -11,6 +11,7 @@ export * from "./leaderboard-key";
 export * from "./participant";
 export * from "./player";
 export * from "./player-directory-validation";
+export * from "./post-apply-persistence";
 export * from "./race";
 export * from "./race-screen";
 export * from "./race-session";

@@ -4,6 +4,7 @@ import {
   DEFAULT_CATEGORY_MAPPINGS_SHEET,
   DEFAULT_CATEGORY_PRESENTATION_SHEET,
   DEFAULT_PLAYERS_SHEET,
+  DEFAULT_RACE_HISTORY_SHEET,
   parseBundleConfig,
 } from "../src/extension/config";
 
@@ -15,6 +16,7 @@ describe("parseBundleConfig", () => {
         playersSheet: "Runners",
         categoryMappingsSheet: "Mappings",
         categoryPresentationSheet: "Presentation",
+        raceHistorySheet: DEFAULT_RACE_HISTORY_SHEET,
       },
     });
 
@@ -25,6 +27,7 @@ describe("parseBundleConfig", () => {
         playersSheet: "Runners",
         categoryMappingsSheet: "Mappings",
         categoryPresentationSheet: "Presentation",
+        raceHistorySheet: DEFAULT_RACE_HISTORY_SHEET,
       });
     }
   });
@@ -38,6 +41,7 @@ describe("parseBundleConfig", () => {
       expect(result.config.spreadsheet.categoryPresentationSheet).toBe(
         DEFAULT_CATEGORY_PRESENTATION_SHEET,
       );
+      expect(result.config.spreadsheet.raceHistorySheet).toBe(DEFAULT_RACE_HISTORY_SHEET);
     }
   });
 

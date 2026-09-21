@@ -51,11 +51,15 @@ import { registerRaceMessages } from "./messages/race-messages";
 import { registerRacePresentationMessages } from "./messages/race-presentation-messages";
 import { registerSpeedrunMessages } from "./messages/speedrun-messages";
 import { registerSpeedrunSnapshotMessages } from "./messages/speedrun-snapshot-messages";
+import { registerPersistenceMessages } from "./messages/persistence-messages";
+import { PostApplyPersistenceService } from "./application/post-apply-persistence-service";
+import { SpreadsheetRaceHistoryRepository } from "./integrations/spreadsheet/race-history-repository";
 
 export type SpreadsheetIntegration = {
   playerDirectoryService: PlayerDirectoryService;
   categoryMappingsRepository: CategoryMappingsRepository;
   categoryPresentationRepository: CategoryPresentationRepository;
+  raceHistoryRepository: SpreadsheetRaceHistoryRepository;
 };
 
 export const defaultScheduler: RaceWatcherScheduler = {
@@ -88,8 +92,13 @@ export function setupSpreadsheetIntegration(nodecg: NodeCG): SpreadsheetIntegrat
     return null;
   }
 
-  const { spreadsheetId, playersSheet, categoryMappingsSheet, categoryPresentationSheet } =
-    parsed.config.spreadsheet;
+  const {
+    spreadsheetId,
+    playersSheet,
+    categoryMappingsSheet,
+    categoryPresentationSheet,
+    raceHistorySheet,
+  } = parsed.config.spreadsheet;
 
   const client = GoogleSheetsClient.create({ spreadsheetId });
 
@@ -110,6 +119,7 @@ export function setupSpreadsheetIntegration(nodecg: NodeCG): SpreadsheetIntegrat
     categoryPresentationRepository: new SpreadsheetCategoryPresentationRepository(client, {
       sheetName: categoryPresentationSheet,
     }),
+    raceHistoryRepository: new SpreadsheetRaceHistoryRepository(client, raceHistorySheet),
   };
 }
 
@@ -278,6 +288,7 @@ export function setupRacePresentationDraftService(nodecg: NodeCG): RacePresentat
 export function setupBroadcastApplyService(
   nodecg: NodeCG,
   raceSessions: RaceSessionService,
+  postApplyPersistence: PostApplyPersistenceService | null = null,
 ): BroadcastApplyService {
   return new BroadcastApplyService({
     raceSessions,
@@ -289,6 +300,7 @@ export function setupBroadcastApplyService(
     ),
     integrationStatus: nodecg.Replicant<IntegrationStatus>("integration-status"),
     log: nodecg.log,
+    postApplyPersistence,
   });
 }
 
@@ -313,7 +325,21 @@ export function bootstrapExtension(nodecg: NodeCG): {
   );
   const participantDraft = setupParticipantDraftService(nodecg, speedrunDiscovery);
   const racePresentationDraft = setupRacePresentationDraftService(nodecg);
-  const broadcastApply = setupBroadcastApplyService(nodecg, raceSessions);
+  const postApplyPersistence = spreadsheet
+    ? new PostApplyPersistenceService(
+        nodecg.Replicant("post-apply-persistence"),
+        spreadsheet.playerDirectoryService,
+        spreadsheet.raceHistoryRepository,
+        nodecg.log,
+      )
+    : null;
+  const broadcastApplyWithPersistence = setupBroadcastApplyService(
+    nodecg,
+    raceSessions,
+    postApplyPersistence,
+  );
+  registerPersistenceMessages(nodecg, postApplyPersistence);
+  postApplyPersistence?.resume();
   const graphicsProjection = setupGraphicsProjection(nodecg);
   registerRaceMessages(nodecg, raceDraft);
   registerCategoryMessages(nodecg, categoryDraft);
@@ -321,7 +347,7 @@ export function bootstrapExtension(nodecg: NodeCG): {
   registerSpeedrunSnapshotMessages(nodecg, speedrunSnapshot);
   registerParticipantMessages(nodecg, participantDraft);
   registerRacePresentationMessages(nodecg, racePresentationDraft);
-  registerBroadcastMessages(nodecg, broadcastApply);
+  registerBroadcastMessages(nodecg, broadcastApplyWithPersistence);
   return {
     raceDraft,
     categoryDraft,
@@ -329,7 +355,7 @@ export function bootstrapExtension(nodecg: NodeCG): {
     speedrunSnapshot,
     participantDraft,
     racePresentationDraft,
-    broadcastApply,
+    broadcastApply: broadcastApplyWithPersistence,
     graphicsProjection,
   };
 }

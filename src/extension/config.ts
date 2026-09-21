@@ -1,12 +1,14 @@
 export const DEFAULT_PLAYERS_SHEET = "Players";
 export const DEFAULT_CATEGORY_MAPPINGS_SHEET = "CategoryMappings";
 export const DEFAULT_CATEGORY_PRESENTATION_SHEET = "CategoryPresentation";
+export const DEFAULT_RACE_HISTORY_SHEET = "RaceHistory";
 
 export type SpreadsheetConfig = {
   spreadsheetId: string;
   playersSheet: string;
   categoryMappingsSheet: string;
   categoryPresentationSheet: string;
+  raceHistorySheet: string;
 };
 
 export type RaceLayoutsConfig = {
@@ -97,6 +99,12 @@ export function parseBundleConfig(raw: unknown): BundleConfigParseResult {
     DEFAULT_CATEGORY_PRESENTATION_SHEET,
     issues,
   );
+  const raceHistorySheet = parseSheetName(
+    spreadsheet.raceHistorySheet,
+    "raceHistorySheet",
+    DEFAULT_RACE_HISTORY_SHEET,
+    issues,
+  );
 
   if (issues.length > 0) {
     return { ok: false, issues };
@@ -110,6 +118,7 @@ export function parseBundleConfig(raw: unknown): BundleConfigParseResult {
         playersSheet,
         categoryMappingsSheet,
         categoryPresentationSheet,
+        raceHistorySheet,
       },
     },
   };

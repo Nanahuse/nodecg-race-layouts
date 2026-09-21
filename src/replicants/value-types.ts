@@ -10,6 +10,7 @@ import type {
   RaceOverlayData,
   RaceResultPageData,
   RaceSession,
+  PostApplyPersistenceState,
 } from "../domain";
 import type { ReplicantName } from "./names";
 
@@ -33,6 +34,7 @@ export type RaceOverlayDataValue = RaceOverlayData | null;
 export type ParticipantListDataValue = ParticipantListData | null;
 export type LeaderboardPageDataValue = LeaderboardPageData | null;
 export type RaceResultPageDataValue = RaceResultPageData | null;
+export type PostApplyPersistenceValue = PostApplyPersistenceState;
 export type IntegrationStatusValue = IntegrationStatus;
 
 /** Maps each Replicant name to the TypeScript type it stores. */
@@ -49,6 +51,7 @@ export type ReplicantValueMap = {
   "leaderboard-page-data": LeaderboardPageDataValue;
   "race-result-page-data": RaceResultPageDataValue;
   "integration-status": IntegrationStatusValue;
+  "post-apply-persistence": PostApplyPersistenceValue;
 };
 
 /** Compile-time guard that the map above covers every Replicant. */

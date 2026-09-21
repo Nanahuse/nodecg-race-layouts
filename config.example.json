@@ -8,6 +8,7 @@
     "spreadsheetId": "your-spreadsheet-id",
     "playersSheet": "Players",
     "categoryMappingsSheet": "CategoryMappings",
-    "categoryPresentationSheet": "CategoryPresentation"
+    "categoryPresentationSheet": "CategoryPresentation",
+    "raceHistorySheet": "RaceHistory"
   }
 }
