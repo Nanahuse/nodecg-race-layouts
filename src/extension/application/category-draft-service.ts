@@ -12,11 +12,13 @@ import {
   categorySelectionFromMapping,
   computeSavedMappingState,
   isLeaderboardEquivalent,
+  retagDraftSpeedrunSnapshot,
   validateCategoryPresentation,
   validateCategorySelection,
 } from "../../domain";
 import {
   createDefaultDraftConfig,
+  createDefaultDraftSpeedrunSnapshot,
   createDefaultIntegrationStatus,
 } from "../../replicants/defaults";
 import type { NodeCGLogger, Replicant } from "../../types/nodecg";
@@ -24,7 +26,6 @@ import { jsonEquals } from "../integrations/racetime/equality";
 import type { CategoryMappingsRepository } from "../integrations/spreadsheet/category-mappings-repository";
 import type { CategoryPresentationRepository } from "../integrations/spreadsheet/category-presentation-repository";
 import { computeDraftBroadcastState } from "./broadcast-status";
-import { countUnresolvedPlayers } from "./race-draft-reconciliation";
 
 type SavedMappingState = CategorySelectionState["savedMappingState"];
 
@@ -505,10 +506,20 @@ export class CategoryDraftService {
         snapshot: null,
         message: null,
       };
+    } else {
+      // The snapshot data is still valid for the new revision; just retag it.
+      this.draftSpeedrunSnapshot.value = retagDraftSpeedrunSnapshot(
+        this.draftSpeedrunSnapshot.value ?? createDefaultDraftSpeedrunSnapshot(),
+        next.revision,
+      );
     }
-    const unresolved = countUnresolvedPlayers(next);
-    const current = this.integrationStatus.value?.broadcast.state;
-    this.setBroadcastState(computeDraftBroadcastState(current, unresolved), next.revision);
+    const current = this.integrationStatus.value ?? createDefaultIntegrationStatus();
+    const state = computeDraftBroadcastState({
+      current: current.broadcast.state,
+      draft: next,
+      snapshot: this.draftSpeedrunSnapshot.value ?? createDefaultDraftSpeedrunSnapshot(),
+    });
+    this.setBroadcastState(state, next.revision);
   }
 
   private setBroadcastState(state: BroadcastStatusState, draftRevision: number): void {

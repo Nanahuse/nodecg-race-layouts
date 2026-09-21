@@ -146,6 +146,28 @@ updates `integration-status.speedrunCom`.
   `speedrun.category.variables`, `speedrun.users.search` and `speedrun.user.get`
   are registered in `messages/speedrun-messages.ts`.
 
+### Speedrun.com leaderboard snapshot
+
+`speedrun.snapshot.refresh { expectedDraftRevision }` (handled in
+`speedrun-snapshot-messages.ts`, workflow in `speedrun-snapshot-service.ts`)
+builds `draft-speedrun-snapshot` from the current category selection and the
+participants' linked Speedrun.com identities.
+
+- The request is derived from the single `LeaderboardKey`: full-game or
+  individual-level path, plus `platform`/`region`/`emulators`/`timing`/`var-*`
+  filters and `embed=players`.
+- `top=20` means **top 20 places**, so ties are kept (more than 20 entries).
+- WR / Top20 / Participant PB / rank all come from the same leaderboard
+  conditions. Top-20 participants reuse their leaderboard entry instead of a PB
+  request; only linked participants outside the top 20 fetch
+  `/users/{id}/personal-bests?game=` (bounded concurrency).
+- A personal-best `place` is only used as a rank when no extra filters are
+  applied; otherwise `rank` is `null`.
+- A leaderboard failure sets the snapshot to `error`; an individual PB failure
+  keeps the snapshot `ready` with `personalBests[userId] = null` and a warning.
+- Non-invalidating draft edits (presentation, display name, ...) retag the
+  snapshot's `draftRevision`; leaderboard-invalidating edits reset it.
+
 TypeScript domain types under `src/replicants/value-types.ts` are the single
 source of truth for the Replicants. `npm run schema:generate` writes one
 self-contained draft-07 schema per Replicant into `schemas/`; `npm run

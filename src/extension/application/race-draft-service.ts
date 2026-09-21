@@ -9,12 +9,14 @@ import type {
   PlayerDirectory,
   RaceSession,
 } from "../../domain";
-import { categorySelectionFromMapping } from "../../domain";
+import { categorySelectionFromMapping, retagDraftSpeedrunSnapshot } from "../../domain";
 import {
   createDefaultDraftConfig,
+  createDefaultDraftSpeedrunSnapshot,
   createDefaultIntegrationStatus,
 } from "../../replicants/defaults";
 import type { NodeCGLogger, Replicant } from "../../types/nodecg";
+import { computeDraftBroadcastState } from "./broadcast-status";
 import {
   nullCategoryPresetProvider,
   type CategoryPreset,
@@ -262,11 +264,7 @@ export class RaceDraftService {
       };
 
       const unresolvedPlayerCount = countUnresolvedPlayers(built.draft);
-      this.setBroadcastState(
-        unresolvedPlayerCount > 0 ? "resolution_required" : "dirty",
-        null,
-        built.draft.revision,
-      );
+      this.recomputeBroadcastState(built.draft);
 
       this.logEvent("player_resolution.completed", {
         raceId: built.draft.race?.raceId,
@@ -341,14 +339,15 @@ export class RaceDraftService {
             snapshot: null,
             message: null,
           };
+        } else {
+          this.draftSpeedrunSnapshot.value = retagDraftSpeedrunSnapshot(
+            this.draftSpeedrunSnapshot.value ?? createDefaultDraftSpeedrunSnapshot(),
+            outcome.draft.revision,
+          );
         }
       }
 
-      this.setBroadcastState(
-        outcome.unresolvedPlayerCount > 0 ? "resolution_required" : "dirty",
-        null,
-        outcome.draft.revision,
-      );
+      this.recomputeBroadcastState(outcome.draft);
 
       this.logEvent("race.reconcile.completed", {
         draftRevision: outcome.draft.revision,
@@ -440,6 +439,17 @@ export class RaceDraftService {
 
   private currentDraftRevision(): number | null {
     return this.draftConfig.value?.revision ?? null;
+  }
+
+  private recomputeBroadcastState(draft: DraftConfig): void {
+    const current = this.integrationStatus.value ?? createDefaultIntegrationStatus();
+    const snapshot = this.draftSpeedrunSnapshot.value ?? createDefaultDraftSpeedrunSnapshot();
+    const state = computeDraftBroadcastState({
+      current: current.broadcast.state,
+      draft,
+      snapshot,
+    });
+    this.setBroadcastState(state, null, draft.revision);
   }
 
   private setBroadcastState(

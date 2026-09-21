@@ -16,6 +16,8 @@ import { PlayerDirectoryService } from "./application/player-directory-service";
 import { RaceDraftService } from "./application/race-draft-service";
 import { RaceSessionService } from "./application/race-session-service";
 import { SpeedrunDiscoveryService } from "./application/speedrun-discovery-service";
+import { SpeedrunSnapshotService } from "./application/speedrun-snapshot-service";
+import { SpeedrunOperationStatusCoordinator } from "./application/speedrun-status-coordinator";
 import { parseBundleConfig } from "./config";
 import { HttpSpeedrunComClient } from "./integrations/speedruncom/client";
 import { HttpRaceTimeClient } from "./integrations/racetime/client";
@@ -38,6 +40,7 @@ import { SpreadsheetPlayersRepository } from "./integrations/spreadsheet/players
 import { registerCategoryMessages } from "./messages/category-messages";
 import { registerRaceMessages } from "./messages/race-messages";
 import { registerSpeedrunMessages } from "./messages/speedrun-messages";
+import { registerSpeedrunSnapshotMessages } from "./messages/speedrun-snapshot-messages";
 
 export type SpreadsheetIntegration = {
   playerDirectoryService: PlayerDirectoryService;
@@ -165,32 +168,53 @@ export function setupRaceTimeIntegration(
   return { raceDraft, categoryDraft };
 }
 
+export type SpeedrunIntegration = {
+  discovery: SpeedrunDiscoveryService;
+  snapshot: SpeedrunSnapshotService;
+};
+
 /**
- * Set up the Speedrun.com discovery integration. It is read-only and only
- * updates `integration-status.speedrunCom`.
+ * Set up the Speedrun.com integrations. Both discovery and snapshot share one
+ * status coordinator so `integration-status.speedrunCom` cannot be clobbered
+ * when their requests overlap.
  */
-export function setupSpeedrunIntegration(nodecg: NodeCG): SpeedrunDiscoveryService {
+export function setupSpeedrunIntegration(nodecg: NodeCG): SpeedrunIntegration {
   const client = new HttpSpeedrunComClient({
     userAgent: `nodecg-race-layouts/${nodecg.bundleVersion}`,
   });
-  return new SpeedrunDiscoveryService({
-    client,
-    integrationStatus: nodecg.Replicant<IntegrationStatus>("integration-status"),
+  const integrationStatus = nodecg.Replicant<IntegrationStatus>("integration-status");
+  const status = new SpeedrunOperationStatusCoordinator({
+    integrationStatus,
     log: nodecg.log,
   });
+
+  const discovery = new SpeedrunDiscoveryService({ client, status, log: nodecg.log });
+  const snapshot = new SpeedrunSnapshotService({
+    client,
+    status,
+    draftConfig: nodecg.Replicant<DraftConfig>("draft-config"),
+    draftSpeedrunSnapshot: nodecg.Replicant<DraftSpeedrunSnapshot>("draft-speedrun-snapshot"),
+    integrationStatus,
+    log: nodecg.log,
+  });
+
+  return { discovery, snapshot };
 }
 
 export function bootstrapExtension(nodecg: NodeCG): {
   raceDraft: RaceDraftService;
   categoryDraft: CategoryDraftService;
   speedrunDiscovery: SpeedrunDiscoveryService;
+  speedrunSnapshot: SpeedrunSnapshotService;
 } {
   declareReplicants(nodecg);
   const spreadsheet = setupSpreadsheetIntegration(nodecg);
   const { raceDraft, categoryDraft } = setupRaceTimeIntegration(nodecg, spreadsheet);
-  const speedrunDiscovery = setupSpeedrunIntegration(nodecg);
+  const { discovery: speedrunDiscovery, snapshot: speedrunSnapshot } =
+    setupSpeedrunIntegration(nodecg);
   registerRaceMessages(nodecg, raceDraft);
   registerCategoryMessages(nodecg, categoryDraft);
   registerSpeedrunMessages(nodecg, speedrunDiscovery);
-  return { raceDraft, categoryDraft, speedrunDiscovery };
+  registerSpeedrunSnapshotMessages(nodecg, speedrunSnapshot);
+  return { raceDraft, categoryDraft, speedrunDiscovery, speedrunSnapshot };
 }

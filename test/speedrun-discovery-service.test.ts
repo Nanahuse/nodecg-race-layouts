@@ -6,6 +6,7 @@ import {
   MAX_SEARCH_LIMIT,
   SpeedrunDiscoveryService,
 } from "../src/extension/application/speedrun-discovery-service";
+import { SpeedrunOperationStatusCoordinator } from "../src/extension/application/speedrun-status-coordinator";
 import { SpeedrunComNotFoundError } from "../src/extension/integrations/speedruncom/errors";
 import { createDefaultIntegrationStatus } from "../src/replicants/defaults";
 import { createFakeLogger, TrackingReplicant } from "./support/fakes";
@@ -24,12 +25,16 @@ function setup() {
     [],
   );
   const fakeLogger = createFakeLogger();
-  const service = new SpeedrunDiscoveryService({
-    client,
+  const status = new SpeedrunOperationStatusCoordinator({
     integrationStatus,
     log: fakeLogger.logger,
   });
-  return { service, client, integrationStatus, fakeLogger };
+  const service = new SpeedrunDiscoveryService({
+    client,
+    status,
+    log: fakeLogger.logger,
+  });
+  return { service, client, integrationStatus, status, fakeLogger };
 }
 
 describe("SpeedrunDiscoveryService.searchGames", () => {

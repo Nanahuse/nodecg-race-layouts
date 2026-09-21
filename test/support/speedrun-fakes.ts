@@ -1,4 +1,10 @@
+import type { LeaderboardKey } from "../../src/domain";
 import type { SpeedrunComClient } from "../../src/extension/integrations/speedruncom/client";
+import type {
+  SpeedrunLeaderboard,
+  SpeedrunLeaderboardEntry,
+  SpeedrunPersonalBestEntry,
+} from "../../src/extension/integrations/speedruncom/leaderboard";
 import type {
   SpeedrunCategoryOption,
   SpeedrunGameDetail,
@@ -148,6 +154,109 @@ export function makeUser(overrides: Partial<SpeedrunUserOption> = {}): SpeedrunU
   return { userId: "user-1", name: "chewdiggy", twitchLogin: "chewdiggy", ...overrides };
 }
 
+export function runRecord(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+  return {
+    game: "game-1",
+    category: "category-1",
+    level: null,
+    values: {},
+    system: { platform: null, region: null, emulated: null },
+    times: {
+      primary: "PT1H",
+      primary_t: 3600,
+      realtime: "PT1H",
+      realtime_t: 3600,
+      realtime_noloads: null,
+      realtime_noloads_t: 0,
+      ingame: null,
+      ingame_t: 0,
+    },
+    players: [{ rel: "user", id: "user-1", uri: "https://example.test/users/user-1" }],
+    ...overrides,
+  };
+}
+
+export function leaderboardRunRecord(
+  place: number,
+  run: Record<string, unknown> = runRecord(),
+): Record<string, unknown> {
+  return { place, run };
+}
+
+export function leaderboardRecord(
+  overrides: Record<string, unknown> = {},
+): Record<string, unknown> {
+  return {
+    game: "game-1",
+    category: "category-1",
+    level: null,
+    platform: null,
+    region: null,
+    emulators: null,
+    timing: "realtime",
+    values: {},
+    runs: [leaderboardRunRecord(1)],
+    players: [{ rel: "user", id: "user-1", names: { international: "Runner One" } }],
+    ...overrides,
+  };
+}
+
+export function personalBestRecord(
+  place: number,
+  run: Record<string, unknown> = runRecord(),
+): Record<string, unknown> {
+  return { place, run };
+}
+
+export function makeLeaderboardEntry(
+  overrides: Partial<SpeedrunLeaderboardEntry> = {},
+): SpeedrunLeaderboardEntry {
+  return {
+    place: 1,
+    players: [{ userId: "user-1", name: "Runner One" }],
+    timeSeconds: 3600,
+    formattedTime: "1:00:00.000",
+    ...overrides,
+  };
+}
+
+export function makeLeaderboard(overrides: Partial<SpeedrunLeaderboard> = {}): SpeedrunLeaderboard {
+  return {
+    gameId: "game-1",
+    categoryId: "category-1",
+    levelId: null,
+    platformId: null,
+    regionId: null,
+    emulator: null,
+    timingMethod: null,
+    variables: {},
+    entries: [makeLeaderboardEntry()],
+    ...overrides,
+  };
+}
+
+export function makePersonalBestEntry(
+  overrides: Partial<SpeedrunPersonalBestEntry> = {},
+): SpeedrunPersonalBestEntry {
+  return {
+    place: 5,
+    gameId: "game-1",
+    categoryId: "category-1",
+    levelId: null,
+    variables: {},
+    platformId: null,
+    regionId: null,
+    emulator: null,
+    times: {
+      primarySeconds: 3600,
+      realtimeSeconds: 3600,
+      realtimeNoLoadsSeconds: null,
+      ingameSeconds: null,
+    },
+    ...overrides,
+  };
+}
+
 export class FakeSpeedrunComClient implements SpeedrunComClient {
   readonly calls: string[] = [];
 
@@ -168,6 +277,15 @@ export class FakeSpeedrunComClient implements SpeedrunComClient {
 
   lastSearchGames: { query: string; limit: number } | null = null;
   lastSearchUsers: { query: string; mode: SpeedrunUserSearchMode; limit: number } | null = null;
+
+  leaderboardResult: SpeedrunLeaderboard = makeLeaderboard();
+  personalBestsResult: SpeedrunPersonalBestEntry[] = [];
+  leaderboardError: Error | null = null;
+  personalBestsError: Error | null = null;
+  leaderboardPromise: Promise<SpeedrunLeaderboard> | null = null;
+  personalBestsHandler: ((userId: string) => Promise<SpeedrunPersonalBestEntry[]>) | null = null;
+  lastLeaderboardTop: number | null = null;
+  lastLeaderboardKey: LeaderboardKey | null = null;
 
   async searchGames(query: string, limit: number): Promise<SpeedrunGameSearchResult[]> {
     this.calls.push("searchGames");
@@ -251,5 +369,29 @@ export class FakeSpeedrunComClient implements SpeedrunComClient {
       throw this.error;
     }
     return this.userResult;
+  }
+
+  async getLeaderboard(key: LeaderboardKey, top: number): Promise<SpeedrunLeaderboard> {
+    this.calls.push("getLeaderboard");
+    this.lastLeaderboardTop = top;
+    this.lastLeaderboardKey = key;
+    if (this.leaderboardError) {
+      throw this.leaderboardError;
+    }
+    if (this.leaderboardPromise) {
+      return this.leaderboardPromise;
+    }
+    return this.leaderboardResult;
+  }
+
+  async getUserPersonalBests(userId: string): Promise<SpeedrunPersonalBestEntry[]> {
+    this.calls.push("getUserPersonalBests");
+    if (this.personalBestsHandler) {
+      return this.personalBestsHandler(userId);
+    }
+    if (this.personalBestsError) {
+      throw this.personalBestsError;
+    }
+    return this.personalBestsResult;
   }
 }
