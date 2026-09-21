@@ -49,4 +49,16 @@ describe("LeaderboardGraphic", () => {
   it("renders no content when data is unavailable", () => {
     expect(renderToStaticMarkup(createElement(LeaderboardGraphic, { data: null }))).toBe("");
   });
+
+  it("renders long names in the ten-entry fixture", () => {
+    const data = makeData(10);
+    data.leaderboard[0] = {
+      ...data.leaderboard[0],
+      name: "A very long leaderboard runner name that should be ellipsized",
+      secondaryName: "A very long secondary leaderboard name",
+    };
+    const html = renderToStaticMarkup(createElement(LeaderboardGraphic, { data }));
+    expect(html).toContain("A very long leaderboard runner name");
+    expect(html).toContain("A very long secondary leaderboard name");
+  });
 });

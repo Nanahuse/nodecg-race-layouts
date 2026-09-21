@@ -1,23 +1,6 @@
 :root {
-  --canvas-width: 1920px;
-  --canvas-height: 1080px;
   --slot-width: 960px;
   --slot-height: 540px;
-}
-
-html,
-body,
-#root {
-  width: var(--canvas-width);
-  height: var(--canvas-height);
-  margin: 0;
-  overflow: hidden;
-  background: transparent;
-}
-
-body {
-  color: white;
-  font-family: sans-serif;
 }
 .race-graphic {
   position: relative;
@@ -54,6 +37,9 @@ body {
   gap: 18px;
   margin-top: 8px;
   font-size: 18px;
+  max-width: 700px;
+  overflow: hidden;
+  white-space: nowrap;
 }
 .players {
   position: absolute;
@@ -72,6 +58,12 @@ body {
   background: rgb(0 0 0 / 45%);
   border-left: 6px solid var(--accent);
   text-shadow: 0 2px 4px #000;
+}
+.player-hud strong,
+.player-hud small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .player-hud[data-accent="red"] {
   --accent: #ef4444;

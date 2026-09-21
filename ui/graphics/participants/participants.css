@@ -1,22 +1,3 @@
-:root {
-  --canvas-width: 1920px;
-  --canvas-height: 1080px;
-}
-
-html,
-body,
-#root {
-  width: var(--canvas-width);
-  height: var(--canvas-height);
-  margin: 0;
-  overflow: hidden;
-  background: transparent;
-}
-
-body {
-  color: white;
-  font-family: sans-serif;
-}
 .participant-graphic {
   box-sizing: border-box;
   width: 100%;
@@ -44,6 +25,10 @@ body {
 .participant-commentary {
   margin-top: 12px;
   font-size: 20px;
+  max-width: 1500px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .participant-list {
   display: grid;

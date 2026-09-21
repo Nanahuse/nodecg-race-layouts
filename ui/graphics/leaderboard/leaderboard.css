@@ -1,22 +1,5 @@
 :root {
-  --canvas-width: 1920px;
-  --canvas-height: 1080px;
   --leaderboard-width: 820px;
-}
-
-html,
-body,
-#root {
-  width: var(--canvas-width);
-  height: var(--canvas-height);
-  margin: 0;
-  overflow: hidden;
-  background: transparent;
-}
-
-body {
-  color: white;
-  font-family: sans-serif;
 }
 .leaderboard-graphic {
   box-sizing: border-box;
@@ -26,6 +9,7 @@ body {
 }
 .leaderboard-panel {
   width: var(--leaderboard-width);
+  min-width: 0;
   text-shadow: 0 2px 4px #000;
 }
 .leaderboard-heading,
