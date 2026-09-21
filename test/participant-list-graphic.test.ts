@@ -52,7 +52,7 @@ describe("ParticipantListGraphic", () => {
   it("renders long names in the 24-participant fixture", () => {
     const data = makeData(24);
     data.participants[0] = {
-      ...data.participants[0],
+      ...data.participants[0]!,
       displayName: "A very long participant display name that should be ellipsized",
       speedrunComName: "A very long Speedrun.com participant name",
     };

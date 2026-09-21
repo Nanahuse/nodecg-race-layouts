@@ -33,8 +33,8 @@ describe("ResultGraphic", () => {
 
   it("uses status only as an attribute and leaves labels and time unchanged", () => {
     const data = makeData(2);
-    data.results[0] = { ...data.results[0], placeLabel: "DNF", status: "dnf", time: null };
-    data.results[1] = { ...data.results[1], placeLabel: "DQ", status: "dq", time: "" };
+    data.results[0] = { ...data.results[0]!, placeLabel: "DNF", status: "dnf", time: null };
+    data.results[1] = { ...data.results[1]!, placeLabel: "DQ", status: "dq", time: "" };
     const html = renderToStaticMarkup(createElement(ResultGraphic, { data }));
     expect(html).toContain('data-status="dnf"');
     expect(html).toContain('data-status="dq"');
@@ -56,7 +56,7 @@ describe("ResultGraphic", () => {
   it("renders long names in the 24-result fixture", () => {
     const data = makeData(24);
     data.results[0] = {
-      ...data.results[0],
+      ...data.results[0]!,
       name: "A very long result runner name that should be ellipsized",
       secondaryName: "A very long secondary result name",
     };

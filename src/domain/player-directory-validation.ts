@@ -98,6 +98,10 @@ export function validatePlayerDirectory(players: readonly PlayerMapping[]): Play
       }
     }
 
+    const twitchLogins = player.twitch.state === "linked" ? [player.twitch.value.login] : [];
+    if (player.speedrunCom.state === "linked" && player.speedrunCom.value.twitchLogin) {
+      twitchLogins.push(player.speedrunCom.value.twitchLogin);
+    }
     if (player.twitch.state === "linked") {
       const userId = player.twitch.value.userId;
       if (userId !== null && userId !== "") {
@@ -115,8 +119,9 @@ export function validatePlayerDirectory(players: readonly PlayerMapping[]): Play
           seenTwitchUserIds.set(userId, player.playerId);
         }
       }
-
-      const login = player.twitch.value.login.trim().toLowerCase();
+    }
+    for (const rawLogin of twitchLogins) {
+      const login = rawLogin.trim().toLowerCase();
       if (login !== "") {
         const previous = seenTwitchLogins.get(login);
         if (previous !== undefined) {
