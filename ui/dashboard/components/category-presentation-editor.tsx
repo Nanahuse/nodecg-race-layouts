@@ -6,15 +6,19 @@ export function CategoryPresentationEditor({ draft }: { draft: DraftConfig }) {
   const [value, setValue] = useState<CategoryPresentation | null>(draft.categoryPresentation);
   const [message, setMessage] = useState<string | null>(null);
   const [pending, setPending] = useState<string | null>(null);
-  const [syncRequested, setSyncRequested] = useState(false);
+  const [syncTargetRevision, setSyncTargetRevision] = useState<number | null>(null);
   useEffect(() => {
-    if (syncRequested) {
-      setValue(draft.categoryPresentation);
-      setSyncRequested(false);
-    }
+    setValue(draft.categoryPresentation);
     setMessage(null);
     setPending(null);
-  }, [draft.race?.raceId, draft.revision, syncRequested]);
+    setSyncTargetRevision(null);
+  }, [draft.race?.raceId]);
+  useEffect(() => {
+    if (syncTargetRevision !== null && draft.revision === syncTargetRevision) {
+      setValue(draft.categoryPresentation);
+      setSyncTargetRevision(null);
+    }
+  }, [draft.revision, draft.categoryPresentation, syncTargetRevision]);
   const dirty = JSON.stringify(value) !== JSON.stringify(draft.categoryPresentation);
   const update = (patch: Partial<CategoryPresentation>) =>
     setValue(
@@ -31,14 +35,19 @@ export function CategoryPresentationEditor({ draft }: { draft: DraftConfig }) {
     );
   const run = async (
     operation: string,
-    action: () => Promise<{ ok: boolean; message?: string }>,
+    action: () => Promise<{ ok: boolean; message?: string; draftRevision?: number }>,
   ) => {
     setPending(operation);
     setMessage(null);
     try {
       const result = await action();
       if (!result.ok) setMessage(result.message ?? "Presentation update failed.");
-      else setSyncRequested(true);
+      else if (
+        operation !== "save" &&
+        "draftRevision" in result &&
+        typeof result.draftRevision === "number"
+      )
+        setSyncTargetRevision(result.draftRevision);
     } catch (cause) {
       setMessage(cause instanceof Error ? cause.message : "NodeCG communication error");
     } finally {
