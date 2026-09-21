@@ -6,6 +6,7 @@ import type {
   PlayerMapping,
   PostApplyPersistenceState,
 } from "../src/domain";
+import { makeActiveConfig } from "./factories";
 import { PlayerMappingManagementService } from "../src/extension/application/player-mapping-management-service";
 import type { PlayerDirectoryService } from "../src/extension/application/player-directory-service";
 import { registerPlayerDirectoryMessages } from "../src/extension/messages/player-directory-messages";
@@ -28,26 +29,31 @@ function replicant<T>(value: T) {
   return { name: "test", value, on: vi.fn() } as never;
 }
 
-function service(directory: PlayerDirectory = {}) {
+function service(
+  directory: PlayerDirectory = {},
+  options: { draft?: Partial<DraftConfig>; active?: ActiveConfig | null; queue?: unknown[] } = {},
+) {
   const directoryService = {
     reloadFromSpreadsheet: vi.fn(async () => ({ ok: true as const, playerCount: 0 })),
     savePlayers: vi.fn(async () => undefined),
     deletePlayer: vi.fn(async () => undefined),
   } as unknown as PlayerDirectoryService;
   const speedrun = { getUser: vi.fn() };
+  const playerDirectory = replicant(directory) as { value: PlayerDirectory };
   const management = new PlayerMappingManagementService({
     directoryService,
-    playerDirectory: replicant(directory),
+    playerDirectory,
     draftConfig: replicant({
       participants: [],
       commentatorPlayerIds: [],
+      ...options.draft,
     } as unknown as DraftConfig),
-    activeConfig: replicant(null as ActiveConfig | null),
-    persistence: replicant({ queue: [] } as unknown as PostApplyPersistenceState),
+    activeConfig: replicant(options.active ?? (null as ActiveConfig | null)),
+    persistence: replicant({ queue: options.queue ?? [] } as unknown as PostApplyPersistenceState),
     speedrun: speedrun as never,
     log: { info: vi.fn(), error: vi.fn(), warn: vi.fn(), debug: vi.fn(), trace: vi.fn() },
   });
-  return { management, directoryService };
+  return { management, directoryService, playerDirectory, speedrun };
 }
 
 const input = {
@@ -66,17 +72,84 @@ describe("PlayerMappingManagementService", () => {
     if (result.ok) expect(result.player.manualDisplayName).toBe("New Player");
   });
 
-  it("rejects blank input and preserves the directory on persistence failure", async () => {
+  it("creates a schema-shaped RaceTime identity and trims Speedrun.com lookup ids", async () => {
+    const { management, directoryService, speedrun } = service();
+    vi.mocked(speedrun.getUser).mockResolvedValueOnce({
+      ok: true,
+      user: { userId: "src-1", name: "SRC Name", twitchLogin: "runner" },
+    });
+    const result = await management.create({
+      manualDisplayName: "Runner",
+      racetime: { state: "linked", userId: " rt-1 ", name: " RaceTime ", twitchLogin: " rt " },
+      speedrunCom: { state: "linked", userId: " src-1 " },
+      twitch: { state: "none" },
+    });
+    expect(result).toMatchObject({ ok: true });
+    expect(speedrun.getUser).toHaveBeenCalledWith("src-1");
+    expect(directoryService.savePlayers).toHaveBeenCalledOnce();
+    if (result.ok) {
+      expect(result.player.racetime).toEqual({
+        state: "linked",
+        value: { userId: "rt-1", name: "RaceTime", twitchLogin: "rt" },
+      });
+      expect(result.player.racetime.value).not.toHaveProperty("state");
+      expect(result.player.speedrunCom).toEqual({
+        state: "linked",
+        value: { userId: "src-1", name: "SRC Name", twitchLogin: "runner" },
+      });
+    }
+  });
+
+  it("rejects blank RaceTime and Speedrun.com ids without lookup", async () => {
+    const { management, speedrun } = service();
+    expect(
+      await management.create({
+        ...input,
+        manualDisplayName: "Runner",
+        racetime: { state: "linked", userId: " ", name: "Name", twitchLogin: null },
+      }),
+    ).toMatchObject({ ok: false, reason: "invalid_input" });
+    expect(
+      await management.create({ ...input, speedrunCom: { state: "linked", userId: " " } }),
+    ).toMatchObject({ ok: false, reason: "invalid_input" });
+    expect(speedrun.getUser).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["not_found", "speedrun_user_not_found"],
+    ["network_error", "speedrun_lookup_failed"],
+  ] as const)("maps Speedrun.com lookup %s", async (reason, expected) => {
+    const { management, speedrun } = service();
+    vi.mocked(speedrun.getUser).mockResolvedValueOnce({
+      ok: false,
+      reason,
+      message: "lookup failed",
+    } as never);
+    expect(
+      await management.create({ ...input, speedrunCom: { state: "linked", userId: "src-1" } }),
+    ).toMatchObject({ ok: false, reason: expected });
+  });
+
+  it("rejects blank input without calling persistence", async () => {
     const current = { p1: player() };
     const { management, directoryService } = service(current);
-    vi.mocked(directoryService.savePlayers).mockRejectedValueOnce(new Error("sheet down"));
     const result = await management.create({
       ...input,
       manualDisplayName: "  ",
-      twitch: { state: "none" },
     });
-    expect(result.ok).toBe(false);
+    expect(result).toMatchObject({ ok: false, reason: "invalid_input" });
+    expect(directoryService.savePlayers).not.toHaveBeenCalled();
     expect(current.p1).toEqual(player());
+  });
+
+  it("preserves the directory when a valid create cannot be saved", async () => {
+    const current = { p1: player() };
+    const { management, directoryService, playerDirectory } = service(current);
+    vi.mocked(directoryService.savePlayers).mockRejectedValueOnce(new Error("sheet down"));
+    const result = await management.create(input);
+    expect(result).toMatchObject({ ok: false, reason: "operation_failed" });
+    expect(directoryService.savePlayers).toHaveBeenCalledOnce();
+    expect(playerDirectory.value).toBe(current);
   });
 
   it("guards stale updates and players used by draft", async () => {
@@ -91,6 +164,89 @@ describe("PlayerMappingManagementService", () => {
     expect(await management.delete("missing", player("missing"))).toMatchObject({
       ok: false,
       reason: "player_not_found",
+    });
+  });
+
+  it("deletes through the directory service and preserves stale/in-use guards", async () => {
+    const current = { p1: player() };
+    const success = service(current);
+    expect(await success.management.delete("p1", player())).toEqual({ ok: true, playerId: "p1" });
+    expect(success.directoryService.deletePlayer).toHaveBeenCalledOnce();
+    expect(success.playerDirectory.value).toBe(current);
+
+    const stale = service(current);
+    expect(
+      await stale.management.delete("p1", { ...player(), manualDisplayName: "Changed" }),
+    ).toMatchObject({ ok: false, reason: "player_changed" });
+    const inUse = service(current, { draft: { commentatorPlayerIds: ["p1"] } });
+    expect(await inUse.management.delete("p1", player())).toMatchObject({
+      ok: false,
+      reason: "player_in_use",
+    });
+    expect(inUse.directoryService.deletePlayer).not.toHaveBeenCalled();
+  });
+
+  it("rejects updates for every in-use location", async () => {
+    const cases = [
+      { draft: { participants: [{ playerId: "p1" }] } },
+      { draft: { commentatorPlayerIds: ["p1"] } },
+      { active: makeActiveConfig({ participants: [{ playerId: "p1", racetimeUserId: "rt" }] }) },
+      { active: makeActiveConfig({ commentatorPlayerIds: ["p1"] }) },
+      { queue: [{ players: [player()] }] },
+    ];
+    for (const options of cases) {
+      const { management, directoryService } = service({ p1: player() }, options);
+      const result = await management.update("p1", player(), input);
+      expect(result).toMatchObject({ ok: false, reason: "player_in_use" });
+      expect(directoryService.savePlayers).not.toHaveBeenCalled();
+    }
+  });
+
+  it("updates through the directory service and leaves the replicant to its owner", async () => {
+    const current = { p1: player() };
+    const { management, directoryService, playerDirectory } = service(current);
+    const result = await management.update("p1", player(), input);
+    expect(result).toMatchObject({ ok: true });
+    expect(directoryService.savePlayers).toHaveBeenCalledOnce();
+    expect(playerDirectory.value).toBe(current);
+  });
+
+  it("maps update and delete persistence failures without mutating the directory", async () => {
+    const current = { p1: player() };
+    const update = service(current);
+    vi.mocked(update.directoryService.savePlayers).mockRejectedValueOnce(new Error("update down"));
+    expect(await update.management.update("p1", player(), input)).toMatchObject({
+      ok: false,
+      reason: "operation_failed",
+    });
+    expect(update.playerDirectory.value).toBe(current);
+
+    const removal = service(current);
+    vi.mocked(removal.directoryService.deletePlayer).mockRejectedValueOnce(
+      new Error("delete down"),
+    );
+    expect(await removal.management.delete("p1", player())).toMatchObject({
+      ok: false,
+      reason: "operation_failed",
+    });
+    expect(removal.playerDirectory.value).toBe(current);
+  });
+
+  it("returns reload outcomes from PlayerDirectoryService", async () => {
+    const success = service();
+    vi.mocked(success.directoryService.reloadFromSpreadsheet).mockResolvedValueOnce({
+      ok: true,
+      playerCount: 3,
+    });
+    expect(await success.management.reload()).toEqual({ ok: true, playerCount: 3 });
+    const failure = service();
+    vi.mocked(failure.directoryService.reloadFromSpreadsheet).mockResolvedValueOnce({
+      ok: false,
+      message: "sheet down",
+    });
+    expect(await failure.management.reload()).toMatchObject({
+      ok: false,
+      reason: "operation_failed",
     });
   });
 

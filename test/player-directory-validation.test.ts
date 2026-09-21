@@ -77,6 +77,30 @@ describe("validatePlayerDirectory", () => {
     expect(codes([first, second])).toContain(PLAYER_DIRECTORY_ISSUE_CODES.twitchLoginDuplicate);
   });
 
+  it("allows a player to share its Twitch and Speedrun.com Twitch login", () => {
+    const only = makeActivePlayer("p1", {
+      twitch: { state: "linked", value: { userId: null, login: "Runner" } },
+      speedrunCom: {
+        state: "linked",
+        value: { userId: "src-1", name: "Runner", twitchLogin: "runner" },
+      },
+    });
+    expect(validatePlayerDirectory([only])).toEqual([]);
+  });
+
+  it("rejects explicit Twitch against another player's Speedrun.com Twitch login", () => {
+    const first = makeActivePlayer("p1", {
+      twitch: { state: "linked", value: { userId: null, login: "runner" } },
+    });
+    const second = makeActivePlayer("p2", {
+      speedrunCom: {
+        state: "linked",
+        value: { userId: "src-2", name: "Runner", twitchLogin: "RUNNER" },
+      },
+    });
+    expect(codes([first, second])).toContain(PLAYER_DIRECTORY_ISSUE_CODES.twitchLoginDuplicate);
+  });
+
   it("rejects a player whose display name cannot be resolved", () => {
     const player: PlayerMapping = {
       playerId: "p1",
