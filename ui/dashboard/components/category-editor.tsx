@@ -19,8 +19,15 @@ export function CategoryEditor({ draft }: { draft: DraftConfig }) {
   const [selection, setSelection] = useState(draft.categorySelection.selection);
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [mappingBusy, setMappingBusy] = useState<string | null>(null);
   useEffect(() => {
     setSelection(draft.categorySelection.selection);
+    setGames([]);
+    setOptions(null);
+    setVariables([]);
+    setQuery("");
+    setMessage(null);
+    setMappingBusy(null);
   }, [draft.race?.raceId]);
   const search = async () => {
     setBusy(true);
@@ -61,6 +68,16 @@ export function CategoryEditor({ draft }: { draft: DraftConfig }) {
     if (!result.ok) setMessage(result.message);
     setBusy(false);
   };
+  const map = async (
+    operation: string,
+    action: () => Promise<{ ok: boolean; message?: string }>,
+  ) => {
+    setMappingBusy(operation);
+    setMessage(null);
+    const result = await action();
+    if (!result.ok) setMessage(result.message ?? "Mapping operation failed.");
+    setMappingBusy(null);
+  };
   return (
     <section className="subpanel">
       <h3>Category / Speedrun.com</h3>
@@ -70,16 +87,29 @@ export function CategoryEditor({ draft }: { draft: DraftConfig }) {
       </p>
       <div className="button-row">
         {draft.categorySelection.savedMappingState === "none" && (
-          <button onClick={() => void categoryApi.registerMapping()}>Register Mapping</button>
+          <button
+            disabled={mappingBusy !== null}
+            onClick={() => void map("register", () => categoryApi.registerMapping())}
+          >
+            {mappingBusy === "register" ? "Registering…" : "Register Mapping"}
+          </button>
         )}
         {draft.categorySelection.savedMappingState === "matches" && (
           <span className="muted">Saved Mapping matches current selection</span>
         )}
         {draft.categorySelection.savedMappingState === "overridden" && (
           <>
-            <button onClick={() => void categoryApi.updateMapping()}>Update Mapping</button>
-            <button onClick={() => void categoryApi.revertMapping()}>
-              Revert to Saved Mapping
+            <button
+              disabled={mappingBusy !== null}
+              onClick={() => void map("update", () => categoryApi.updateMapping())}
+            >
+              {mappingBusy === "update" ? "Updating…" : "Update Mapping"}
+            </button>
+            <button
+              disabled={mappingBusy !== null}
+              onClick={() => void map("revert", () => categoryApi.revertMapping())}
+            >
+              {mappingBusy === "revert" ? "Reverting…" : "Revert to Saved Mapping"}
             </button>
           </>
         )}
