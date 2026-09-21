@@ -24,7 +24,8 @@ import { RaceSessionService } from "./application/race-session-service";
 import { SpeedrunDiscoveryService } from "./application/speedrun-discovery-service";
 import { SpeedrunSnapshotService } from "./application/speedrun-snapshot-service";
 import { SpeedrunOperationStatusCoordinator } from "./application/speedrun-status-coordinator";
-import { parseBundleConfig } from "./config";
+import { parseBundleConfig, parseEventConfig } from "./config";
+import { GraphicsProjectionService } from "./application/graphics-projection-service";
 import { HttpSpeedrunComClient } from "./integrations/speedruncom/client";
 import { HttpRaceTimeClient } from "./integrations/racetime/client";
 import { RaceTimeWebSocketError } from "./integrations/racetime/errors";
@@ -110,6 +111,33 @@ export function setupSpreadsheetIntegration(nodecg: NodeCG): SpreadsheetIntegrat
       sheetName: categoryPresentationSheet,
     }),
   };
+}
+
+export function setupGraphicsProjection(nodecg: NodeCG): GraphicsProjectionService | null {
+  const parsed = parseEventConfig(nodecg.bundleConfig);
+  if (!parsed.ok) {
+    nodecg.log.warn(`[graphics.config.invalid] ${parsed.issues.join("; ")}`);
+    return null;
+  }
+  const service = new GraphicsProjectionService({
+    activeConfig: nodecg.Replicant("active-config"),
+    activeSnapshot: nodecg.Replicant("active-speedrun-snapshot"),
+    activeSession: nodecg.Replicant("active-race-session"),
+    overlay: nodecg.Replicant("race-overlay-data"),
+    participants: nodecg.Replicant("participant-list-data"),
+    leaderboard: nodecg.Replicant("leaderboard-page-data"),
+    result: nodecg.Replicant("race-result-page-data"),
+    event: parsed.config,
+    log: nodecg.log,
+  });
+  nodecg.Replicant("active-config").on("change", () => {
+    service.rebuildStatic();
+    service.rebuildResult();
+  });
+  nodecg.Replicant("active-speedrun-snapshot").on("change", () => service.rebuildStatic());
+  nodecg.Replicant("active-race-session").on("change", () => service.rebuildResult());
+  service.rebuildAll();
+  return service;
 }
 
 function categoryPresetProviderFor(
@@ -272,6 +300,7 @@ export function bootstrapExtension(nodecg: NodeCG): {
   participantDraft: ParticipantDraftService;
   racePresentationDraft: RacePresentationDraftService;
   broadcastApply: BroadcastApplyService;
+  graphicsProjection: GraphicsProjectionService | null;
 } {
   declareReplicants(nodecg);
   const spreadsheet = setupSpreadsheetIntegration(nodecg);
@@ -285,6 +314,7 @@ export function bootstrapExtension(nodecg: NodeCG): {
   const participantDraft = setupParticipantDraftService(nodecg, speedrunDiscovery);
   const racePresentationDraft = setupRacePresentationDraftService(nodecg);
   const broadcastApply = setupBroadcastApplyService(nodecg, raceSessions);
+  const graphicsProjection = setupGraphicsProjection(nodecg);
   registerRaceMessages(nodecg, raceDraft);
   registerCategoryMessages(nodecg, categoryDraft);
   registerSpeedrunMessages(nodecg, speedrunDiscovery);
@@ -300,5 +330,6 @@ export function bootstrapExtension(nodecg: NodeCG): {
     participantDraft,
     racePresentationDraft,
     broadcastApply,
+    graphicsProjection,
   };
 }

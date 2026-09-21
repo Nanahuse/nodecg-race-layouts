@@ -1,4 +1,9 @@
 {
+  "event": {
+    "name": "RTA Race Event",
+    "shortName": "RTA Race",
+    "logoUrl": "/bundles/nodecg-race-layouts/assets/event-logo.png"
+  },
   "spreadsheet": {
     "spreadsheetId": "your-spreadsheet-id",
     "playersSheet": "Players",

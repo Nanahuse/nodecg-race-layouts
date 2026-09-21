@@ -13,6 +13,32 @@ export type RaceLayoutsConfig = {
   spreadsheet: SpreadsheetConfig;
 };
 
+export type EventConfig = { name: string; shortName: string | null; logoUrl: string | null };
+export type EventConfigParseResult =
+  { ok: true; config: EventConfig } | { ok: false; issues: string[] };
+
+export function parseEventConfig(raw: unknown): EventConfigParseResult {
+  if (!isRecord(raw) || !isRecord(raw.event)) {
+    return { ok: false, issues: ['Bundle config must contain an "event" object.'] };
+  }
+  const event = raw.event;
+  const name = typeof event.name === "string" ? event.name.trim() : "";
+  const issues: string[] = [];
+  if (!name) issues.push('"event.name" is required and must be a non-empty string.');
+  const optional = (key: "shortName" | "logoUrl"): string | null => {
+    const value = event[key];
+    if (value === undefined || value === null || value === "") return null;
+    if (typeof value !== "string") {
+      issues.push(`"event.${key}" must be a string or null when provided.`);
+      return null;
+    }
+    return value.trim() || null;
+  };
+  const shortName = optional("shortName");
+  const logoUrl = optional("logoUrl");
+  return issues.length ? { ok: false, issues } : { ok: true, config: { name, shortName, logoUrl } };
+}
+
 export type BundleConfigParseResult =
   { ok: true; config: RaceLayoutsConfig } | { ok: false; issues: string[] };
 
