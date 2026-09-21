@@ -12,6 +12,12 @@
     "EventView": {
       "additionalProperties": false,
       "properties": {
+        "logoUrl": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
         "name": {
           "type": "string"
         },
@@ -24,7 +30,8 @@
       },
       "required": [
         "name",
-        "shortName"
+        "shortName",
+        "logoUrl"
       ],
       "type": "object"
     },
@@ -69,7 +76,10 @@
               "type": "string"
             },
             "ruleHeading": {
-              "type": "string"
+              "type": [
+                "string",
+                "null"
+              ]
             },
             "ruleLines": {
               "items": {

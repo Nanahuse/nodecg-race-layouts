@@ -10,7 +10,7 @@ import type { RaceScreenSlot } from "./race-screen";
 export type EventView = {
   name: string;
   shortName: string | null;
-  logoUrl?: string | null;
+  logoUrl: string | null;
 };
 
 export type CommentatorView = {

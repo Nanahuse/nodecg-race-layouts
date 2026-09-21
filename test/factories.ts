@@ -159,7 +159,7 @@ export function makeRaceOverlayData(overrides: Partial<RaceOverlayData> = {}): R
 
   return {
     activeRevision: 1,
-    event: { name: "Test Event", shortName: "TE" },
+    event: { name: "Test Event", shortName: "TE", logoUrl: null },
     category: { name: "Any%" },
     worldRecord: null,
     commentators: [],

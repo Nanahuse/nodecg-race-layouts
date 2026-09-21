@@ -11,19 +11,18 @@ export function buildRaceResultPageData(
 ): BuildResult<RaceResultPageData> {
   if (!session.race || session.race.raceId !== config.race.raceId)
     return { ok: false, issues: ["Active race mismatch"] };
+  for (const participant of config.participants) {
+    const player = config.players[participant.playerId];
+    if (!player)
+      return { ok: false, issues: [`Participant player missing: ${participant.playerId}`] };
+    if (!resolveDisplayName(player)) {
+      return { ok: false, issues: [`Display name unresolved: ${participant.playerId}`] };
+    }
+  }
   const results = config.participants.map((participant) => {
     const p = config.players[participant.playerId];
-    if (!p)
-      return {
-        racetimeUserId: participant.racetimeUserId,
-        place: null,
-        placeLabel: "",
-        name: "",
-        secondaryName: null,
-        time: null,
-        status: "other" as const,
-      };
-    const displayName = resolveDisplayName(p) ?? "";
+    if (!p) throw new Error("validated participant player is missing");
+    const displayName = resolveDisplayName(p) as string;
     const live = session.race?.results.find((r) => r.userId === participant.racetimeUserId);
     const status = live?.status ?? "other";
     const place = live?.place ?? null;
