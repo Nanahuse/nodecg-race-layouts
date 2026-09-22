@@ -16,21 +16,40 @@
 .race-header {
   top: 28px;
   left: 48px;
+  width: min(700px, calc(100% - 96px));
+  overflow: hidden;
 }
 .race-header img {
   display: block;
   max-width: 240px;
   max-height: 72px;
 }
+.event {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .category {
+  overflow: hidden;
   margin-top: 8px;
   font-size: 24px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .race-footer {
   right: 48px;
   bottom: 28px;
+  width: min(900px, calc(100% - 96px));
+  overflow: hidden;
   text-align: right;
   font-size: 24px;
+}
+.world-record {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .commentators {
   display: flex;
@@ -39,6 +58,21 @@
   font-size: 18px;
   max-width: 700px;
   overflow: hidden;
+  white-space: nowrap;
+}
+.commentator {
+  display: flex;
+  min-width: 0;
+  max-width: 33.333%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.commentator-name,
+.commentator-twitch {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 .players {
