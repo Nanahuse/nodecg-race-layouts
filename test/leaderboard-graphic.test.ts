@@ -58,6 +58,7 @@ describe("LeaderboardGraphic", () => {
     const data = makeData(count);
     const html = renderToStaticMarkup(createElement(LeaderboardGraphic, { data }));
     expect(getLeaderboardDensity(count)).toBe(density);
+    expect(html).toContain("leaderboard-" + density);
     expect(html.match(/class="leaderboard-row"/g)).toHaveLength(count);
     expect(html).toContain("Runner " + count);
   });
