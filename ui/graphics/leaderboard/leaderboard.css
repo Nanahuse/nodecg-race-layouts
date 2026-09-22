@@ -60,3 +60,51 @@
   text-align: right;
   white-space: nowrap;
 }
+.leaderboard-compact .leaderboard-heading {
+  padding-bottom: 8px;
+  font-size: 17px;
+}
+.leaderboard-compact .leaderboard-row {
+  min-height: 68px;
+  padding-block: 6px;
+}
+.leaderboard-compact .leaderboard-rank,
+.leaderboard-compact .leaderboard-name strong,
+.leaderboard-compact .leaderboard-time {
+  font-size: 25px;
+}
+.leaderboard-compact .leaderboard-name small {
+  font-size: 14px;
+}
+.leaderboard-dense .leaderboard-heading {
+  padding-bottom: 6px;
+  font-size: 16px;
+}
+.leaderboard-dense .leaderboard-row {
+  min-height: 55px;
+  padding-block: 4px;
+}
+.leaderboard-dense .leaderboard-rank,
+.leaderboard-dense .leaderboard-name strong,
+.leaderboard-dense .leaderboard-time {
+  font-size: 22px;
+}
+.leaderboard-dense .leaderboard-name small {
+  font-size: 13px;
+}
+.leaderboard-extra-dense .leaderboard-heading {
+  padding-bottom: 4px;
+  font-size: 14px;
+}
+.leaderboard-extra-dense .leaderboard-row {
+  min-height: 43px;
+  padding-block: 3px;
+}
+.leaderboard-extra-dense .leaderboard-rank,
+.leaderboard-extra-dense .leaderboard-name strong,
+.leaderboard-extra-dense .leaderboard-time {
+  font-size: 18px;
+}
+.leaderboard-extra-dense .leaderboard-name small {
+  font-size: 11px;
+}

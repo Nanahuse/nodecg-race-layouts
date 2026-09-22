@@ -2,7 +2,10 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import type { LeaderboardPageData } from "../src/domain";
-import { LeaderboardGraphic } from "../ui/graphics/leaderboard/leaderboard-graphic";
+import {
+  getLeaderboardDensity,
+  LeaderboardGraphic,
+} from "../ui/graphics/leaderboard/leaderboard-graphic";
 
 const makeData = (count = 3): LeaderboardPageData => ({
   activeRevision: 1,
@@ -44,6 +47,20 @@ describe("LeaderboardGraphic", () => {
     expect(html).toContain("99");
     expect(html).toContain("Runner 10");
     expect(html.match(/class="leaderboard-row"/g)).toHaveLength(10);
+  });
+
+  it.each([
+    [11, "compact"],
+    [12, "compact"],
+    [16, "dense"],
+    [20, "extra-dense"],
+  ] as const)("renders all %i entries with %s density", (count, density) => {
+    const data = makeData(count);
+    const html = renderToStaticMarkup(createElement(LeaderboardGraphic, { data }));
+    expect(getLeaderboardDensity(count)).toBe(density);
+    expect(html).toContain("leaderboard-" + density);
+    expect(html.match(/class="leaderboard-row"/g)).toHaveLength(count);
+    expect(html).toContain("Runner " + count);
   });
 
   it("renders no content when data is unavailable", () => {

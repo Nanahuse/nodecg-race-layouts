@@ -51,6 +51,14 @@ describe("graphics view model builders", () => {
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.value.leaderboard.filter((entry) => entry.rank === 10)).toHaveLength(3);
+    expect(result.value.leaderboard.map((entry) => entry.rank)).toEqual([10, 10, 8, 9, 10]);
+    expect(result.value.leaderboard.map((entry) => entry.name)).toEqual([
+      "player-1",
+      "player-2",
+      "player-3",
+      "player-4",
+      "SRC 5",
+    ]);
     expect(result.value.presentation).toMatchObject({
       ruleHeading: null,
       ruleLines: [],
