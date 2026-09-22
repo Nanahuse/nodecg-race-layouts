@@ -4,8 +4,10 @@ import type {
   DraftConfig,
   IntegrationStatus,
   PlayerDirectory,
+  PlayerMapping,
   PostApplyPersistenceState,
 } from "../../../src/domain";
+import type { PlayerMappingEditInput } from "../../../src/protocol/player-directory";
 import { useReplicant } from "../hooks/use-replicant";
 import { createPlayerDirectoryApi } from "../api/player-directory-api";
 import {
@@ -15,52 +17,194 @@ import {
   sortPlayers,
   type PlayerFilter,
 } from "./model";
+import {
+  createEmptyPlayerInput,
+  isEditInputEqual,
+  isUsageBlockingEdit,
+  playerMappingToEditInput,
+} from "./editor-model";
 import { PlayerList } from "./player-list";
 import { PlayerDetail } from "./player-detail";
-
+import { PlayerEditor } from "./player-editor";
+type Editor =
+  | { mode: "view" }
+  | { mode: "create"; initialForm: PlayerMappingEditInput; form: PlayerMappingEditInput }
+  | {
+      mode: "edit";
+      playerId: string;
+      baseline: PlayerMapping;
+      initialForm: PlayerMappingEditInput;
+      form: PlayerMappingEditInput;
+      stale: boolean;
+    };
+const reason = (r: { reason: string; message: string }) => r.reason + ": " + r.message;
 export function PlayerMappingApp() {
-  const directory = useReplicant<PlayerDirectory>("player-directory");
-  const draft = useReplicant<DraftConfig>("draft-config");
-  const active = useReplicant<ActiveConfig | null>("active-config");
-  const persistence = useReplicant<PostApplyPersistenceState>("post-apply-persistence");
-  const integration = useReplicant<IntegrationStatus>("integration-status");
-  const [query, setQuery] = useState("");
-  const [filter, setFilter] = useState<PlayerFilter>("all");
-  const [selected, setSelected] = useState<string | null>(null);
-  const [reloadPending, setReloadPending] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
+  const directory = useReplicant<PlayerDirectory>("player-directory"),
+    draft = useReplicant<DraftConfig>("draft-config"),
+    active = useReplicant<ActiveConfig | null>("active-config"),
+    persistence = useReplicant<PostApplyPersistenceState>("post-apply-persistence"),
+    integration = useReplicant<IntegrationStatus>("integration-status");
+  const [query, setQuery] = useState(""),
+    [filter, setFilter] = useState<PlayerFilter>("all"),
+    [selected, setSelected] = useState<string | null>(null),
+    [reloadPending, setReloadPending] = useState(false),
+    [message, setMessage] = useState<string | null>(null),
+    [editor, setEditor] = useState<Editor>({ mode: "view" }),
+    [pending, setPending] = useState(false),
+    [error, setError] = useState<string | null>(null),
+    [deleteConfirm, setDeleteConfirm] = useState(false),
+    [pendingSelection, setPendingSelection] = useState<string | null>(null);
   useEffect(() => {
-    if (directory.ready && selected !== null && !directory.value[selected]) setSelected(null);
-  }, [directory, selected]);
-  if (![directory, draft, active, persistence, integration].every((item) => item.ready))
+    if (directory.ready && pendingSelection && directory.value[pendingSelection]) {
+      setSelected(pendingSelection);
+      setPendingSelection(null);
+      setMessage("Created.");
+    }
+  }, [directory, pendingSelection]);
+  useEffect(() => {
+    if (!directory.ready || editor.mode !== "edit") return;
+    const latest = directory.value?.[editor.playerId];
+    if (!latest) return;
+    const changed = JSON.stringify(latest) !== JSON.stringify(editor.baseline);
+    if (!changed) return;
+    if (isEditInputEqual(editor.initialForm, editor.form)) {
+      const form = playerMappingToEditInput(latest);
+      setEditor({
+        mode: "edit",
+        playerId: latest.playerId,
+        baseline: latest,
+        initialForm: form,
+        form,
+        stale: false,
+      });
+    } else if (!editor.stale) setEditor({ ...editor, stale: true });
+  }, [directory, editor]);
+  if (![directory, draft, active, persistence, integration].every((i) => i.ready))
     return (
       <main className="player-mapping-shell">
         <p>Connecting to NodeCG…</p>
       </main>
     );
-  if (!directory.ready || !draft.ready || !active.ready || !persistence.ready || !integration.ready)
-    return null;
-  const players = Object.values(directory.value);
-  const usages = Object.fromEntries(
-    players.map((player) => [
-      player.playerId,
-      getPlayerUsage(player.playerId, draft.value, active.value, persistence.value),
-    ]),
-  );
-  const visible = sortPlayers(filterPlayers(searchPlayers(players, query), filter));
-  const selectedPlayer = players.find((player) => player.playerId === selected);
+  const directoryValue = directory.value!,
+    draftValue = draft.value!,
+    activeValue = active.value!,
+    persistenceValue = persistence.value!,
+    integrationValue = integration.value!;
+  const players = Object.values(directoryValue),
+    usages = Object.fromEntries(
+      players.map((p) => [
+        p.playerId,
+        getPlayerUsage(p.playerId, draftValue, activeValue, persistenceValue),
+      ]),
+    ),
+    visible = sortPlayers(filterPlayers(searchPlayers(players, query), filter)),
+    selectedPlayer = selected ? directoryValue[selected] : undefined;
+  const dirty =
+      editor.mode === "create" || editor.mode === "edit"
+        ? !isEditInputEqual(editor.initialForm, editor.form)
+        : false,
+    blocked = editor.mode === "edit" && isUsageBlockingEdit(usages[editor.playerId]);
+  const guard = () => {
+    if (dirty) {
+      setMessage("You have unsaved changes. Save or Cancel before continuing.");
+      return true;
+    }
+    return false;
+  };
+  const choose = (id: string) => {
+    if (!guard()) {
+      setSelected(id);
+      setEditor({ mode: "view" });
+      setError(null);
+    }
+  };
   const reload = async () => {
+    if (guard()) return;
     setReloadPending(true);
-    setMessage(null);
     try {
-      const result = await createPlayerDirectoryApi().reload();
-      setMessage(
-        result.ok ? `Loaded ${result.playerCount} players.` : `${result.reason}: ${result.message}`,
-      );
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "NodeCG communication error");
+      const r = await createPlayerDirectoryApi().reload();
+      setMessage(r.ok ? "Loaded " + r.playerCount + " players." : reason(r));
+    } catch (e) {
+      setMessage(e instanceof Error ? e.message : "NodeCG communication error");
     } finally {
       setReloadPending(false);
+    }
+  };
+  const startEdit = () => {
+    if (!selectedPlayer || isUsageBlockingEdit(usages[selectedPlayer.playerId])) return;
+    const form = playerMappingToEditInput(selectedPlayer);
+    setEditor({
+      mode: "edit",
+      playerId: selectedPlayer.playerId,
+      baseline: selectedPlayer,
+      initialForm: form,
+      form,
+      stale: false,
+    });
+    setError(null);
+  };
+  const startCreate = () => {
+    if (!guard()) {
+      const form = createEmptyPlayerInput();
+      setSelected(null);
+      setEditor({ mode: "create", initialForm: form, form });
+      setError(null);
+    }
+  };
+  const save = async () => {
+    if (
+      pending ||
+      !dirty ||
+      blocked ||
+      editor.mode === "view" ||
+      (editor.mode === "edit" && editor.stale)
+    )
+      return;
+    setPending(true);
+    setError(null);
+    try {
+      const api = createPlayerDirectoryApi();
+      const r =
+        editor.mode === "create"
+          ? await api.create(editor.form)
+          : await api.update(editor.playerId, editor.baseline, editor.form);
+      if (!r.ok) {
+        setError(reason(r));
+        if (r.reason === "player_changed" && editor.mode === "edit")
+          setEditor({ ...editor, stale: true });
+      } else if (editor.mode === "create") {
+        setEditor({ mode: "view" });
+        setPendingSelection(r.player.playerId);
+      } else {
+        setEditor({ mode: "view" });
+        setMessage("Saved.");
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "NodeCG communication error");
+    } finally {
+      setPending(false);
+    }
+  };
+  const remove = async () => {
+    if (!selectedPlayer || isUsageBlockingEdit(usages[selectedPlayer.playerId])) return;
+    if (!deleteConfirm) {
+      setDeleteConfirm(true);
+      return;
+    }
+    setPending(true);
+    setError(null);
+    try {
+      const r = await createPlayerDirectoryApi().delete(selectedPlayer.playerId, selectedPlayer);
+      if (!r.ok) setError(reason(r));
+      else {
+        setSelected(null);
+        setDeleteConfirm(false);
+        setMessage("Deleted.");
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "NodeCG communication error");
+    } finally {
+      setPending(false);
     }
   };
   return (
@@ -71,38 +215,68 @@ export function PlayerMappingApp() {
           <h1>Player Mapping</h1>
         </div>
         <div className="spreadsheet-status">
-          Spreadsheet: <strong>{integration.value.spreadsheet.state}</strong>
-          <button disabled={reloadPending} onClick={() => void reload()}>
+          Spreadsheet: <strong>{integrationValue.spreadsheet.state}</strong>
+          <button disabled={reloadPending || dirty} onClick={() => void reload()}>
             {reloadPending ? "Reloading…" : "Reload from Spreadsheet"}
           </button>
         </div>
       </header>
       {message && <p className="callout">{message}</p>}
+      {error && editor.mode === "view" && <p className="callout error">{error}</p>}
       <div className="player-mapping-layout">
         <section className="player-list-pane">
+          <button disabled={dirty} onClick={startCreate}>
+            New Player
+          </button>
           <input
             value={query}
-            onChange={(event) => setQuery(event.target.value)}
+            onChange={(e) => setQuery(e.target.value)}
             placeholder="Search players"
           />
-          <select
-            value={filter}
-            onChange={(event) => setFilter(event.target.value as PlayerFilter)}
-          >
+          <select value={filter} onChange={(e) => setFilter(e.target.value as PlayerFilter)}>
             <option value="all">All</option>
             <option value="missing-racetime">Missing RaceTime</option>
             <option value="missing-speedruncom">Missing Speedrun.com</option>
             <option value="missing-twitch">Missing Twitch</option>
           </select>
-          <PlayerList
-            players={visible}
-            selected={selected}
-            usages={usages}
-            onSelect={setSelected}
-          />
+          <PlayerList players={visible} selected={selected} usages={usages} onSelect={choose} />
         </section>
         <section className="player-detail-pane">
-          <PlayerDetail player={selectedPlayer} usage={selected ? usages[selected] : undefined} />
+          {editor.mode === "view" ? (
+            <PlayerDetail
+              player={selectedPlayer}
+              usage={selected ? usages[selected] : undefined}
+              onEdit={startEdit}
+              onDelete={remove}
+              deleteConfirm={deleteConfirm}
+              onCancelDelete={() => setDeleteConfirm(false)}
+              actionsDisabled={
+                pending ||
+                !selectedPlayer ||
+                isUsageBlockingEdit(selected ? usages[selected] : undefined)
+              }
+            />
+          ) : (
+            <PlayerEditor
+              mode={editor.mode}
+              form={editor.form}
+              dirty={dirty}
+              pending={pending}
+              stale={editor.mode === "edit" && editor.stale}
+              blocked={blocked}
+              error={error}
+              onChange={(form) =>
+                setEditor((e) =>
+                  e.mode === "create" ? { ...e, form } : e.mode === "edit" ? { ...e, form } : e,
+                )
+              }
+              onSave={() => void save()}
+              onCancel={() => {
+                setEditor({ mode: "view" });
+                setError(null);
+              }}
+            />
+          )}
         </section>
       </div>
     </main>

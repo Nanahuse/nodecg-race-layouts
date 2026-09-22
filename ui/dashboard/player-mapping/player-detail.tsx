@@ -50,9 +50,19 @@ function LinkDetail({
 export function PlayerDetail({
   player,
   usage,
+  onEdit,
+  onDelete,
+  deleteConfirm,
+  onCancelDelete,
+  actionsDisabled,
 }: {
   player: PlayerMapping | undefined;
   usage?: PlayerUsage;
+  onEdit?: () => void;
+  onDelete?: () => void;
+  deleteConfirm?: boolean;
+  onCancelDelete?: () => void;
+  actionsDisabled?: boolean;
 }) {
   if (!player) return <div className="empty-detail">Select a player to view details.</div>;
   return (
@@ -73,6 +83,25 @@ export function PlayerDetail({
         <LinkDetail label="Speedrun.com" link={player.speedrunCom} />
         <LinkDetail label="Twitch" link={player.twitch} />
       </dl>
+      <div className="detail-actions">
+        <button disabled={actionsDisabled} onClick={onEdit}>
+          Edit
+        </button>
+        {!deleteConfirm ? (
+          <button disabled={actionsDisabled} onClick={onDelete}>
+            Delete
+          </button>
+        ) : (
+          <>
+            <button disabled={actionsDisabled} onClick={onDelete}>
+              Confirm Delete
+            </button>
+            <button disabled={actionsDisabled} onClick={onCancelDelete}>
+              Cancel
+            </button>
+          </>
+        )}
+      </div>
     </div>
   );
 }
