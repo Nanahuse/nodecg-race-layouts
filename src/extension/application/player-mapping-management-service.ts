@@ -93,7 +93,7 @@ export class PlayerMappingManagementService {
       return failure("player_changed", `Player "${playerId}" changed on the server.`);
     const inUse = this.inUseReason(playerId);
     if (inUse) return failure("player_in_use", inUse);
-    const built = await this.buildPlayer(playerId, input);
+    const built = await this.buildPlayer(playerId, input, current);
     if (!built.ok) return built;
     const validation = this.validateNext(built.player, playerId);
     if (validation) return validation;
@@ -135,6 +135,7 @@ export class PlayerMappingManagementService {
   private async buildPlayer(
     playerId: string,
     raw: PlayerMappingEditInput,
+    current?: PlayerMapping,
   ): Promise<{ ok: true; player: PlayerMapping } | PlayerDirectoryFailure> {
     const input = normalizeInput(raw);
     if (
@@ -152,13 +153,21 @@ export class PlayerMappingManagementService {
     if (input.speedrunCom.state === "linked") {
       if (!input.speedrunCom.userId)
         return failure("invalid_input", "Speedrun.com user id is required.");
-      const result = await this.options.speedrun.getUser(input.speedrunCom.userId);
-      if (!result.ok)
-        return failure(
-          result.reason === "not_found" ? "speedrun_user_not_found" : "speedrun_lookup_failed",
-          result.message,
-        );
-      speedrunCom = { state: "linked", value: result.user };
+      const currentSpeedrun = current?.speedrunCom;
+      if (
+        currentSpeedrun?.state === "linked" &&
+        currentSpeedrun.value.userId === input.speedrunCom.userId
+      ) {
+        speedrunCom = currentSpeedrun;
+      } else {
+        const result = await this.options.speedrun.getUser(input.speedrunCom.userId);
+        if (!result.ok)
+          return failure(
+            result.reason === "not_found" ? "speedrun_user_not_found" : "speedrun_lookup_failed",
+            result.message,
+          );
+        speedrunCom = { state: "linked", value: result.user };
+      }
     }
     const player: PlayerMapping = {
       playerId,
@@ -177,7 +186,18 @@ export class PlayerMappingManagementService {
       speedrunCom,
       twitch:
         input.twitch.state === "linked"
-          ? { state: "linked", value: { userId: null, login: input.twitch.login } }
+          ? {
+              state: "linked",
+              value: {
+                userId:
+                  current?.twitch.state === "linked" &&
+                  current.twitch.value.login.trim().toLowerCase() ===
+                    input.twitch.login.toLowerCase()
+                    ? current.twitch.value.userId
+                    : null,
+                login: input.twitch.login,
+              },
+            }
           : { state: "none" },
     };
     return resolveDisplayName(player) === null

@@ -72,6 +72,106 @@ describe("PlayerMappingManagementService", () => {
     if (result.ok) expect(result.player.manualDisplayName).toBe("New Player");
   });
 
+  it("preserves existing Speedrun.com metadata and Twitch user id on unchanged update", async () => {
+    const current: PlayerMapping = {
+      ...player(),
+      speedrunCom: {
+        state: "linked",
+        value: { userId: "src-1", name: "Original SRC", twitchLogin: "src-runner" },
+      },
+      twitch: { state: "linked", value: { userId: "tw-1", login: "Runner" } },
+    };
+    const { management, directoryService, speedrun } = service({ p1: current });
+    const result = await management.update("p1", current, {
+      manualDisplayName: "Renamed",
+      racetime: { state: "none" },
+      speedrunCom: { state: "linked", userId: " src-1 " },
+      twitch: { state: "linked", login: " runner " },
+    });
+    expect(result).toMatchObject({ ok: true });
+    expect(speedrun.getUser).not.toHaveBeenCalled();
+    expect(directoryService.savePlayers).toHaveBeenCalledOnce();
+    if (result.ok) {
+      expect(result.player.speedrunCom).toEqual(current.speedrunCom);
+      expect(result.player.twitch).toEqual({
+        state: "linked",
+        value: { userId: "tw-1", login: "runner" },
+      });
+    }
+  });
+
+  it("looks up new or changed Speedrun.com identities", async () => {
+    const current = {
+      p1: {
+        ...player(),
+        speedrunCom: {
+          state: "linked" as const,
+          value: { userId: "src-old", name: "Old", twitchLogin: null },
+        },
+      },
+    };
+    const changed = service(current);
+    vi.mocked(changed.speedrun.getUser).mockResolvedValueOnce({
+      ok: true,
+      user: { userId: "src-new", name: "New", twitchLogin: "new" },
+    });
+    expect(
+      await changed.management.update("p1", current.p1, {
+        ...input,
+        speedrunCom: { state: "linked", userId: "src-new" },
+      }),
+    ).toMatchObject({ ok: true });
+    expect(changed.speedrun.getUser).toHaveBeenCalledWith("src-new");
+
+    const absent = service({ p1: player() });
+    vi.mocked(absent.speedrun.getUser).mockResolvedValueOnce({
+      ok: true,
+      user: { userId: "src-new", name: "New", twitchLogin: null },
+    });
+    expect(
+      await absent.management.update("p1", player(), {
+        ...input,
+        speedrunCom: { state: "linked", userId: "src-new" },
+      }),
+    ).toMatchObject({ ok: true });
+    expect(absent.speedrun.getUser).toHaveBeenCalledWith("src-new");
+  });
+
+  it("clears Twitch user id only when the login changes and supports none", async () => {
+    const current: PlayerMapping = {
+      ...player(),
+      twitch: { state: "linked", value: { userId: "tw-1", login: "Runner" } },
+    };
+    const same = service({ p1: current });
+    const sameResult = await same.management.update("p1", current, {
+      ...input,
+      twitch: { state: "linked", login: "runner" },
+    });
+    expect(sameResult).toMatchObject({ ok: true });
+    if (sameResult.ok)
+      expect(sameResult.player.twitch).toEqual({
+        state: "linked",
+        value: { userId: "tw-1", login: "runner" },
+      });
+    const changed = service({ p1: current });
+    const changedResult = await changed.management.update("p1", current, {
+      ...input,
+      twitch: { state: "linked", login: "other" },
+    });
+    expect(changedResult).toMatchObject({ ok: true });
+    if (changedResult.ok)
+      expect(changedResult.player.twitch).toEqual({
+        state: "linked",
+        value: { userId: null, login: "other" },
+      });
+    const cleared = service({ p1: current });
+    const clearedResult = await cleared.management.update("p1", current, {
+      ...input,
+      twitch: { state: "none" },
+    });
+    if (clearedResult.ok) expect(clearedResult.player.twitch).toEqual({ state: "none" });
+  });
+
   it("creates a schema-shaped RaceTime identity and trims Speedrun.com lookup ids", async () => {
     const { management, directoryService, speedrun } = service();
     vi.mocked(speedrun.getUser).mockResolvedValueOnce({
