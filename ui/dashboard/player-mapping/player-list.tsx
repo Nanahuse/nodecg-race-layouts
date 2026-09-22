@@ -7,11 +7,13 @@ export function PlayerList({
   selected,
   usages,
   onSelect,
+  disabled,
 }: {
   players: PlayerMapping[];
   selected: string | null;
   usages: Record<string, PlayerUsage>;
   onSelect: (id: string) => void;
+  disabled?: boolean;
 }) {
   return (
     <div className="player-list">
@@ -19,6 +21,7 @@ export function PlayerList({
         const usage = usages[player.playerId];
         return (
           <button
+            disabled={disabled}
             className={`player-row ${selected === player.playerId ? "selected" : ""}`}
             key={player.playerId}
             onClick={() => onSelect(player.playerId)}

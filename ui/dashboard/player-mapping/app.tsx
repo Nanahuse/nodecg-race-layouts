@@ -37,6 +37,7 @@ type Editor =
       form: PlayerMappingEditInput;
       stale: boolean;
     };
+type DeleteTarget = { playerId: string; expectedPlayer: PlayerMapping } | null;
 const reason = (r: { reason: string; message: string }) => r.reason + ": " + r.message;
 export function PlayerMappingApp() {
   const directory = useReplicant<PlayerDirectory>("player-directory"),
@@ -52,7 +53,7 @@ export function PlayerMappingApp() {
     [editor, setEditor] = useState<Editor>({ mode: "view" }),
     [pending, setPending] = useState(false),
     [error, setError] = useState<string | null>(null),
-    [deleteConfirm, setDeleteConfirm] = useState(false),
+    [deleteTarget, setDeleteTarget] = useState<DeleteTarget>(null),
     [pendingSelection, setPendingSelection] = useState<string | null>(null);
   useEffect(() => {
     if (directory.ready && pendingSelection && directory.value[pendingSelection]) {
@@ -112,14 +113,15 @@ export function PlayerMappingApp() {
     return false;
   };
   const choose = (id: string) => {
-    if (!guard()) {
+    if (!pendingSelection && !guard()) {
       setSelected(id);
+      setDeleteTarget(null);
       setEditor({ mode: "view" });
       setError(null);
     }
   };
   const reload = async () => {
-    if (guard()) return;
+    if (pendingSelection || guard()) return;
     setReloadPending(true);
     try {
       const r = await createPlayerDirectoryApi().reload();
@@ -132,6 +134,7 @@ export function PlayerMappingApp() {
   };
   const startEdit = () => {
     if (!selectedPlayer || isUsageBlockingEdit(usages[selectedPlayer.playerId])) return;
+    setDeleteTarget(null);
     const form = playerMappingToEditInput(selectedPlayer);
     setEditor({
       mode: "edit",
@@ -144,9 +147,10 @@ export function PlayerMappingApp() {
     setError(null);
   };
   const startCreate = () => {
-    if (!guard()) {
+    if (!pendingSelection && !guard()) {
       const form = createEmptyPlayerInput();
       setSelected(null);
+      setDeleteTarget(null);
       setEditor({ mode: "create", initialForm: form, form });
       setError(null);
     }
@@ -160,6 +164,10 @@ export function PlayerMappingApp() {
       (editor.mode === "edit" && editor.stale)
     )
       return;
+    if (editor.mode === "create" && !(editor.form.manualDisplayName ?? "").trim()) {
+      setError("Manual display name is required.");
+      return;
+    }
     setPending(true);
     setError(null);
     try {
@@ -187,18 +195,23 @@ export function PlayerMappingApp() {
   };
   const remove = async () => {
     if (!selectedPlayer || isUsageBlockingEdit(usages[selectedPlayer.playerId])) return;
-    if (!deleteConfirm) {
-      setDeleteConfirm(true);
+    if (!deleteTarget || deleteTarget.playerId !== selectedPlayer.playerId) {
+      setDeleteTarget({ playerId: selectedPlayer.playerId, expectedPlayer: selectedPlayer });
       return;
     }
     setPending(true);
     setError(null);
     try {
-      const r = await createPlayerDirectoryApi().delete(selectedPlayer.playerId, selectedPlayer);
-      if (!r.ok) setError(reason(r));
-      else {
+      const r = await createPlayerDirectoryApi().delete(
+        deleteTarget.playerId,
+        deleteTarget.expectedPlayer,
+      );
+      if (!r.ok) {
+        setDeleteTarget(null);
+        setError(reason(r));
+      } else {
         setSelected(null);
-        setDeleteConfirm(false);
+        setDeleteTarget(null);
         setMessage("Deleted.");
       }
     } catch (e) {
@@ -225,7 +238,7 @@ export function PlayerMappingApp() {
       {error && editor.mode === "view" && <p className="callout error">{error}</p>}
       <div className="player-mapping-layout">
         <section className="player-list-pane">
-          <button disabled={dirty} onClick={startCreate}>
+          <button disabled={dirty || pendingSelection !== null} onClick={startCreate}>
             New Player
           </button>
           <input
@@ -239,7 +252,13 @@ export function PlayerMappingApp() {
             <option value="missing-speedruncom">Missing Speedrun.com</option>
             <option value="missing-twitch">Missing Twitch</option>
           </select>
-          <PlayerList players={visible} selected={selected} usages={usages} onSelect={choose} />
+          <PlayerList
+            players={visible}
+            selected={selected}
+            usages={usages}
+            onSelect={choose}
+            disabled={pendingSelection !== null}
+          />
         </section>
         <section className="player-detail-pane">
           {editor.mode === "view" ? (
@@ -248,10 +267,11 @@ export function PlayerMappingApp() {
               usage={selected ? usages[selected] : undefined}
               onEdit={startEdit}
               onDelete={remove}
-              deleteConfirm={deleteConfirm}
-              onCancelDelete={() => setDeleteConfirm(false)}
+              deleteConfirm={deleteTarget?.playerId === selectedPlayer?.playerId}
+              onCancelDelete={() => setDeleteTarget(null)}
               actionsDisabled={
                 pending ||
+                pendingSelection !== null ||
                 !selectedPlayer ||
                 isUsageBlockingEdit(selected ? usages[selected] : undefined)
               }
