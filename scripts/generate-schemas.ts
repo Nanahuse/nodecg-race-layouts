@@ -8,7 +8,7 @@ import { REPLICANT_NAMES } from "../src/replicants/names";
 import { REPLICANT_SCHEMA_TYPES } from "../src/replicants/schema-types";
 
 const JSON_SCHEMA_DRAFT_07 = "http://json-schema.org/draft-07/schema#";
-const ROOT_DIR = path.resolve(__dirname, "..");
+const ROOT_DIR = process.cwd();
 const SCHEMAS_DIR = path.join(ROOT_DIR, "schemas");
 const ENTRY_POINT = path.join(ROOT_DIR, "src", "replicants", "value-types.ts");
 

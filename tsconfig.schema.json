@@ -1,0 +1,7 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "outDir": ".schema-tool"
+  },
+  "include": ["scripts/generate-schemas.ts"]
+}
