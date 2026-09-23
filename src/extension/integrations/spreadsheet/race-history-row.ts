@@ -1,4 +1,5 @@
 import type { RaceHistoryPayload } from "../../../domain";
+import type { RaceTimeUserId } from "../../../domain/ids";
 export const RACE_HISTORY_COLUMNS = [
   "racetime_url",
   "racetime_race_id",
@@ -76,16 +77,23 @@ export function parseRaceHistoryRow(row: RaceHistoryRow):
       )
     )
       return { ok: false, message: "Invalid participants_json shape." };
+    const slotKeys = ["1", "2", "3", "4"] as const;
     if (
       !plainObject(slots) ||
       Object.keys(slots).length !== 4 ||
-      !["1", "2", "3", "4"].every((key) => nonEmptyString(slots[key])) ||
-      new Set([slots["1"], slots["2"], slots["3"], slots["4"]]).size !== 4
+      !slotKeys.every(
+        (key) =>
+          Object.prototype.hasOwnProperty.call(slots, key) &&
+          (slots[key] === null || nonEmptyString(slots[key])),
+      )
     )
       return { ok: false, message: "Invalid race_screen_slots_json shape." };
+    const assignedSlots = slotKeys.map((key) => slots[key]).filter(nonEmptyString);
+    if (new Set(assignedSlots).size !== assignedSlots.length)
+      return { ok: false, message: "Invalid race_screen_slots_json shape." };
     if (
-      !["1", "2", "3", "4"].every((key) =>
-        Object.prototype.hasOwnProperty.call(participants, slots[key] as string),
+      assignedSlots.some(
+        (racetimeUserId) => !Object.prototype.hasOwnProperty.call(participants, racetimeUserId),
       )
     )
       return { ok: false, message: "RaceHistory slot references unknown participant." };
@@ -105,7 +113,7 @@ export function parseRaceHistoryRow(row: RaceHistoryRow):
         categoryName: row.category_name,
         goal: row.goal,
         participants: participants as Record<string, string>,
-        raceScreenSlots: slots as { 1: string; 2: string; 3: string; 4: string },
+        raceScreenSlots: slots as Record<1 | 2 | 3 | 4, RaceTimeUserId | null>,
         commentatorPlayerIds: commentators as string[],
       },
       activeRevision: revision,

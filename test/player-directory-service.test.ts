@@ -45,6 +45,19 @@ function setup(initialDirectory: PlayerDirectory = {}) {
   return { service, repository, playerDirectory, integrationStatus, fakeLogger, events };
 }
 
+function nodecgProxy<T>(value: T): T {
+  if (Array.isArray(value)) {
+    return new Proxy(value.map(nodecgProxy), {});
+  }
+  if (typeof value === "object" && value !== null) {
+    const detached = Object.fromEntries(
+      Object.entries(value).map(([key, child]) => [key, nodecgProxy(child)]),
+    );
+    return new Proxy(detached, {} as ProxyHandler<typeof detached>) as T;
+  }
+  return value;
+}
+
 describe("PlayerDirectoryService.reloadFromSpreadsheet", () => {
   it("replaces the directory and reports success", async () => {
     const { service, repository, playerDirectory, integrationStatus } = setup();
@@ -86,6 +99,18 @@ describe("PlayerDirectoryService.savePlayers", () => {
     expect(events.indexOf("repository.upsert")).toBeLessThan(
       events.indexOf("set:player-directory"),
     );
+  });
+
+  it("detaches players received from another proxied Replicant", async () => {
+    const { service, repository, playerDirectory, integrationStatus } = setup();
+    const player = nodecgProxy(makeActivePlayer("p1"));
+
+    await service.savePlayers([player]);
+
+    expect(repository.upserted).toHaveLength(1);
+    expect(playerDirectory.value.p1).toEqual(player);
+    expect(() => structuredClone(playerDirectory.value)).not.toThrow();
+    expect(integrationStatus.value.spreadsheet.state).toBe("saved");
   });
 
   it("does not update the replicant when the spreadsheet write fails", async () => {

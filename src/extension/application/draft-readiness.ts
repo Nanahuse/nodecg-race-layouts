@@ -24,7 +24,7 @@ export const DRAFT_READINESS_ISSUE_CODES = {
 
 /**
  * Structural readiness for apply. Unlike draft integrity, this requires all
- * four race screen slots and a category selection. Snapshot state / revision /
+ * a category selection. Race screen slots may remain unassigned. Snapshot state / revision /
  * leaderboard-key compatibility are deliberately *not* part of this check;
  * `computeDraftBroadcastState` combines both.
  */
@@ -81,10 +81,6 @@ export function validateDraftReadiness(draft: DraftConfig): DraftReadinessIssue[
   for (const slot of RACE_SCREEN_SLOT_KEYS) {
     const value = draft.raceScreenSlots[slot];
     if (value === null) {
-      issues.push({
-        code: DRAFT_READINESS_ISSUE_CODES.slotMissing,
-        message: `Race screen slot ${slot} is not set.`,
-      });
       continue;
     }
     if (!participantRacetimeIds.has(value)) {

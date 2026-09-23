@@ -95,6 +95,9 @@
   border-left: 6px solid var(--accent);
   text-shadow: 0 2px 4px #000;
 }
+.player-hud[data-empty="true"] {
+  visibility: hidden;
+}
 .player-hud strong,
 .player-hud small {
   overflow: hidden;

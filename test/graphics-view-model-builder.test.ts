@@ -23,6 +23,19 @@ const snapshot = {
   }),
 };
 
+function nodecgProxy<T>(value: T): T {
+  if (Array.isArray(value)) {
+    return new Proxy(value.map(nodecgProxy), {});
+  }
+  if (typeof value === "object" && value !== null) {
+    const detached = Object.fromEntries(
+      Object.entries(value).map(([key, child]) => [key, nodecgProxy(child)]),
+    );
+    return new Proxy(detached, {} as ProxyHandler<typeof detached>) as T;
+  }
+  return value;
+}
+
 describe("graphics view model builders", () => {
   it("preserves slots, event branding, PB policy and participant order", () => {
     const config = makeActiveConfig({
@@ -46,6 +59,22 @@ describe("graphics view model builders", () => {
       ]);
   });
 
+  it("projects an unassigned slot as an empty HUD without failing the overlay", () => {
+    const config = makeActiveConfig({
+      raceScreenSlots: { 1: "rt-1", 2: "rt-2", 3: null, 4: null },
+    });
+    const overlay = buildRaceOverlayData(config, snapshot, event);
+    expect(overlay.ok).toBe(true);
+    if (!overlay.ok) return;
+    expect(overlay.value.players.map((player) => player.displayName)).toEqual([
+      "player-1",
+      "player-2",
+      null,
+      null,
+    ]);
+    expect(overlay.value.players[2].personalBest).toEqual({ time: null, rank: null });
+  });
+
   it("keeps all rank-10 ties and supports presentation fallback", () => {
     const result = buildLeaderboardPageData(makeActiveConfig(), snapshot, event);
     expect(result.ok).toBe(true);
@@ -65,6 +94,28 @@ describe("graphics view model builders", () => {
       leaderboardHeading: "Leaderboard",
       sourceLabel: "Speedrun.com",
     });
+  });
+
+  it("detaches proxied category rule lines in the leaderboard projection", () => {
+    const config = nodecgProxy(
+      makeActiveConfig({
+        categoryPresentation: {
+          title: "Title",
+          subtitle: null,
+          ruleHeading: "Rules",
+          ruleLines: ["test"],
+          leaderboardHeading: "Leaderboard",
+        },
+      }),
+    );
+
+    const result = buildLeaderboardPageData(config, snapshot, event);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.presentation.ruleLines).toEqual(["test"]);
+      expect(() => structuredClone(result.value)).not.toThrow();
+    }
   });
 
   it("rejects revision mismatch and invalid slots", () => {

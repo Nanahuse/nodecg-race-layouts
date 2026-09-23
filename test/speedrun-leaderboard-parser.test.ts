@@ -62,6 +62,24 @@ describe("parseLeaderboard", () => {
     expect(parsed.players).toEqual([{ userId: "user-1", name: "Runner One" }]);
   });
 
+  it("parses the current Speedrun.com embedded players data envelope", () => {
+    const parsed = parseLeaderboard(
+      leaderboardRecord({
+        players: {
+          data: [
+            { rel: "user", id: "user-1", names: { international: "Runner One" } },
+            { rel: "guest", name: "Guest Runner" },
+          ],
+        },
+      }),
+    );
+
+    expect(parsed.players).toEqual([
+      { userId: "user-1", name: "Runner One" },
+      { userId: null, name: "Guest Runner" },
+    ]);
+  });
+
   it("rejects a malformed place", () => {
     expect(() =>
       parseLeaderboard(leaderboardRecord({ runs: [{ place: "first", run: runRecord() }] })),

@@ -2,6 +2,14 @@ import type { ActiveConfig } from "./config";
 import type { PlayerMapping } from "./player";
 import type { RaceTimeUserId } from "./ids";
 
+function cloneReplicantValue<T>(value: T): T {
+  const serialized = JSON.stringify(value);
+  if (serialized === undefined) {
+    throw new Error("Replicant value is not JSON-serializable.");
+  }
+  return JSON.parse(serialized) as T;
+}
+
 export type RaceHistoryPayload = {
   racetimeUrl: string;
   raceId: string;
@@ -9,7 +17,7 @@ export type RaceHistoryPayload = {
   categoryName: string;
   goal: string;
   participants: Record<RaceTimeUserId, string>;
-  raceScreenSlots: { 1: RaceTimeUserId; 2: RaceTimeUserId; 3: RaceTimeUserId; 4: RaceTimeUserId };
+  raceScreenSlots: Record<1 | 2 | 3 | 4, RaceTimeUserId | null>;
   commentatorPlayerIds: string[];
 };
 export type PostApplyPersistenceItem = {
@@ -33,7 +41,7 @@ export function persistenceItemFromConfig(
   return {
     activeRevision: config.revision,
     appliedAt,
-    players: structuredClone(Object.values(config.players)),
+    players: cloneReplicantValue(Object.values(config.players)),
     raceHistory: {
       racetimeUrl: config.race.canonicalUrl,
       raceId: config.race.raceId,
@@ -43,7 +51,7 @@ export function persistenceItemFromConfig(
       participants: Object.fromEntries(
         config.participants.map((p) => [p.racetimeUserId, p.playerId]),
       ),
-      raceScreenSlots: structuredClone(config.raceScreenSlots),
+      raceScreenSlots: cloneReplicantValue(config.raceScreenSlots),
       commentatorPlayerIds: [...config.commentatorPlayerIds],
     },
     attempts: 0,

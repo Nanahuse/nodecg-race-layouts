@@ -25,6 +25,14 @@ function describeError(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+function detachPlayers(players: readonly PlayerMapping[]): PlayerMapping[] {
+  const serialized = JSON.stringify(players);
+  if (serialized === undefined) {
+    throw new Error("Player data is not JSON-serializable.");
+  }
+  return JSON.parse(serialized) as PlayerMapping[];
+}
+
 /**
  * Coordinates the spreadsheet repository and the `player-directory` replicant.
  *
@@ -72,24 +80,28 @@ export class PlayerDirectoryService {
   }
 
   async savePlayers(players: readonly PlayerMapping[]): Promise<void> {
+    // Inputs can come from a different NodeCG Replicant (e.g. the post-apply
+    // persistence queue), whose recursively proxied objects cannot be reused.
+    const detachedPlayers = detachPlayers(players);
     const operation = this.coordinator?.begin("saving");
     this.log.info(
-      `[spreadsheet.players.upsert.started] sheet=${this.sheetName} count=${players.length}`,
+      `[spreadsheet.players.upsert.started] sheet=${this.sheetName} count=${detachedPlayers.length}`,
     );
 
     try {
-      await this.repository.upsert(players);
+      await this.repository.upsert(detachedPlayers);
 
       const next: PlayerDirectory = { ...this.playerDirectory.value };
-      for (const player of players) {
+      for (const player of detachedPlayers) {
         next[player.playerId] = player;
       }
       this.playerDirectory.value = next;
 
-      operation?.success(`Saved ${players.length} player(s).`);
-      if (!operation) this.setSpreadsheetStatus("saved", `Saved ${players.length} player(s).`);
+      operation?.success(`Saved ${detachedPlayers.length} player(s).`);
+      if (!operation)
+        this.setSpreadsheetStatus("saved", `Saved ${detachedPlayers.length} player(s).`);
       this.log.info(
-        `[spreadsheet.players.upsert.completed] sheet=${this.sheetName} count=${players.length}`,
+        `[spreadsheet.players.upsert.completed] sheet=${this.sheetName} count=${detachedPlayers.length}`,
       );
     } catch (error) {
       const message = describeError(error);

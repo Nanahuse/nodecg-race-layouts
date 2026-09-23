@@ -34,6 +34,26 @@ describe("RaceGraphic", () => {
     expect(renderToStaticMarkup(createElement(RaceGraphic, { data: null }))).toBe("");
   });
 
+  it("keeps unassigned HUD positions empty", () => {
+    const partiallyAssigned: RaceOverlayData = {
+      ...data,
+      players: data.players.map((player, index) =>
+        index === 2
+          ? {
+              ...player,
+              displayName: null,
+              twitchLogin: null,
+              personalBest: { time: null, rank: null },
+            }
+          : player,
+      ) as RaceOverlayData["players"],
+    };
+    const html = renderToStaticMarkup(createElement(RaceGraphic, { data: partiallyAssigned }));
+    expect(html).toContain('class="player-hud slot-3"');
+    expect(html).toContain('data-empty="true"');
+    expect(html).not.toContain("Player 3");
+  });
+
   it("renders the maximum commentary and long player content", () => {
     const maximum = {
       ...data,

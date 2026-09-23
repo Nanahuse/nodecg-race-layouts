@@ -49,10 +49,11 @@ describe("validateDraftReadiness", () => {
     expect(codes(draft)).toContain(DRAFT_READINESS_ISSUE_CODES.raceMissing);
   });
 
-  it("rejects a missing slot", () => {
+  it("allows unassigned race screen slots", () => {
     const draft = readyDraft();
     draft.raceScreenSlots = { 1: "rt-p1", 2: "rt-p2", 3: "rt-p3", 4: null };
-    expect(codes(draft)).toContain(DRAFT_READINESS_ISSUE_CODES.slotMissing);
+    expect(codes(draft)).not.toContain(DRAFT_READINESS_ISSUE_CODES.slotMissing);
+    expect(isDraftStructurallyReady(draft)).toBe(true);
   });
 
   it("rejects a duplicate slot", () => {

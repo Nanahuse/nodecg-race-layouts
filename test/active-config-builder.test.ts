@@ -170,14 +170,12 @@ describe("buildActiveConfig", () => {
     }
   });
 
-  it("rejects a missing slot", () => {
+  it("builds an active config with unassigned slots", () => {
     const draft = readyDraft();
     draft.raceScreenSlots = { 1: "rt-p1", 2: "rt-p2", 3: "rt-p3", 4: null };
     const result = buildActiveConfig(draft, 1);
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.issues.map((issue) => issue.code)).toContain("slot_missing");
-    }
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.config.raceScreenSlots).toEqual(draft.raceScreenSlots);
   });
 
   it("isolates the active config from later draft mutation", () => {

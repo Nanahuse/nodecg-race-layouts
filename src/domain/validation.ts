@@ -130,10 +130,13 @@ export function validateActiveConfig(config: ActiveConfig): ValidationIssue[] {
   const slotOwners = new Map<string, string>();
   for (const slot of RACE_SCREEN_SLOT_KEYS) {
     const racetimeUserId = slots[slot];
+    if (racetimeUserId === null) {
+      continue;
+    }
     if (!isNonEmptyString(racetimeUserId)) {
       issues.push({
         code: ACTIVE_CONFIG_ISSUE_CODES.raceScreenSlotMissing,
-        message: `Race screen slot ${slot} is not set.`,
+        message: `Race screen slot ${slot} is invalid.`,
       });
       continue;
     }
