@@ -53,8 +53,10 @@
 }
 .commentators {
   display: flex;
+  justify-content: flex-end;
   gap: 18px;
   margin-top: 8px;
+  margin-left: auto;
   font-size: 18px;
   max-width: 700px;
   overflow: hidden;
