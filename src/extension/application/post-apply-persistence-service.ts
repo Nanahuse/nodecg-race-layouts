@@ -24,7 +24,7 @@ export class PostApplyPersistenceService implements PostApplyPersistenceSink {
   private flushing = false;
   constructor(
     private readonly state: Replicant<PostApplyPersistenceState>,
-    private readonly players: PlayerDirectoryService,
+    private readonly players: Pick<PlayerDirectoryService, "savePlayers">,
     private readonly history: RaceHistoryRepository,
     private readonly log: NodeCGLogger,
     private readonly now: () => Date = () => new Date(),
