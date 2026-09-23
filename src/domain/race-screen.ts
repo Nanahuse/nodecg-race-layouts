@@ -24,10 +24,10 @@ export type DraftRaceScreenSlots = {
   4: RaceTimeUserId | null;
 };
 
-/** Active: all four slots are required. */
+/** Active: slot positions remain fixed, but any position may be unassigned. */
 export type ActiveRaceScreenSlots = {
-  1: RaceTimeUserId;
-  2: RaceTimeUserId;
-  3: RaceTimeUserId;
-  4: RaceTimeUserId;
+  1: RaceTimeUserId | null;
+  2: RaceTimeUserId | null;
+  3: RaceTimeUserId | null;
+  4: RaceTimeUserId | null;
 };

@@ -146,7 +146,13 @@ function parseEmbedPlayers(
   if (value === null || value === undefined) {
     return [];
   }
-  const entries = requireArray(value, path);
+  // Speedrun.com currently wraps embedded resources in `{ data: [...] }`,
+  // while older responses and fixtures may expose the array directly.
+  const entries = Array.isArray(value)
+    ? value
+    : isRecord(value)
+      ? requireArray(value.data, `${path}.data`)
+      : requireArray(value, path);
   const players: { userId: string | null; name: string }[] = [];
   entries.forEach((entry, index) => {
     const record = requireRecord(entry, `${path}[${index}]`);

@@ -4,14 +4,22 @@ const accents = ["red", "green", "yellow", "blue"] as const;
 
 function PlayerHud({ player }: { player: RaceOverlayPlayer }) {
   return (
-    <article className={`player-hud slot-${player.slot}`} data-accent={accents[player.slot - 1]}>
-      <strong>{player.displayName}</strong>
-      {player.twitchLogin && <small>Twitch: {player.twitchLogin}</small>}
-      {player.personalBest.time && (
-        <small>
-          PB {player.personalBest.time}
-          {player.personalBest.rank !== null && ` · Rank #${player.personalBest.rank}`}
-        </small>
+    <article
+      className={`player-hud slot-${player.slot}`}
+      data-accent={accents[player.slot - 1]}
+      data-empty={player.displayName === null}
+    >
+      {player.displayName !== null && (
+        <>
+          <strong>{player.displayName}</strong>
+          {player.twitchLogin && <small>Twitch: {player.twitchLogin}</small>}
+          {player.personalBest.time && (
+            <small>
+              PB {player.personalBest.time}
+              {player.personalBest.rank !== null && ` · Rank #${player.personalBest.rank}`}
+            </small>
+          )}
+        </>
       )}
     </article>
   );

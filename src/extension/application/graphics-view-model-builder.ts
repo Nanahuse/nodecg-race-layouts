@@ -67,6 +67,14 @@ export function buildRaceOverlayData(
   const issues: string[] = [];
   const players = RACE_SCREEN_SLOT_NUMBERS.map((slot) => {
     const userId = config.raceScreenSlots[slot];
+    if (userId === null) {
+      return {
+        slot,
+        displayName: null,
+        twitchLogin: null,
+        personalBest: { time: null, rank: null },
+      };
+    }
     const part = config.participants.find((p) => p.racetimeUserId === userId);
     const displayName = part ? name(config, part.playerId) : null;
     if (!part) issues.push(`Slot participant missing: ${userId}`);
@@ -176,7 +184,7 @@ export function buildLeaderboardPageData(
       },
       presentation: {
         ruleHeading: cat?.ruleHeading ?? null,
-        ruleLines: cat?.ruleLines ?? [],
+        ruleLines: [...(cat?.ruleLines ?? [])],
         leaderboardHeading: cat?.leaderboardHeading ?? "Leaderboard",
         sourceLabel,
       },

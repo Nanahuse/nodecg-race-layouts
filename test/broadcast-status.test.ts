@@ -71,11 +71,11 @@ describe("computeDraftBroadcastState", () => {
     expect(state(draft, readySnapshot(readyDraft()))).toBe("resolution_required");
   });
 
-  it("returns dirty when a slot is missing even with a ready snapshot", () => {
+  it("remains ready when a slot is unassigned and the snapshot is compatible", () => {
     const draft = readyDraft();
     const snapshot = readySnapshot(draft);
     draft.raceScreenSlots = { 1: "rt-p1", 2: "rt-p2", 3: "rt-p3", 4: null };
-    expect(state(draft, snapshot)).toBe("dirty");
+    expect(state(draft, snapshot)).toBe("ready");
   });
 
   it("returns ready when structurally ready and snapshot compatible", () => {
@@ -94,13 +94,13 @@ describe("computeDraftBroadcastState", () => {
     expect(state(draft, snapshot)).toBe("error");
   });
 
-  it("moves ready -> dirty -> ready as slots are cleared and restored", () => {
+  it("keeps ready state as optional slots are cleared and restored", () => {
     const draft = readyDraft();
     const snapshot = readySnapshot(draft);
     expect(state(draft, snapshot)).toBe("ready");
 
     const cleared = { ...draft, raceScreenSlots: { ...draft.raceScreenSlots, 4: null } };
-    expect(state(cleared, snapshot)).toBe("dirty");
+    expect(state(cleared, snapshot)).toBe("ready");
 
     expect(state(draft, snapshot)).toBe("ready");
   });

@@ -132,10 +132,10 @@ describe("active-config schema constraints", () => {
     expect(isValid("active-config", null)).toBe(true);
   });
 
-  it("rejects an active config with an empty race screen slot", () => {
+  it("accepts an active config with unassigned race screen slots", () => {
     const config = makeActiveConfig();
     (config.raceScreenSlots as unknown as { 4: string | null })[4] = null;
-    expect(isValid("active-config", config)).toBe(false);
+    expect(isValid("active-config", config)).toBe(true);
   });
 
   it("rejects more than three commentators", () => {

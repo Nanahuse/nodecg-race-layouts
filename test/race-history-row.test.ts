@@ -47,4 +47,16 @@ describe("RaceHistory row validation", () => {
     });
     expect(parseRaceHistoryRow(row).ok).toBe(false);
   });
+
+  it("round-trips partially assigned race screen slots", () => {
+    const partiallyAssigned = {
+      ...payload,
+      raceScreenSlots: { 1: "rt-1", 2: null, 3: "rt-2", 4: null },
+    };
+    const row = raceHistoryPayloadToRow(partiallyAssigned, 2, "2026-01-01T00:00:00.000Z");
+    expect(parseRaceHistoryRow(row)).toMatchObject({
+      ok: true,
+      payload: { raceScreenSlots: partiallyAssigned.raceScreenSlots },
+    });
+  });
 });

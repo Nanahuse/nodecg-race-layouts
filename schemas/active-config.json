@@ -87,16 +87,44 @@
       "additionalProperties": false,
       "properties": {
         "1": {
-          "$ref": "#/definitions/RaceTimeUserId"
+          "anyOf": [
+            {
+              "$ref": "#/definitions/RaceTimeUserId"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "2": {
-          "$ref": "#/definitions/RaceTimeUserId"
+          "anyOf": [
+            {
+              "$ref": "#/definitions/RaceTimeUserId"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "3": {
-          "$ref": "#/definitions/RaceTimeUserId"
+          "anyOf": [
+            {
+              "$ref": "#/definitions/RaceTimeUserId"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "4": {
-          "$ref": "#/definitions/RaceTimeUserId"
+          "anyOf": [
+            {
+              "$ref": "#/definitions/RaceTimeUserId"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "required": [

@@ -80,6 +80,19 @@ function describeError(error: unknown): string {
 }
 
 /**
+ * NodeCG recursively wraps Replicant objects in Proxies. `structuredClone`
+ * rejects Proxies, so detach JSON-backed Replicant values through JSON before
+ * freezing the apply inputs.
+ */
+function cloneReplicantValue<T>(value: T): T {
+  const serialized = JSON.stringify(value);
+  if (serialized === undefined) {
+    throw new Error("Replicant value is not JSON-serializable.");
+  }
+  return JSON.parse(serialized) as T;
+}
+
+/**
  * Promotes a READY draft into the active broadcast state.
  *
  * The draft is frozen at apply start, so editing it while the active RaceTime
@@ -126,8 +139,8 @@ export class BroadcastApplyService {
       }
 
       // Freeze independent copies; never re-read the replicants below.
-      const frozenDraft: DraftConfig = structuredClone(draft);
-      const frozenSnapshot: DraftSpeedrunSnapshot = structuredClone(
+      const frozenDraft: DraftConfig = cloneReplicantValue(draft);
+      const frozenSnapshot: DraftSpeedrunSnapshot = cloneReplicantValue(
         this.draftSpeedrunSnapshot.value ?? createDefaultDraftSpeedrunSnapshot(),
       );
 

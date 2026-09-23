@@ -70,6 +70,19 @@ function readySnapshot(draft: DraftConfig): DraftSpeedrunSnapshot {
   };
 }
 
+function nodecgProxy<T>(value: T): T {
+  if (Array.isArray(value)) {
+    return new Proxy(value.map(nodecgProxy), {});
+  }
+  if (typeof value === "object" && value !== null) {
+    const detached = Object.fromEntries(
+      Object.entries(value).map(([key, child]) => [key, nodecgProxy(child)]),
+    );
+    return new Proxy(detached, {} as ProxyHandler<typeof detached>) as T;
+  }
+  return value;
+}
+
 class FakeRaceSessions {
   readonly calls: { role: string; url: string }[] = [];
   result: RaceSessionLoadResult = { ok: true, session: createDefaultRaceSession() };
@@ -142,6 +155,21 @@ function setup(
 }
 
 describe("BroadcastApplyService success", () => {
+  it("applies values read from NodeCG proxied Replicants", async () => {
+    const draft = readyDraft();
+    const snapshot = readySnapshot(draft);
+    const { service, activeConfig, activeSpeedrunSnapshot } = setup({
+      draft: nodecgProxy(draft),
+      snapshot: nodecgProxy(snapshot),
+    });
+
+    const result = await service.apply(REVISION);
+
+    expect(result.ok).toBe(true);
+    expect(activeConfig.value?.revision).toBe(1);
+    expect(activeSpeedrunSnapshot.value?.activeRevision).toBe(1);
+  });
+
   it("promotes a ready draft to active revision 1", async () => {
     const { service, raceSessions, activeConfig, activeSpeedrunSnapshot } = setup();
 
@@ -238,7 +266,7 @@ describe("BroadcastApplyService validation", () => {
 
   it("rejects a draft that is not ready", async () => {
     const draft = readyDraft();
-    draft.raceScreenSlots = { 1: "rt-p1", 2: "rt-p2", 3: "rt-p3", 4: null };
+    draft.raceScreenSlots = { 1: "rt-p1", 2: "rt-p1", 3: "rt-p3", 4: "rt-p4" };
     const { service } = setup({ draft, snapshot: readySnapshot(readyDraft()) });
     const result = await service.apply(REVISION);
     expect(result.ok).toBe(false);

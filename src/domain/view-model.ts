@@ -26,7 +26,7 @@ export type PlayerPersonalBestView = {
 
 export type RaceOverlayPlayer = {
   slot: RaceScreenSlot;
-  displayName: string;
+  displayName: string | null;
   twitchLogin: string | null;
   personalBest: PlayerPersonalBestView;
 };

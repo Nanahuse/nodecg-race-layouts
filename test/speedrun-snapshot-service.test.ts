@@ -198,9 +198,9 @@ describe("SpeedrunSnapshotService.refresh success", () => {
       formattedTime: "1:00:00.000",
       rank: 1,
     });
-    // Snapshot is ready, but the draft has no race screen slots yet, so the
-    // broadcast stays dirty until the slots are set.
-    expect(integrationStatus.value.broadcast.state).toBe("dirty");
+    // Race screen slots may remain unassigned; a compatible snapshot is enough
+    // to make this otherwise-ready draft applicable.
+    expect(integrationStatus.value.broadcast.state).toBe("ready");
     expect(client.calls).not.toContain("getUserPersonalBests");
   });
 

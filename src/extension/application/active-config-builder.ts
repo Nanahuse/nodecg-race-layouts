@@ -132,18 +132,9 @@ export function buildActiveConfig(
   }
 
   const draftSlots = draft.raceScreenSlots;
-  const raceScreenSlots: ActiveRaceScreenSlots | null =
-    draftSlots[1] !== null &&
-    draftSlots[2] !== null &&
-    draftSlots[3] !== null &&
-    draftSlots[4] !== null
-      ? { 1: draftSlots[1], 2: draftSlots[2], 3: draftSlots[3], 4: draftSlots[4] }
-      : null;
-  if (!raceScreenSlots) {
-    issues.push({ code: "slot_missing", message: "All four race screen slots are required." });
-  }
+  const raceScreenSlots: ActiveRaceScreenSlots = structuredClone(draftSlots);
 
-  if (issues.length > 0 || !race || !selection || !raceScreenSlots) {
+  if (issues.length > 0 || !race || !selection) {
     return { ok: false, issues };
   }
 
@@ -152,7 +143,7 @@ export function buildActiveConfig(
     race: structuredClone(race),
     participants: structuredClone(participants),
     players: structuredClone(players),
-    raceScreenSlots: structuredClone(raceScreenSlots),
+    raceScreenSlots,
     commentatorPlayerIds: [...draft.commentatorPlayerIds],
     categorySelection: structuredClone(selection),
     categoryPresentation:

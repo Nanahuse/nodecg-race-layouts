@@ -33,8 +33,8 @@ export type DraftConfig = {
 
 /**
  * Active config: the complete state that can be applied to broadcast. Unresolved
- * identities, a missing race, a missing category selection and empty race screen
- * slots are all impossible by construction.
+ * identities, a missing race, a missing category selection are impossible by
+ * construction. Race screen positions may intentionally remain unassigned.
  */
 export type ActiveConfig = {
   revision: number;

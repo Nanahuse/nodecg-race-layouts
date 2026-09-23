@@ -8,12 +8,12 @@ describe("race screen slots", () => {
     expect(validateActiveConfig(makeActiveConfig())).toEqual([]);
   });
 
-  it("rejects an unset slot", () => {
+  it("accepts an unset slot", () => {
     const config = makeActiveConfig();
     (config.raceScreenSlots as unknown as { 4: string | null })[4] = null;
 
     const issues = validateActiveConfig(config);
-    expect(hasValidationIssue(issues, ACTIVE_CONFIG_ISSUE_CODES.raceScreenSlotMissing)).toBe(true);
+    expect(hasValidationIssue(issues, ACTIVE_CONFIG_ISSUE_CODES.raceScreenSlotMissing)).toBe(false);
   });
 
   it("rejects duplicate slots", () => {
