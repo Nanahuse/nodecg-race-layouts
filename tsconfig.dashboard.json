@@ -9,5 +9,5 @@
     "jsx": "react-jsx",
     "types": ["vite/client"]
   },
-  "include": ["ui/**/*.ts", "ui/**/*.tsx", "vite.dashboard.config.ts"]
+  "include": ["ui/dashboard/**/*.ts", "ui/dashboard/**/*.tsx", "vite.dashboard.config.ts"]
 }

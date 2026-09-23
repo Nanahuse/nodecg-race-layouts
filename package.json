@@ -13,7 +13,7 @@
     "build:dashboard": "vite build --config vite.dashboard.config.ts",
     "build:graphics": "vite build --config vite.graphics.config.ts",
     "clean": "rimraf dist",
-    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.dashboard.json --noEmit",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.dashboard.json --noEmit && tsc -p tsconfig.graphics.json --noEmit && tsc -p tsconfig.test.json --noEmit",
     "lint": "oxlint src test scripts ui",
     "format:check": "prettier --check \"**/*.{ts,mts,mjs,json,md,tsx,css,html}\"",
     "format": "prettier --write \"**/*.{ts,mts,mjs,json,md,tsx,css,html}\"",

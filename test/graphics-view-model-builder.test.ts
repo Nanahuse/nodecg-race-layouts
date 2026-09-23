@@ -25,7 +25,7 @@ const snapshot = {
 
 function nodecgProxy<T>(value: T): T {
   if (Array.isArray(value)) {
-    return new Proxy(value.map(nodecgProxy), {});
+    return new Proxy(value.map(nodecgProxy), {}) as T;
   }
   if (typeof value === "object" && value !== null) {
     const detached = Object.fromEntries(
