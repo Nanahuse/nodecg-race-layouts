@@ -20,12 +20,15 @@ import type {
 } from "../../protocol/player-directory";
 
 export type PlayerMappingManagementOptions = {
-  directoryService: PlayerDirectoryService;
+  directoryService: Pick<
+    PlayerDirectoryService,
+    "reloadFromSpreadsheet" | "savePlayers" | "deletePlayer"
+  >;
   playerDirectory: { readonly value: PlayerDirectory };
   draftConfig: Replicant<DraftConfig>;
   activeConfig: Replicant<ActiveConfig | null>;
   persistence: Replicant<PostApplyPersistenceState>;
-  speedrun: SpeedrunDiscoveryService;
+  speedrun: Pick<SpeedrunDiscoveryService, "getUser">;
   log: NodeCGLogger;
 };
 

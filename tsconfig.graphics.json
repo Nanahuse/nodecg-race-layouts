@@ -1,0 +1,4 @@
+{
+  "extends": "./tsconfig.dashboard.json",
+  "include": ["ui/graphics/**/*.ts", "ui/graphics/**/*.tsx", "vite.graphics.config.ts"]
+}

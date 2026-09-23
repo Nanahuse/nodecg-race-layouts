@@ -6,9 +6,12 @@ import type {
   PlayerMapping,
   PostApplyPersistenceState,
 } from "../src/domain";
+import type { NodeCG, MessageHandler, Replicant } from "../src/types/nodecg";
 import { makeActiveConfig } from "./factories";
 import { PlayerMappingManagementService } from "../src/extension/application/player-mapping-management-service";
 import type { PlayerDirectoryService } from "../src/extension/application/player-directory-service";
+import type { SpeedrunDiscoveryService } from "../src/extension/application/speedrun-discovery-service";
+import { createDefaultDraftConfig } from "../src/replicants/defaults";
 import { registerPlayerDirectoryMessages } from "../src/extension/messages/player-directory-messages";
 import {
   PLAYER_DIRECTORY_CREATE_MESSAGE,
@@ -25,32 +28,49 @@ const player = (id = "p1"): PlayerMapping => ({
   twitch: { state: "linked", value: { userId: null, login: id } },
 });
 
-function replicant<T>(value: T) {
-  return { name: "test", value, on: vi.fn() } as never;
+function replicant<T>(value: T): Replicant<T> {
+  return {
+    name: "test",
+    value,
+    on: (_event, _listener) => undefined,
+  };
 }
 
 function service(
   directory: PlayerDirectory = {},
-  options: { draft?: Partial<DraftConfig>; active?: ActiveConfig | null; queue?: unknown[] } = {},
+  options: {
+    draft?: Partial<DraftConfig>;
+    active?: ActiveConfig | null;
+    queue?: PostApplyPersistenceState["queue"];
+  } = {},
 ) {
-  const directoryService = {
-    reloadFromSpreadsheet: vi.fn(async () => ({ ok: true as const, playerCount: 0 })),
-    savePlayers: vi.fn(async () => undefined),
-    deletePlayer: vi.fn(async () => undefined),
-  } as unknown as PlayerDirectoryService;
-  const speedrun = { getUser: vi.fn() };
-  const playerDirectory = replicant(directory) as { value: PlayerDirectory };
+  const directoryService: Pick<
+    PlayerDirectoryService,
+    "reloadFromSpreadsheet" | "savePlayers" | "deletePlayer"
+  > = {
+    reloadFromSpreadsheet: vi.fn<PlayerDirectoryService["reloadFromSpreadsheet"]>(async () => ({
+      ok: true,
+      playerCount: 0,
+    })),
+    savePlayers: vi.fn<PlayerDirectoryService["savePlayers"]>(async () => undefined),
+    deletePlayer: vi.fn<PlayerDirectoryService["deletePlayer"]>(async () => undefined),
+  };
+  const speedrun: Pick<SpeedrunDiscoveryService, "getUser"> = {
+    getUser: vi.fn<SpeedrunDiscoveryService["getUser"]>(),
+  };
+  const playerDirectory = replicant(directory);
   const management = new PlayerMappingManagementService({
     directoryService,
     playerDirectory,
-    draftConfig: replicant({
-      participants: [],
-      commentatorPlayerIds: [],
-      ...options.draft,
-    } as unknown as DraftConfig),
-    activeConfig: replicant(options.active ?? (null as ActiveConfig | null)),
-    persistence: replicant({ queue: options.queue ?? [] } as unknown as PostApplyPersistenceState),
-    speedrun: speedrun as never,
+    draftConfig: replicant({ ...createDefaultDraftConfig(), ...options.draft }),
+    activeConfig: replicant(options.active ?? null),
+    persistence: replicant<PostApplyPersistenceState>({
+      state: "idle",
+      queue: options.queue ?? [],
+      lastSavedActiveRevision: null,
+      message: null,
+    }),
+    speedrun,
     log: { info: vi.fn(), error: vi.fn(), warn: vi.fn(), debug: vi.fn(), trace: vi.fn() },
   });
   return { management, directoryService, playerDirectory, speedrun };
@@ -192,7 +212,11 @@ describe("PlayerMappingManagementService", () => {
         state: "linked",
         value: { userId: "rt-1", name: "RaceTime", twitchLogin: "rt" },
       });
-      expect(result.player.racetime.value).not.toHaveProperty("state");
+      if (result.player.racetime.state === "linked") {
+        expect(result.player.racetime.value).not.toHaveProperty("state");
+      } else {
+        throw new Error("Expected linked RaceTime identity");
+      }
       expect(result.player.speedrunCom).toEqual({
         state: "linked",
         value: { userId: "src-1", name: "SRC Name", twitchLogin: "runner" },
@@ -224,7 +248,7 @@ describe("PlayerMappingManagementService", () => {
       ok: false,
       reason,
       message: "lookup failed",
-    } as never);
+    });
     expect(
       await management.create({ ...input, speedrunCom: { state: "linked", userId: "src-1" } }),
     ).toMatchObject({ ok: false, reason: expected });
@@ -287,12 +311,36 @@ describe("PlayerMappingManagementService", () => {
   });
 
   it("rejects updates for every in-use location", async () => {
-    const cases = [
-      { draft: { participants: [{ playerId: "p1" }] } },
+    const cases: {
+      draft?: Partial<DraftConfig>;
+      active?: ActiveConfig | null;
+      queue?: PostApplyPersistenceState["queue"];
+    }[] = [
+      { draft: { participants: [{ playerId: "p1", racetimeUserId: "rt-p1" }] } },
       { draft: { commentatorPlayerIds: ["p1"] } },
       { active: makeActiveConfig({ participants: [{ playerId: "p1", racetimeUserId: "rt" }] }) },
       { active: makeActiveConfig({ commentatorPlayerIds: ["p1"] }) },
-      { queue: [{ players: [player()] }] },
+      {
+        queue: [
+          {
+            activeRevision: 1,
+            appliedAt: "2026-01-01T00:00:00.000Z",
+            players: [player()],
+            raceHistory: {
+              racetimeUrl: "https://racetime.gg/race",
+              raceId: "race",
+              categorySlug: "category",
+              categoryName: "Category",
+              goal: "Goal",
+              participants: {},
+              raceScreenSlots: { 1: null, 2: null, 3: null, 4: null },
+              commentatorPlayerIds: [],
+            },
+            attempts: 0,
+            lastError: null,
+          },
+        ],
+      },
     ];
     for (const options of cases) {
       const { management, directoryService } = service({ p1: player() }, options);
@@ -351,14 +399,17 @@ describe("PlayerMappingManagementService", () => {
   });
 
   it("keeps all handlers available when spreadsheet integration is unavailable", async () => {
-    const handlers = new Map<
-      string,
-      (data: unknown, ack: (error: Error | null, value?: unknown) => void) => Promise<void>
-    >();
-    registerPlayerDirectoryMessages(
-      { listenFor: (name, handler) => handlers.set(name, handler as never) } as never,
-      null,
-    );
+    const handlers = new Map<string, MessageHandler>();
+    const nodecg: NodeCG = {
+      Replicant: <_T>() => {
+        throw new Error("Replicant is not used in this test");
+      },
+      listenFor: (name, handler) => handlers.set(name, handler),
+      log: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn(), trace: vi.fn() },
+      bundleConfig: undefined,
+      bundleVersion: "test",
+    };
+    registerPlayerDirectoryMessages(nodecg, null);
     for (const name of [
       PLAYER_DIRECTORY_RELOAD_MESSAGE,
       PLAYER_DIRECTORY_CREATE_MESSAGE,
@@ -366,8 +417,10 @@ describe("PlayerMappingManagementService", () => {
       PLAYER_DIRECTORY_DELETE_MESSAGE,
     ]) {
       expect(handlers.has(name)).toBe(true);
+      const handler = handlers.get(name);
+      if (!handler) throw new Error(`Handler ${name} was not registered`);
       const response = await new Promise<unknown>((resolve) => {
-        void handlers.get(name)?.({}, (_error, value) => resolve(value));
+        void handler({}, (_error, value) => resolve(value));
       });
       expect(response).toMatchObject({ ok: false, reason: "player_directory_unavailable" });
     }
