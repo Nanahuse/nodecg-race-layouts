@@ -38,16 +38,18 @@ export function RaceGraphic({ data }: { data: RaceOverlayData | null }) {
       </section>
       <footer className="race-footer">
         {data.worldRecord && (
-          <div>
+          <div className="world-record">
             WR {data.worldRecord.time} — {data.worldRecord.holders.join(", ")}
           </div>
         )}
         {data.commentators.length > 0 && (
           <div className="commentators">
             {data.commentators.map((commentator) => (
-              <span key={commentator.playerId}>
-                {commentator.displayName}
-                {commentator.twitchLogin && <small> ({commentator.twitchLogin})</small>}
+              <span className="commentator" key={commentator.playerId}>
+                <span className="commentator-name">{commentator.displayName}</span>
+                {commentator.twitchLogin && (
+                  <small className="commentator-twitch"> ({commentator.twitchLogin})</small>
+                )}
               </span>
             ))}
           </div>

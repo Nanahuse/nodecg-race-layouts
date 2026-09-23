@@ -37,6 +37,12 @@ describe("RaceGraphic", () => {
   it("renders the maximum commentary and long player content", () => {
     const maximum = {
       ...data,
+      event: {
+        name: "An extraordinarily long event name that must remain in the DOM",
+        shortName: null,
+        logoUrl: null,
+      },
+      category: { name: "An extraordinarily long category name that must remain in the DOM" },
       commentators: ["Alice", "Bob", "Carol"].map((displayName, index) => ({
         playerId: `caster-${index}`,
         displayName,
@@ -48,11 +54,21 @@ describe("RaceGraphic", () => {
       })) as RaceOverlayData["players"],
       worldRecord: {
         time: "10:00",
-        holders: ["A very long holder name", "Another very long holder name"],
+        holders: [
+          "A very long holder name that must remain in the DOM",
+          "Another very long holder name that must remain in the DOM",
+        ],
       },
     };
     const html = renderToStaticMarkup(createElement(RaceGraphic, { data: maximum }));
     expect(html.match(/class="player-hud/g)).toHaveLength(4);
     expect(html).toContain("Carol");
+    expect(html.match(/class="commentator"/g)).toHaveLength(3);
+    expect(html).toContain("world-record");
+    expect(html).toContain("commentator-name");
+    expect(html).toContain("commentator-twitch");
+    expect(html).toContain("An extraordinarily long event name");
+    expect(html).toContain("An extraordinarily long category name");
+    expect(html).toContain("Another very long holder name that must remain in the DOM");
   });
 });
