@@ -10,7 +10,7 @@ import {
   playerSheetRowToValues,
   type PlayerSheetRow,
 } from "../../src/extension/integrations/spreadsheet/players-row";
-import type { NodeCGLogger, Replicant } from "../../src/types/nodecg";
+import type { NodeCGLogger, Replicant, ReplicantChangeListener } from "../../src/types/nodecg";
 
 export class FakeSpreadsheetClient implements SpreadsheetClient {
   values: SpreadsheetValues;
@@ -108,6 +108,7 @@ export class TrackingReplicant<T> implements Replicant<T> {
   readonly events: string[];
   private currentValue: T;
   private readonly onSet: ((value: T) => void) | undefined;
+  private readonly changeListeners: ReplicantChangeListener<T>[] = [];
 
   constructor(name: string, value: T, events: string[] = [], onSet?: (value: T) => void) {
     this.name = name;
@@ -121,13 +122,15 @@ export class TrackingReplicant<T> implements Replicant<T> {
   }
 
   set value(next: T) {
+    const previous = this.currentValue;
     this.currentValue = next;
     this.events.push(`set:${this.name}`);
     this.onSet?.(next);
+    for (const listener of this.changeListeners) listener(next, previous);
   }
 
-  on(): void {
-    // no-op for tests
+  on(event: "change", listener: ReplicantChangeListener<T>): void {
+    if (event === "change") this.changeListeners.push(listener);
   }
 }
 
