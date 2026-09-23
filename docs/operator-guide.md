@@ -1,38 +1,25 @@
-# Operator Guide
+# オペレーターガイド
 
-This guide covers initial setup and the normal race-day workflow for the
-`nodecg-race-layouts` bundle.
+このガイドでは、`nodecg-race-layouts`バンドルの初期設定と、レース当日の基本的な操作手順を説明します。
 
-## Before Race Day
+## レース前の準備
 
-### Install and configure the bundle
+### バンドルのインストールと設定
 
-The bundle runs inside a separately installed NodeCG 2.x host. From the bundle
-directory, install dependencies and build the extension, dashboards, and
-graphics:
+このバンドルは、別途用意したNodeCG 2.xホスト上で動作します。バンドルのディレクトリで依存関係をインストールし、Extension、Dashboard、Graphicsをビルドしてください。
 
 ```sh
 npm ci
 npm run build
 ```
 
-Copy `config.example.json` to the host's `cfg/nodecg-race-layouts.json`. Set a
-non-empty event name and the Google Spreadsheet ID. Sheet names can be
-customized; otherwise the defaults are `Players`, `CategoryMappings`,
-`CategoryPresentation`, and `RaceHistory`.
+`config.example.json`をNodeCGホストの`cfg/nodecg-race-layouts.json`へコピーします。空でないイベント名とGoogle Spreadsheet IDを設定してください。シート名は変更できます。省略時の既定値は`Players`、`CategoryMappings`、`CategoryPresentation`、`RaceHistory`です。
 
-Provide Google Application Default Credentials to the NodeCG process (commonly
-through `GOOGLE_APPLICATION_CREDENTIALS`) and share the spreadsheet with that
-credential identity. Do not put the credentials file or secret contents in the
-bundle config or repository. Restart NodeCG after changing process environment
-or bundle configuration.
+NodeCGプロセスからGoogle Application Default Credentials（ADC）を利用できるようにしてください。一般的には環境変数`GOOGLE_APPLICATION_CREDENTIALS`を設定し、その認証情報のアカウントへSpreadsheetを共有します。認証ファイルや秘密情報をバンドル設定やリポジトリに保存しないでください。プロセス環境またはバンドル設定を変更したら、NodeCGを再起動してください。
 
-### Spreadsheet setup
+### スプレッドシートの準備
 
-Create one header row in each configured sheet. The integration finds columns
-by header name, not by their position. Keep the spelling and underscores exact;
-columns may be reordered. Do not remove required headers. Empty sheets should
-still have their complete header row.
+設定した各シートにヘッダー行を作成してください。連携処理は列の位置ではなくヘッダー名で列を判別します。大文字・小文字、綴り、アンダースコアを含め、次の名称を正確に使用してください。列の順番は変更できますが、必須ヘッダーは削除しないでください。データがまだないシートにも、ヘッダー行は必要です。
 
 **Players**
 
@@ -58,139 +45,77 @@ racetime_category_slug, racetime_goal, display_title, display_subtitle, rule_hea
 racetime_url, racetime_race_id, category_slug, category_name, goal, participants_json, race_screen_slots_json, commentators_json, active_revision, first_applied_at, last_applied_at
 ```
 
-The bundle loads the Players directory at startup. Category mappings and
-presentation provide saved presets; RaceHistory is written after a successful
-Broadcast Apply. JSON fields such as `src_variables`, `participants_json`,
-`race_screen_slots_json`, and `commentators_json` are managed by the bundle;
-avoid hand-editing their serialized values unless you know the expected shape.
+バンドル起動時にPlayersディレクトリを読み込みます。CategoryMappingsとCategoryPresentationは保存済みプリセットとして使用されます。RaceHistoryはBroadcast Apply成功後に書き込まれます。`src_variables`、`participants_json`、`race_screen_slots_json`、`commentators_json`などのJSON列はバンドルが管理します。期待される形式を把握していない場合は、保存済みのJSON値を直接編集しないでください。
 
-### Verify integrations and dashboards
+### 連携とDashboardの確認
 
-Start NodeCG and open its dashboard. Check the Race Control status bar for
-RaceTime, Speedrun.com, Spreadsheet, and Broadcast status. Open Player Mapping
-and confirm the directory is loaded; use **Reload from Spreadsheet** after
-correcting a sheet or access problem.
+NodeCGを起動してDashboardを開きます。Race ControlのステータスバーでRaceTime、Speedrun.com、Spreadsheet、Broadcastの状態を確認してください。Player Mappingを開き、Player一覧が読み込まれていることを確認します。シートやアクセス権の問題を修正した後は、**Reload from Spreadsheet**を実行します。
 
-Player Mapping is the reusable identity directory. Race participants refer to
-those player records, while RaceTime entrants retain their own RaceTime user
-IDs. Player records currently used by a Draft, Active broadcast, or pending
-persistence work may be protected from management changes.
+Player Mappingは再利用可能なID情報のディレクトリです。レース参加者はPlayerレコードに紐づきますが、RaceTime entrantはRaceTime user IDを保持します。Draft、Active broadcast、または保存待ち処理で使用中のPlayerは、更新や削除が制限される場合があります。
 
-## Race-Day Workflow
+## レース当日の手順
 
-### 1. Load the race into Draft
+### 1. Draftにレースを読み込む
 
-In Race Control → Draft Race, paste a RaceTime.gg race URL and select **Load
-Race**. This loads the race into the editable Draft and watches the RaceTime
-session; it does not put the race on air. Entrants are matched to Players by
-RaceTime user ID first, then by an unambiguous exact Twitch-login match. It does
-not guess based on similar names. Review every participant and resolve any
-unmatched or ambiguous identity.
+Race Control → Draft RaceでRaceTime.ggのレースURLを入力し、**Load Race**を選択します。レースを編集可能なDraftへ読み込み、RaceTime Sessionを監視します。この操作だけでは放送に反映されません。Entrantは最初にRaceTime user ID、次に一意に一致するTwitch loginでPlayerと照合されます。名前の類似度による推測は行いません。参加者を確認し、未一致または曖昧なIDを解決してください。
 
-If RaceTime reports structural changes after the load, the broadcast status
-shows that reconciliation is required. Review the updated race and select
-**Reconcile Draft** to bring structural changes into Draft while preserving
-operator edits where possible. Result-only changes such as finish time/place
-do not require reconciliation.
+読み込み後にRaceTime側の構造変更が検出されると、BroadcastステータスにReconcileが必要であることが表示されます。変更内容を確認して**Reconcile Draft**を選択すると、可能な範囲でオペレーターの編集を維持しながらDraftを更新します。順位やタイムなどの結果だけの変更では、通常Reconcileは必要ありません。
 
-### 2. Review participants and identity mappings
+### 2. 参加者とID情報を確認する
 
-For each participant, verify the associated Player and resolved display name.
-Correct Player Mapping or the participant's Player association when needed.
-Resolve Speedrun.com and Twitch identities if they are needed for leaderboard
-or on-screen information. Identity conflicts and unresolved participants can
-prevent the Draft from becoming ready. Changes in Player Mapping may be blocked
-while a Player is in use; finish the relevant broadcast or persistence work
-before trying again.
+参加者ごとに、関連付けられたPlayerと解決済み表示名を確認します。必要に応じてPlayer Mappingまたは参加者のPlayer割り当てを修正してください。Leaderboardや画面表示に必要なSpeedrun.com / Twitch IDも確認します。IDの重複や未解決の参加者があると、DraftがApply可能にならないことがあります。使用中PlayerのPlayer Mapping変更が制限された場合は、該当するDraft、Active broadcast、または保存待ち処理を先に解消してください。
 
-### 3. Select the category and presentation
+### 3. Categoryと表示内容を選ぶ
 
-In **Category / Speedrun.com**, search for the game and select the category.
-Choose a level, variables, platform, region, emulator setting, and timing
-method when applicable. Required Speedrun.com variables must be selected.
-Apply the selection to the Draft. A saved category mapping can be registered,
-updated, or restored from this section; presentation fields such as display
-title, rules, and leaderboard heading are managed separately.
+**Category / Speedrun.com**でゲームを検索し、カテゴリを選択します。必要に応じてLevel、Variables、Platform、Region、Emulator、Timing Methodを指定してください。必須のSpeedrun.com Variableはすべて選択し、選択内容をDraftへ適用します。保存済みCategory Mappingは同じセクションから登録・更新・復元できます。
 
-Changing leaderboard conditions invalidates the current snapshot. Display-name,
-rule/presentation, slot, and commentator changes do not alter the leaderboard
-query conditions.
+**Leaderboard Presentation**ではTitle、Subtitle、Rule Heading / Lines、Leaderboard Headingを編集します。まず**Update Draft**で編集中の内容をDraftへ反映し、プリセットとして保存する場合は**Save Preset**を選択します。**Revert to Saved**で保存済み内容へ戻し、**Clear Presentation**で表示設定を消去できます。
 
-### 4. Set Race Screen slots and commentators
+Leaderboardの取得条件を変更すると、現在のSnapshotは無効になります。表示名、ルールやPresentation、Slots、Commentatorsの変更はLeaderboard取得条件を変えません。
 
-In **Race Screen**, P1–P4 correspond to upper-left, upper-right, lower-left,
-and lower-right. Select a race participant or **Unassigned**, then select
-**Save Slots**. A participant can occupy only one slot. Slots use RaceTime user
-IDs internally. Empty slots are allowed and do not by themselves prevent Apply;
-the corresponding HUD position is hidden in the Race graphic. Unknown or
-duplicate slot assignments are invalid.
+### 4. Race Screen SlotsとCommentatorsを設定する
 
-Choose zero to three commentators in order and select **Save Commentators**.
-Commentators come from the Player directory and Draft Players; they do not have
-to be race participants. A commentator may also be a participant, but the same
-Player cannot occupy multiple commentator positions.
+**Race Screen**のP1～P4は、左上・右上・左下・右下に対応します。参加者または**Unassigned**を選び、**Save Slots**を押してください。同じ参加者を複数Slotに割り当てることはできません。Slotは内部的にRaceTime user IDを使用します。未割り当てSlotは許可され、Applyを妨げません。該当するRace GraphicのHUD位置は非表示になります。不明な参加者や重複割り当ては無効です。
 
-### 5. Refresh and review the Speedrun snapshot
+Commentatorは0～3人を順番に選び、**Save Commentators**を押します。候補はPlayerディレクトリとDraft Playerから選ばれ、レース参加者である必要はありません。参加者をCommentatorにすることもできますが、同じPlayerを複数のCommentator枠に設定できません。
 
-Select **Refresh Snapshot** after the category and participant identities are
-ready. The snapshot includes the World Record, leaderboard (top 20 places,
-including ties), and participant PB/rank data where available. Wait for its
-state to become `ready`. A failed request or unavailable PB should be reviewed
-in the dashboard; do not assume an old snapshot matches a changed category.
+### 5. Speedrun Snapshotを更新・確認する
 
-### 6. Apply Draft to Broadcast
+Categoryと参加者IDを整えた後、**Refresh Snapshot**を選択します。SnapshotにはWorld Record、Leaderboard（同率を含む上位20位まで）、取得可能な参加者のPB / Rankが含まれます。状態が`ready`になるまで待ってください。取得失敗やPB未取得はDashboard上で確認します。Category変更前の古いSnapshotが現在の条件に一致しているとは限らないため注意してください。
 
-Review the Broadcast Apply summary and status. Apply requires a ready Draft,
-valid race/category/participant identities, and a ready snapshot matching the
-current Draft revision and leaderboard conditions. All four slots do **not**
-need to be assigned. Select **Apply Draft to Broadcast**.
+### 6. DraftをBroadcastへApplyする
 
-The bundle loads the race's active RaceTime session before committing the new
-Active configuration and snapshot. If that load fails, the previous Active
-state remains in place. On success, confirm the Active revision and the
-Broadcast status before taking the graphics on air. Further Draft edits are not
-on air until another successful Apply.
+Broadcast Applyの概要とステータスを確認します。Applyには、準備完了したDraft、有効なレース・Category・参加者ID、現在のDraft revisionとLeaderboard条件に一致する`ready`なSnapshotが必要です。**4つすべてのSlotを埋める必要はありません**。**Apply Draft to Broadcast**を選択してください。
 
-### 7. Monitor post-apply persistence
+新しいActive設定とSnapshotを確定する前に、バンドルはActive用RaceTime Sessionを読み込みます。読み込みに失敗した場合、以前のActive状態が維持されます。成功後はActive revisionとBroadcastステータスを確認してからGraphicsを放送に使用してください。以後のDraft編集は、次回Applyが成功するまで放送に反映されません。
 
-Active broadcast commit and spreadsheet persistence are separate. A successful
-Apply can be on air even if the Players or RaceHistory write is still pending
-or has failed. In **Persistence**, review the state, queue length, item attempts,
-and last error. Correct the spreadsheet or access problem, then use **Retry
-Persistence** when available. Queued work is FIFO and resumes when the
-extension starts; a failed write does not undo the Active broadcast.
+### 7. Apply後の保存状態を確認する
+
+Active broadcastの確定とSpreadsheetへの保存は別処理です。Applyが成功して放送に反映されても、PlayersまたはRaceHistoryへの書き込みが保留中・失敗中の場合があります。**Persistence**で状態、キュー数、各項目の試行回数、直近のエラーを確認してください。Spreadsheetやアクセス権の問題を修正し、利用可能になったら**Retry Persistence**を実行します。キューはFIFO順で処理され、Extension起動時にも再開します。保存失敗によってActive broadcastが取り消されることはありません。
 
 ## OBS Graphics
 
-The bundle registers four 1920×1080 graphics in NodeCG:
+NodeCGには1920×1080のGraphicsが4種類登録されています。
 
-| NodeCG graphics page | Intended use                                                       |
-| -------------------- | ------------------------------------------------------------------ |
-| `race.html`          | Event/category header, four Player HUD positions, WR, commentators |
-| `participants.html`  | Participant list                                                   |
-| `leaderboard.html`   | Rank, name, optional secondary name, and time only                 |
-| `result.html`        | Race result presentation                                           |
+| NodeCG Graphicsページ | 用途                                                          |
+| --------------------- | ------------------------------------------------------------- |
+| `race.html`           | イベント・Categoryヘッダー、4つのPlayer HUD、WR、Commentators |
+| `participants.html`   | 参加者一覧                                                    |
+| `leaderboard.html`    | 順位、名前、任意の補助名、タイム                              |
+| `result.html`         | レース結果                                                    |
 
-Add the corresponding bundle graphics as browser sources through the NodeCG
-Graphics UI (or use the host's graphics URL pattern, typically
-`http://localhost:9090/bundles/nodecg-race-layouts/graphics/<page>`). Graphics
-are transparent and use the active broadcast projections. Leaderboard/result
-titles, backgrounds, event decoration, timer, game capture, and final scene
-layout are composed in OBS. Verify the source dimensions and crop/position in
-OBS before going live.
+NodeCGのGraphics UIから該当するバンドルGraphicsを追加してください。ホストのURL形式を使う場合は、通常`http://localhost:9090/bundles/nodecg-race-layouts/graphics/<page>`です。Graphicsは透明背景で、Active broadcastの投影データを使用します。Leaderboard / Resultのタイトルや背景、イベント装飾、タイマー、ゲーム映像、最終的なシーン配置はOBSで構成します。配信前にOBS上でソースのサイズ、切り抜き、位置を確認してください。
 
-## Troubleshooting
+## トラブルシューティング
 
-| Symptom                                | Checks                                                                                                                                                                                                                            |
-| -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Dashboard or graphics are blank        | Confirm the bundle is in NodeCG's `bundles` directory with its `package.json`; run `npm ci` and `npm run build` in the bundle directory; restart NodeCG and check its logs.                                                       |
-| Spreadsheet status is `error`          | Check the spreadsheet ID, configured tab names, exact header row, Google API access, and that ADC is available to the NodeCG process. Reload from Spreadsheet after fixing the cause.                                             |
-| Players sheet fails to load            | Ensure the Players header contains every required column listed above and that each linked account row has valid state/identity fields. An empty sheet still needs the header row.                                                |
-| Apply is unavailable                   | Read Broadcast status and snapshot state; check category selection, mandatory variables, participant identities, race reconciliation, snapshot revision/conditions, and validation messages. Empty Race Screen slots are allowed. |
-| Speedrun snapshot fails                | Check Speedrun.com status, selected game/category/filters, mandatory variables, and whether the snapshot is for the current Draft. Refresh after changing leaderboard conditions.                                                 |
-| Persistence queue is pending or failed | Read the queue item's last error and attempt count, fix spreadsheet/access issues, then retry. Active broadcast is not rolled back by a persistence error.                                                                        |
-| Graphics show no race data             | Apply a valid Draft, use the correct graphics page, and confirm Active projections are populated. Check that `event.name` is configured for event-dependent graphics.                                                             |
+| 症状                               | 確認事項                                                                                                                                                                                                   |
+| ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| DashboardまたはGraphicsが空白      | バンドルが`package.json`とともにNodeCGの`bundles`ディレクトリに配置されているか確認します。バンドル内で`npm ci`と`npm run build`を実行し、NodeCGを再起動してログを確認します。                             |
+| Spreadsheetステータスが`error`     | Spreadsheet ID、設定したタブ名、ヘッダー行、Google APIのアクセス権、NodeCGプロセスからADCを利用できるかを確認します。原因を修正した後、Reload from Spreadsheetを実行します。                               |
+| Playersシートを読み込めない        | Playersのヘッダーに上記の必須列がすべてあること、linked状態の行に有効な状態・ID情報があることを確認します。データが空のシートにもヘッダー行が必要です。                                                    |
+| Applyできない                      | BroadcastとSnapshotの状態を確認します。Category選択、必須Variable、参加者ID、Race Reconcileの要否、Snapshotのrevision・取得条件、検証メッセージを確認してください。Race Screenの空Slotは許可されています。 |
+| Speedrun Snapshot取得に失敗する    | Speedrun.comステータス、選択中のゲーム・カテゴリ・フィルター、必須Variable、Snapshotが現在のDraft向けかを確認します。Leaderboard条件を変更した後は再取得してください。                                     |
+| Persistenceキューが保留または失敗  | キュー項目の直近エラーと試行回数を確認し、Spreadsheetやアクセス権の問題を修正してから再試行します。保存エラーでActive broadcastが取り消されることはありません。                                            |
+| Graphicsにレース情報が表示されない | Draftを正常にApplyしたか、正しいGraphicsページを使っているか、Activeの投影データがあるかを確認します。イベント情報を使うGraphicsでは`event.name`の設定も確認してください。                                 |
 
-When reporting a failure, include the NodeCG log lines around the operation,
-the relevant dashboard status/message, and whether Active state changed. Avoid
-sharing credential files, access tokens, or private keys.
+問題を報告するときは、該当操作前後のNodeCGログ、Dashboard上のステータスやメッセージ、Active状態が変化したかを添えてください。認証ファイル、アクセストークン、秘密鍵は共有しないでください。
