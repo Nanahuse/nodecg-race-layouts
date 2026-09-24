@@ -67,7 +67,7 @@ Race Control → Draft RaceでRaceTime.ggのレースURLを入力し、**Load Ra
 
 ### 3. Categoryと表示内容を選ぶ
 
-**Category / Speedrun.com**でゲームを検索し、カテゴリを選択します。必要に応じてLevel、Variables、Platform、Region、Emulator、Timing Methodを指定してください。必須のSpeedrun.com Variableはすべて選択し、選択内容をDraftへ適用します。保存済みCategory Mappingは同じセクションから登録・更新・復元できます。
+**Category / Speedrun.com**でゲームを検索し、カテゴリを選択します。必要に応じてLevel、Variables、Platform、Region、Emulator、Timing Methodを指定してください。必須のSpeedrun.com Variableはすべて選択し、選択内容をDraftへ適用します。保存済みCategory Mappingは同じセクションから登録・更新・復元できます。Category PresentationにTitleが設定されていればRace GraphicではそのTitleを表示し、未設定または空欄ならSpeedrun.comのカテゴリ名を表示します。
 
 **Leaderboard Presentation**ではTitle、Subtitle、Rule Heading / Lines、Leaderboard Headingを編集します。まず**Update Draft**で編集中の内容をDraftへ反映し、プリセットとして保存する場合は**Save Preset**を選択します。**Revert to Saved**で保存済み内容へ戻し、**Clear Presentation**で表示設定を消去できます。
 
@@ -97,14 +97,29 @@ Active broadcastの確定とSpreadsheetへの保存は別処理です。Applyが
 
 NodeCGには1920×1080のGraphicsが4種類登録されています。
 
-| NodeCG Graphicsページ | 用途                                                          |
-| --------------------- | ------------------------------------------------------------- |
-| `race.html`           | イベント・Categoryヘッダー、4つのPlayer HUD、WR、Commentators |
-| `participants.html`   | 参加者一覧                                                    |
-| `leaderboard.html`    | 順位、名前、任意の補助名、タイム                              |
-| `result.html`         | レース結果                                                    |
+| NodeCG Graphicsページ | 用途                                        |
+| --------------------- | ------------------------------------------- |
+| `race.html`           | Category、4つのPlayer HUD、WR、Commentators |
+| `participants.html`   | 参加者一覧                                  |
+| `leaderboard.html`    | 順位、名前、任意の補助名、タイム            |
+| `result.html`         | レース結果                                  |
 
-NodeCGのGraphics UIから該当するバンドルGraphicsを追加してください。ホストのURL形式を使う場合は、通常`http://localhost:9090/bundles/nodecg-race-layouts/graphics/<page>`です。Graphicsは透明背景で、Active broadcastの投影データを使用します。Leaderboard / Resultのタイトルや背景、イベント装飾、タイマー、ゲーム映像、最終的なシーン配置はOBSで構成します。配信前にOBS上でソースのサイズ、切り抜き、位置を確認してください。
+NodeCGのGraphics UIから該当するバンドルGraphicsを追加してください。ホストのURL形式を使う場合は、通常`http://localhost:9090/bundles/nodecg-race-layouts/graphics/<page>`です。Graphicsは透明背景で、Active broadcastの投影データを使用します。Leaderboard / Resultのタイトルや背景、イベント装飾、タイマー、ゲーム映像、最終的なシーン配置はOBSで構成します。
+
+### Race画面の配置
+
+`race.html`は1920×1080固定レイアウトです。P1 / P2を上段、P3 / P4を下段に配置し、各映像枠は**880×495px（16:9）**です。左右の余白は56px、中央の間隔は48px、上下段の間には高さ90pxのCategory / WR / Commentary帯があります。空SlotはRace Graphic全体から取り除かれますが、他Slotの配置は変わりません。
+
+各映像枠の下部にPlayer情報バーが重なります。タイマー用の透明枠は各Player情報バー内の右端に同じ相対位置で配置され、サイズは**214×62px**です。1920×1080のNodeCG Graphics全体を最前面に置くと、映像の枠線、Player情報、P番号、タイマー枠が重なります。イベント名・ロゴとゲーム名はこのGraphicには表示されません。必要であればOBS側の固定要素として追加してください。
+
+OBSの推奨レイヤー順（下から上）は次のとおりです。
+
+1. 背景・イベント装飾
+2. P1～P4のゲーム映像
+3. 各Playerに対応するタイマーCrop（各タイマー枠の位置・サイズに合わせる）
+4. NodeCGの`race.html`
+
+配信前に1920×1080で表示し、上下左右の対称性、映像枠との位置対応、PlayerバーとタイマーCropの重なり、長い名前、Commentator最大3人、WRなし、未割当Slotを確認してください。可能であればOBSのゲーム映像を一時的に色付き矩形へ置き換え、各枠との位置合わせを確認します。
 
 ## トラブルシューティング
 

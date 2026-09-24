@@ -2,67 +2,63 @@ import type { RaceOverlayData, RaceOverlayPlayer } from "../../../src/domain";
 
 const accents = ["red", "green", "yellow", "blue"] as const;
 
-function PlayerHud({ player }: { player: RaceOverlayPlayer }) {
+function RaceSlot({ player }: { player: RaceOverlayPlayer }) {
+  if (player.displayName === null) return null;
+
   return (
-    <article
-      className={`player-hud slot-${player.slot}`}
-      data-accent={accents[player.slot - 1]}
-      data-empty={player.displayName === null}
-    >
-      {player.displayName !== null && (
-        <>
-          <strong>{player.displayName}</strong>
-          {player.twitchLogin && <small>Twitch: {player.twitchLogin}</small>}
-          {player.personalBest.time && (
-            <small>
-              PB {player.personalBest.time}
-              {player.personalBest.rank !== null && ` · Rank #${player.personalBest.rank}`}
-            </small>
+    <article className={`race-slot slot-${player.slot}`} data-accent={accents[player.slot - 1]}>
+      <div className="video-frame" aria-hidden="true" />
+      <span className="slot-badge">P{player.slot}</span>
+      <div className="player-bar">
+        <div className="player-identity">
+          <strong className="player-name">{player.displayName}</strong>
+          {player.twitchLogin && <span className="player-twitch">@{player.twitchLogin}</span>}
+        </div>
+        <div className="player-stats">
+          <span className="player-pb">PB {player.personalBest.time ?? "—"}</span>
+          {player.personalBest.rank !== null && (
+            <span className="player-rank">#{player.personalBest.rank}</span>
           )}
-        </>
-      )}
+        </div>
+        <div className="timer-frame" aria-hidden="true" />
+      </div>
     </article>
   );
 }
 
 export function RaceGraphic({ data }: { data: RaceOverlayData | null }) {
   if (!data) return null;
-  const eventLabel = data.event.logoUrl ? (
-    <img src={data.event.logoUrl} alt={data.event.shortName ?? data.event.name} />
-  ) : (
-    <span>{data.event.shortName ?? data.event.name}</span>
-  );
 
   return (
     <main className="race-graphic">
-      <header className="race-header">
-        <div className="event">{eventLabel}</div>
-        <div className="category">{data.category.name}</div>
-      </header>
-      <section className="players" aria-label="Race players">
-        {data.players.map((player) => (
-          <PlayerHud key={player.slot} player={player} />
-        ))}
-      </section>
-      <footer className="race-footer">
-        {data.worldRecord && (
-          <div className="world-record">
-            WR {data.worldRecord.time} — {data.worldRecord.holders.join(", ")}
+      {data.players.map((player) => (
+        <RaceSlot key={player.slot} player={player} />
+      ))}
+      <section className="race-meta" aria-label="Race information">
+        <div className="meta-topline">
+          <div className="category" title={data.category.name}>
+            {data.category.name}
           </div>
-        )}
-        {data.commentators.length > 0 && (
-          <div className="commentators">
+          <div className="world-record" title={data.worldRecord?.holders.join(" / ") ?? ""}>
+            {data.worldRecord
+              ? `WR ${data.worldRecord.time} — ${data.worldRecord.holders.join(" / ")}`
+              : "WR —"}
+          </div>
+        </div>
+        <div className="commentators">
+          <strong className="commentary-label">Commentary</strong>
+          <div className="commentator-list">
             {data.commentators.map((commentator) => (
               <span className="commentator" key={commentator.playerId}>
                 <span className="commentator-name">{commentator.displayName}</span>
                 {commentator.twitchLogin && (
-                  <small className="commentator-twitch"> ({commentator.twitchLogin})</small>
+                  <span className="commentator-twitch">@{commentator.twitchLogin}</span>
                 )}
               </span>
             ))}
           </div>
-        )}
-      </footer>
+        </div>
+      </section>
     </main>
   );
 }
