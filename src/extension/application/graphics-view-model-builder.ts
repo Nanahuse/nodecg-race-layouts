@@ -96,7 +96,9 @@ export function buildRaceOverlayData(
     value: {
       activeRevision: config.revision,
       event: eventView(event),
-      category: { name: config.categorySelection.categoryName },
+      category: {
+        name: config.categoryPresentation?.title.trim() || config.categorySelection.categoryName,
+      },
       worldRecord: wr ? { time: wr.formattedTime, holders: wr.holders.map((h) => h.name) } : null,
       commentators: cs.ok ? cs.value : [],
       players: players as RaceOverlayData["players"],

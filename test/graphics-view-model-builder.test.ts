@@ -75,6 +75,41 @@ describe("graphics view model builders", () => {
     expect(overlay.value.players[2].personalBest).toEqual({ time: null, rank: null });
   });
 
+  it("uses the Category Presentation title for the Race overlay", () => {
+    const withPresentation = buildRaceOverlayData(
+      makeActiveConfig({
+        categoryPresentation: {
+          title: "Broadcast category title",
+          subtitle: null,
+          ruleHeading: "Rules",
+          ruleLines: [],
+          leaderboardHeading: "Leaderboard",
+        },
+      }),
+      snapshot,
+      event,
+    );
+    expect(withPresentation.ok).toBe(true);
+    if (withPresentation.ok)
+      expect(withPresentation.value.category.name).toBe("Broadcast category title");
+
+    const blankPresentation = buildRaceOverlayData(
+      makeActiveConfig({
+        categoryPresentation: {
+          title: "  ",
+          subtitle: null,
+          ruleHeading: "Rules",
+          ruleLines: [],
+          leaderboardHeading: "Leaderboard",
+        },
+      }),
+      snapshot,
+      event,
+    );
+    expect(blankPresentation.ok).toBe(true);
+    if (blankPresentation.ok) expect(blankPresentation.value.category.name).toBe("Any%");
+  });
+
   it("keeps all rank-10 ties and supports presentation fallback", () => {
     const result = buildLeaderboardPageData(makeActiveConfig(), snapshot, event);
     expect(result.ok).toBe(true);

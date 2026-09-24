@@ -67,7 +67,7 @@ Race Control → Draft RaceでRaceTime.ggのレースURLを入力し、**Load Ra
 
 ### 3. Categoryと表示内容を選ぶ
 
-**Category / Speedrun.com**でゲームを検索し、カテゴリを選択します。必要に応じてLevel、Variables、Platform、Region、Emulator、Timing Methodを指定してください。必須のSpeedrun.com Variableはすべて選択し、選択内容をDraftへ適用します。保存済みCategory Mappingは同じセクションから登録・更新・復元できます。
+**Category / Speedrun.com**でゲームを検索し、カテゴリを選択します。必要に応じてLevel、Variables、Platform、Region、Emulator、Timing Methodを指定してください。必須のSpeedrun.com Variableはすべて選択し、選択内容をDraftへ適用します。保存済みCategory Mappingは同じセクションから登録・更新・復元できます。Category PresentationにTitleが設定されていればRace GraphicではそのTitleを表示し、未設定または空欄ならSpeedrun.comのカテゴリ名を表示します。
 
 **Leaderboard Presentation**ではTitle、Subtitle、Rule Heading / Lines、Leaderboard Headingを編集します。まず**Update Draft**で編集中の内容をDraftへ反映し、プリセットとして保存する場合は**Save Preset**を選択します。**Revert to Saved**で保存済み内容へ戻し、**Clear Presentation**で表示設定を消去できます。
 
@@ -97,14 +97,36 @@ Active broadcastの確定とSpreadsheetへの保存は別処理です。Applyが
 
 NodeCGには1920×1080のGraphicsが4種類登録されています。
 
-| NodeCG Graphicsページ | 用途                                                          |
-| --------------------- | ------------------------------------------------------------- |
-| `race.html`           | イベント・Categoryヘッダー、4つのPlayer HUD、WR、Commentators |
-| `participants.html`   | 参加者一覧                                                    |
-| `leaderboard.html`    | 順位、名前、任意の補助名、タイム                              |
-| `result.html`         | レース結果                                                    |
+| NodeCG Graphicsページ | 用途                                        |
+| --------------------- | ------------------------------------------- |
+| `race.html`           | Category、4つのPlayer HUD、WR、Commentators |
+| `participants.html`   | 参加者一覧                                  |
+| `leaderboard.html`    | 順位、名前、任意の補助名、タイム            |
+| `result.html`         | レース結果                                  |
 
-NodeCGのGraphics UIから該当するバンドルGraphicsを追加してください。ホストのURL形式を使う場合は、通常`http://localhost:9090/bundles/nodecg-race-layouts/graphics/<page>`です。Graphicsは透明背景で、Active broadcastの投影データを使用します。Leaderboard / Resultのタイトルや背景、イベント装飾、タイマー、ゲーム映像、最終的なシーン配置はOBSで構成します。配信前にOBS上でソースのサイズ、切り抜き、位置を確認してください。
+NodeCGのGraphics UIから該当するバンドルGraphicsを追加してください。ホストのURL形式を使う場合は、通常`http://localhost:9090/bundles/nodecg-race-layouts/graphics/<page>`です。Graphicsは透明背景で、Active broadcastの投影データを使用します。Leaderboard / Resultのタイトルや背景、イベント装飾、タイマー、ゲーム映像、最終的なシーン配置はOBSで構成します。
+
+### Race画面の配置
+
+`race.html`は1920×1080固定の3カラムレイアウトです。左右のGame Video領域は各**716×540px**で、16:9には補正しません。中央488pxは情報専用です。P1/P2とP3/P4のCardは各244px幅で、Timer・Player情報を縦に表示します。
+
+| Slot | Game Video（x, y, w×h） | Player Card（x, y, w×h） | Timer frame外形（x, y, w×h） | OBS Timer Crop内側（x, y, w×h） |
+| ---- | ----------------------- | ------------------------ | ---------------------------- | ------------------------------- |
+| P1   | 0, 0, 716×540           | 716, 260, 244×280        | 730, 281, 216×72             | 733, 284, 210×66                |
+| P2   | 1204, 0, 716×540        | 960, 260, 244×280        | 974, 281, 216×72             | 977, 284, 210×66                |
+| P3   | 0, 540, 716×540         | 716, 540, 244×280        | 730, 561, 216×72             | 733, 564, 210×66                |
+| P4   | 1204, 540, 716×540      | 960, 540, 244×280        | 974, 561, 216×72             | 977, 564, 210×66                |
+
+中央カラムのGrid内訳は、Event/Header 260px（Event branding 206px、Commentary 54px）、P1/P2 Player Cards 280px、P3/P4 Player Cards 280px、Category/World Record 260pxです。Player Cardは各244×280pxで、上下の余白なく各領域を占有します。Event logoがない、または読み込みに失敗した場合はEvent名（あればshort name）を表示します。CommentatorsはHeader内に最大3人表示します。最下部ではCategory、WORLD RECORDラベル、記録タイム、holderを縦に並べます。Timer frameは3px borderのみで内側が透明です。Slot未割当時はそのVideo border/tagとCard内のTimer・Player情報を隠しますが、中央のCard領域や他Slotは移動しません。
+
+OBSの推奨レイヤー順（下から上）は次のとおりです。
+
+1. 背景・イベント装飾
+2. P1～P4のゲーム映像
+3. 各Playerに対応するTimer Crop（上表のOBS Timer Crop内側の座標・サイズ）
+4. NodeCGの`race.html`
+
+中央にGame Videoを配置しないでください。配信前に1920×1080で色付き映像矩形とTimer Cropを重ね、左右映像が716px幅、中央カラムが488px幅であること、Timerが中央Player Card内に見えること、CommentatorsがHeader内、Category/WRが中央下部に収まることを確認します。また長い名前、WRなし、未割当Slotでも他要素が動かないことを確認してください。
 
 ## トラブルシューティング
 
