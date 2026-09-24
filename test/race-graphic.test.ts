@@ -33,7 +33,7 @@ describe("RaceGraphic", () => {
     expect(html.match(/class="race-slot slot-/g)).toHaveLength(4);
     for (const slot of [1, 2, 3, 4]) {
       expect(html).toContain(`class="race-slot slot-${slot}"`);
-      expect(html).toContain(`>P${slot}</span>`);
+      expect(html).toContain(`<div class="player-bar"><span class="slot-badge">P${slot}</span>`);
     }
     expect(html.match(/class="video-frame"/g)).toHaveLength(4);
     expect(html.match(/class="player-bar"/g)).toHaveLength(4);
@@ -66,12 +66,13 @@ describe("RaceGraphic", () => {
 
     expect(slot2).toContain("Player 2");
     expect(slot2).toContain("PB —");
-    expect(slot2).not.toContain("player-twitch");
+    expect(slot2).toContain('<span class="player-twitch"></span>');
     expect(slot3).toContain("Player 3");
     expect(slot3).toContain("PB 12:34");
     expect(slot3).not.toContain("player-rank");
     expect(slot2).toContain("video-frame");
     expect(slot2).toContain("timer-frame");
+    expect(slot2).toContain('<div class="player-bar"><span class="slot-badge">P2</span>');
   });
 
   it("always renders the World Record row, including its empty fallback", () => {
@@ -119,6 +120,7 @@ describe("RaceGraphic", () => {
 
     expect(html.match(/class="race-slot slot-/g)).toHaveLength(3);
     expect(html).not.toContain('class="race-slot slot-3"');
+    expect(html).not.toContain("P3");
     expect(html).toContain('class="race-slot slot-1"');
     expect(html).toContain('class="race-slot slot-2"');
     expect(html).toContain('class="race-slot slot-4"');

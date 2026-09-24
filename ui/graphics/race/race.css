@@ -1,36 +1,36 @@
 .race-graphic {
-  display: grid;
+  position: relative;
   width: 1920px;
   height: 1080px;
-  padding: 24px 88px;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  grid-template-rows: 477px 78px 477px;
-  column-gap: 48px;
   overflow: hidden;
 }
 
 .race-slot {
   --slot-accent: #fff;
 
-  position: relative;
-  min-width: 0;
-  min-height: 0;
+  position: absolute;
+  width: 800px;
+  height: 504px;
 }
 
 .race-slot.slot-1 {
-  grid-area: 1 / 1;
+  top: 8px;
+  left: 144px;
 }
 
 .race-slot.slot-2 {
-  grid-area: 1 / 2;
+  top: 8px;
+  left: 976px;
 }
 
 .race-slot.slot-3 {
-  grid-area: 3 / 1;
+  top: 568px;
+  left: 144px;
 }
 
 .race-slot.slot-4 {
-  grid-area: 3 / 2;
+  top: 568px;
+  left: 976px;
 }
 
 .race-slot[data-accent="red"] {
@@ -51,139 +51,142 @@
 
 .video-frame {
   position: absolute;
-  inset: 0;
-  border: 4px solid var(--slot-accent);
-  box-shadow:
-    inset 0 0 0 1px rgb(0 0 0 / 60%),
-    0 2px 12px rgb(0 0 0 / 35%);
-}
-
-.slot-badge {
-  position: absolute;
-  top: 16px;
-  left: 16px;
-  display: grid;
-  width: 58px;
-  height: 48px;
-  place-items: center;
-  background: var(--slot-accent);
-  color: #10131a;
-  font-size: 26px;
-  font-weight: 800;
-  line-height: 1;
-  text-shadow: none;
-  box-shadow: 0 2px 8px rgb(0 0 0 / 35%);
+  top: 0;
+  left: 0;
+  width: 800px;
+  height: 450px;
+  border: 2px solid var(--slot-accent);
 }
 
 .player-bar {
   position: absolute;
-  right: 12px;
-  bottom: 12px;
-  left: 12px;
-  display: grid;
-  height: 82px;
-  min-width: 0;
-  padding: 8px 10px;
-  grid-template-columns: minmax(0, 1fr) auto 214px;
-  align-items: center;
-  gap: 22px;
-  border-left: 5px solid var(--slot-accent);
-  background: linear-gradient(90deg, rgb(7 10 16 / 94%), rgb(7 10 16 / 82%));
-  box-shadow: 0 2px 14px rgb(0 0 0 / 35%);
+  top: 450px;
+  left: 0;
+  width: 800px;
+  height: 54px;
+  background: transparent;
   text-shadow: 0 1px 3px #000;
 }
 
-.player-identity,
-.player-stats {
+.player-bar::before {
+  position: absolute;
+  inset: 0 198px 0 0;
+  background: rgb(7 10 16 / 92%);
+  content: "";
+}
+
+.slot-badge {
+  position: absolute;
+  top: 6px;
+  left: 8px;
+  display: grid;
+  width: 44px;
+  height: 42px;
+  place-items: center;
+  background: var(--slot-accent);
+  color: #10131a;
+  font-size: 21px;
+  font-weight: 800;
+  line-height: 1;
+  text-shadow: none;
+  z-index: 1;
+}
+
+.player-identity {
+  position: absolute;
+  top: 0;
+  left: 64px;
   display: flex;
-  min-width: 0;
-  align-items: baseline;
-  gap: 14px;
+  width: 300px;
+  height: 54px;
+  flex-direction: column;
+  justify-content: center;
   overflow: hidden;
+  white-space: nowrap;
+  z-index: 1;
+}
+
+.player-name,
+.player-twitch {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .player-name {
-  min-width: 0;
-  overflow: hidden;
-  font-size: 27px;
+  font-size: 18px;
   font-weight: 750;
-  text-overflow: ellipsis;
+  line-height: 22px;
 }
 
 .player-twitch {
-  min-width: 0;
-  overflow: hidden;
+  min-height: 18px;
   color: #d6dbe5;
-  font-size: 18px;
-  text-overflow: ellipsis;
+  font-size: 14px;
+  line-height: 18px;
 }
 
 .player-stats {
-  gap: 12px;
-  font-size: 19px;
+  position: absolute;
+  top: 0;
+  left: 376px;
+  display: flex;
+  width: 210px;
+  height: 54px;
+  align-items: center;
+  gap: 10px;
+  overflow: hidden;
+  font-size: 16px;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  z-index: 1;
 }
 
 .player-pb {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .player-rank {
+  flex: 0 0 auto;
   color: var(--slot-accent);
   font-weight: 750;
 }
 
 .timer-frame {
-  width: 214px;
-  height: 62px;
-  border: 2px solid rgb(255 255 255 / 78%);
-  border-radius: 3px;
-  background: rgb(0 0 0 / 35%);
-  box-shadow: inset 0 0 12px rgb(0 0 0 / 30%);
+  position: absolute;
+  top: 6px;
+  left: 602px;
+  width: 190px;
+  height: 42px;
+  border: 2px solid rgb(255 255 255 / 82%);
+  background: transparent;
+  z-index: 1;
 }
 
 .race-meta {
-  display: grid;
-  min-width: 0;
-  padding: 8px 18px 6px;
-  grid-area: 2 / 1 / 3 / 3;
-  grid-template-rows: 1fr 1fr;
-  align-content: center;
-  row-gap: 2px;
-  text-shadow: 0 2px 5px #000;
-}
-
-.meta-topline {
-  display: grid;
-  min-width: 0;
-  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  position: absolute;
+  top: 512px;
+  left: 144px;
+  display: flex;
+  width: 1632px;
+  height: 56px;
   align-items: center;
-  gap: 28px;
-}
-
-.category,
-.world-record {
-  min-width: 0;
-  overflow: hidden;
-  font-size: 24px;
-  font-weight: 700;
-  line-height: 1.2;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.world-record {
-  text-align: right;
-  font-variant-numeric: tabular-nums;
+  gap: 24px;
+  padding: 0 16px;
+  background: rgb(7 10 16 / 82%);
+  text-shadow: 0 1px 3px #000;
 }
 
 .commentators {
   display: flex;
   min-width: 0;
+  flex: 1 1 50%;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
   overflow: hidden;
   white-space: nowrap;
 }
@@ -191,15 +194,14 @@
 .commentary-label {
   flex: 0 0 auto;
   color: #f2c94c;
-  font-size: 16px;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  font-size: 15px;
+  font-weight: 700;
 }
 
 .commentator-list {
   display: flex;
   min-width: 0;
-  gap: 24px;
+  gap: 16px;
   overflow: hidden;
 }
 
@@ -208,10 +210,9 @@
   min-width: 0;
   max-width: 33.333%;
   align-items: baseline;
-  gap: 8px;
+  gap: 6px;
   overflow: hidden;
-  font-size: 17px;
-  text-overflow: ellipsis;
+  font-size: 15px;
   white-space: nowrap;
 }
 
@@ -229,5 +230,35 @@
 
 .commentator-twitch {
   color: #d6dbe5;
-  font-size: 15px;
+  font-size: 14px;
+}
+
+.category-and-wr {
+  display: flex;
+  min-width: 0;
+  flex: 1 1 50%;
+  align-items: center;
+  gap: 16px;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.category,
+.world-record {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 19px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.category {
+  flex: 0 1 38%;
+}
+
+.world-record {
+  flex: 1 1 auto;
+  font-size: 17px;
+  font-variant-numeric: tabular-nums;
 }
