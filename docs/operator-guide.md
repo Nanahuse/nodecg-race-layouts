@@ -112,12 +112,12 @@ NodeCGのGraphics UIから該当するバンドルGraphicsを追加してくだ�
 
 | Slot | Game Video（x, y, w×h） | Player Card（x, y, w×h） | Timer frame外形（x, y, w×h） | OBS Timer Crop内側（x, y, w×h） |
 | ---- | ----------------------- | ------------------------ | ---------------------------- | ------------------------------- |
-| P1   | 0, 0, 716×540           | 716, 205, 244×280        | 730, 226, 216×72             | 733, 229, 210×66                |
-| P2   | 1204, 0, 716×540        | 960, 205, 244×280        | 974, 226, 216×72             | 977, 229, 210×66                |
-| P3   | 0, 540, 716×540         | 716, 575, 244×280        | 730, 596, 216×72             | 733, 599, 210×66                |
-| P4   | 1204, 540, 716×540      | 960, 575, 244×280        | 974, 596, 216×72             | 977, 599, 210×66                |
+| P1   | 0, 0, 716×540           | 716, 260, 244×280        | 730, 281, 216×72             | 733, 284, 210×66                |
+| P2   | 1204, 0, 716×540        | 960, 260, 244×280        | 974, 281, 216×72             | 977, 284, 210×66                |
+| P3   | 0, 540, 716×540         | 716, 540, 244×280        | 730, 561, 216×72             | 733, 564, 210×66                |
+| P4   | 1204, 540, 716×540      | 960, 540, 244×280        | 974, 561, 216×72             | 977, 564, 210×66                |
 
-中央カラムのGrid内訳は、Event Header 150px（Event branding 96px、Commentary 54px）、P1/P2領域390px、P3/P4領域350px、Category/World Record 190pxです。各Player Cardは上下の余白を詰めて高さ280pxとし、各領域の中央に配置します。Event logoがない、または読み込みに失敗した場合はEvent名（あればshort name）を表示します。CommentatorsはHeader内に最大3人表示します。最下部ではCategory、WORLD RECORDラベル、記録タイム、holderを縦に並べます。Timer frameは3px borderのみで内側が透明です。Slot未割当時はそのVideo border/tagとCard内のTimer・Player情報を隠しますが、中央のCard領域や他Slotは移動しません。
+中央カラムのGrid内訳は、Event/Header 260px（Event branding 206px、Commentary 54px）、P1/P2 Player Cards 280px、P3/P4 Player Cards 280px、Category/World Record 260pxです。Player Cardは各244×280pxで、上下の余白なく各領域を占有します。Event logoがない、または読み込みに失敗した場合はEvent名（あればshort name）を表示します。CommentatorsはHeader内に最大3人表示します。最下部ではCategory、WORLD RECORDラベル、記録タイム、holderを縦に並べます。Timer frameは3px borderのみで内側が透明です。Slot未割当時はそのVideo border/tagとCard内のTimer・Player情報を隠しますが、中央のCard領域や他Slotは移動しません。
 
 OBSの推奨レイヤー順（下から上）は次のとおりです。
 

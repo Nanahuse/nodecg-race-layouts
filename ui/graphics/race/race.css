@@ -90,7 +90,7 @@
   min-width: 0;
   min-height: 0;
   grid-area: 1 / 2 / 3 / 3;
-  grid-template-rows: 150px 390px 350px 190px;
+  grid-template-rows: 260px 280px 280px 260px;
   color: #222630;
   font-family: sans-serif;
 }
@@ -98,7 +98,7 @@
 .event-header {
   display: grid;
   min-width: 0;
-  grid-template-rows: 96px 54px;
+  grid-template-rows: 206px 54px;
   background: #e7e9ed;
 }
 
@@ -188,11 +188,11 @@
 }
 
 .top-pair {
-  grid-template-rows: 390px;
+  grid-template-rows: 280px;
 }
 
 .bottom-pair {
-  grid-template-rows: 350px;
+  grid-template-rows: 280px;
 }
 
 .player-card {
@@ -200,7 +200,6 @@
 
   position: relative;
   height: 280px;
-  align-self: center;
   min-width: 0;
   min-height: 0;
   background:
