@@ -2,9 +2,9 @@
   display: grid;
   width: 1920px;
   height: 1080px;
-  padding: 0 56px;
+  padding: 24px 88px;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  grid-template-rows: minmax(0, 1fr) 90px minmax(0, 1fr);
+  grid-template-rows: 477px 78px 477px;
   column-gap: 48px;
   overflow: hidden;
 }
