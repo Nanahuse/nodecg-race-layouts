@@ -199,6 +199,8 @@
   --card-surface: #f3f4f6;
 
   position: relative;
+  height: 280px;
+  align-self: center;
   min-width: 0;
   min-height: 0;
   background:
