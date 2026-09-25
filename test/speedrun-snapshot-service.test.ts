@@ -204,33 +204,36 @@ describe("SpeedrunSnapshotService.refresh success", () => {
     expect(client.calls).not.toContain("getUserPersonalBests");
   });
 
-  it("fetches a personal best outside the top20 with a safe rank", async () => {
-    const selection = makeSelection({ timingMethod: null });
-    const draft = makeDraft({
-      categorySelection: { selection, source: "manual", savedMappingState: "none" },
-    });
-    const { service, client, draftSpeedrunSnapshot } = setup({ draft });
-    client.leaderboardResult = matchingLeaderboard(draft, [
-      makeLeaderboardEntry({ place: 1, players: [{ userId: "other", name: "Other" }] }),
-    ]);
-    client.personalBestsHandler = async () => [
-      makePersonalBestEntry({
-        gameId: selection.gameId,
-        categoryId: selection.categoryId,
-        place: 5,
-      }),
-    ];
+  it.each([20, 21, 37, 137])(
+    "fetches and stores a fallback personal best at place %i",
+    async (place) => {
+      const selection = makeSelection({ timingMethod: null });
+      const draft = makeDraft({
+        categorySelection: { selection, source: "manual", savedMappingState: "none" },
+      });
+      const { service, client, draftSpeedrunSnapshot } = setup({ draft });
+      client.leaderboardResult = matchingLeaderboard(draft, [
+        makeLeaderboardEntry({ place: 1, players: [{ userId: "other", name: "Other" }] }),
+      ]);
+      client.personalBestsHandler = async () => [
+        makePersonalBestEntry({
+          gameId: selection.gameId,
+          categoryId: selection.categoryId,
+          place,
+        }),
+      ];
 
-    const result = await service.refresh(10);
+      const result = await service.refresh(10);
 
-    expect(result.ok).toBe(true);
-    expect(client.calls).toContain("getUserPersonalBests");
-    expect(draftSpeedrunSnapshot.value.snapshot?.personalBests["user-1"]).toEqual({
-      timeSeconds: 3600,
-      formattedTime: "1:00:00.000",
-      rank: 5,
-    });
-  });
+      expect(result.ok).toBe(true);
+      expect(client.calls).toContain("getUserPersonalBests");
+      expect(draftSpeedrunSnapshot.value.snapshot?.personalBests["user-1"]).toEqual({
+        timeSeconds: 3600,
+        formattedTime: "1:00:00.000",
+        rank: place,
+      });
+    },
+  );
 
   it("sets rank to null when the leaderboard is filtered", async () => {
     const draft = makeDraft();
@@ -244,7 +247,11 @@ describe("SpeedrunSnapshotService.refresh success", () => {
 
     await service.refresh(10);
 
-    expect(draftSpeedrunSnapshot.value.snapshot?.personalBests["user-1"]?.rank).toBeNull();
+    expect(draftSpeedrunSnapshot.value.snapshot?.personalBests["user-1"]).toEqual({
+      timeSeconds: 3600,
+      formattedTime: "1:00:00.000",
+      rank: null,
+    });
   });
 
   it("stores null when no personal best matches", async () => {

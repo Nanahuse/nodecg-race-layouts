@@ -37,6 +37,38 @@ function nodecgProxy<T>(value: T): T {
 }
 
 describe("graphics view model builders", () => {
+  it.each([
+    { sourceRank: 20, expectedRank: 20 },
+    { sourceRank: 21, expectedRank: null },
+    { sourceRank: 37, expectedRank: null },
+    { sourceRank: 137, expectedRank: null },
+  ])(
+    "preserves PB time and projects rank $sourceRank as $expectedRank",
+    ({ sourceRank, expectedRank }) => {
+      const activeSnapshot = {
+        ...snapshot,
+        snapshot: makeSpeedrunSnapshot({
+          personalBests: {
+            "src-account-player-1": {
+              timeSeconds: 5025,
+              formattedTime: "1:23:45",
+              rank: sourceRank,
+            },
+          },
+        }),
+      };
+
+      const overlay = buildRaceOverlayData(makeActiveConfig(), activeSnapshot, event);
+
+      expect(overlay.ok).toBe(true);
+      if (overlay.ok)
+        expect(overlay.value.players[0].personalBest).toEqual({
+          time: "1:23:45",
+          rank: expectedRank,
+        });
+    },
+  );
+
   it("preserves slots, event branding, PB policy and participant order", () => {
     const config = makeActiveConfig({
       raceScreenSlots: { 1: "rt-2", 2: "rt-1", 3: "rt-4", 4: "rt-3" },
