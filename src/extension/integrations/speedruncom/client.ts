@@ -16,8 +16,8 @@ import {
   type SpeedrunLeaderboard,
   type SpeedrunPersonalBestEntry,
 } from "./leaderboard";
-import { mapLeaderboard, mapPersonalBestEntry } from "./leaderboard-mapper";
-import { parseLeaderboard, parsePersonalBest } from "./leaderboard-parser";
+import { mapLeaderboard, mapPersonalBestEntry, mapUserRun } from "./leaderboard-mapper";
+import { parseLeaderboard, parsePersonalBest, parseRunResource } from "./leaderboard-parser";
 import {
   mapCategory,
   mapGameDetail,
@@ -78,6 +78,11 @@ export interface SpeedrunComClient {
   getUserPersonalBests(
     userId: string,
     gameId: string,
+    signal?: AbortSignal,
+  ): Promise<SpeedrunPersonalBestEntry[]>;
+  getUserRuns(
+    userId: string,
+    key: LeaderboardKey,
     signal?: AbortSignal,
   ): Promise<SpeedrunPersonalBestEntry[]>;
 }
@@ -230,6 +235,27 @@ export class HttpSpeedrunComClient implements SpeedrunComClient {
       LARGE_COLLECTION_LIMIT,
       signal,
       (data) => mapPersonalBestEntry(parsePersonalBest(data)),
+    );
+  }
+
+  getUserRuns(
+    userId: string,
+    key: LeaderboardKey,
+    signal?: AbortSignal,
+  ): Promise<SpeedrunPersonalBestEntry[]> {
+    const query: Record<string, QueryValue> = {
+      user: userId,
+      game: key.gameId,
+      category: key.categoryId,
+      status: "verified",
+    };
+    if (key.levelId !== null) query.level = key.levelId;
+    if (key.platformId !== null) query.platform = key.platformId;
+    if (key.regionId !== null) query.region = key.regionId;
+    if (key.emulator !== null) query.emulated = key.emulator;
+
+    return this.fetchCollection("/runs", query, LARGE_COLLECTION_LIMIT, signal, (data) =>
+      mapUserRun(parseRunResource(data)),
     );
   }
 

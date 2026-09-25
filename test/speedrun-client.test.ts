@@ -14,6 +14,7 @@ import {
   SpeedrunComRateLimitedError,
   SpeedrunComTimeoutError,
 } from "../src/extension/integrations/speedruncom/errors";
+import type { LeaderboardKey } from "../src/domain";
 import {
   FakeFetch,
   collectionEnvelope,
@@ -21,6 +22,7 @@ import {
   gameRecord,
   jsonResponse,
   paginationInfo,
+  runRecord,
   singleEnvelope,
 } from "./support/speedrun-fakes";
 
@@ -136,6 +138,87 @@ describe("HttpSpeedrunComClient request handling", () => {
 });
 
 describe("HttpSpeedrunComClient pagination", () => {
+  it("parses and maps a verified run resource with real system and variable fields", async () => {
+    const fetch = new FakeFetch();
+    fetch.queueJson(
+      collectionEnvelope([
+        runRecord({
+          game: "game-1",
+          category: "category-1",
+          values: { "optional-var": "value-b" },
+          system: { platform: "platform-gc", emulated: false, region: null },
+          times: {
+            primary: "PT40M",
+            primary_t: 2400,
+            realtime: "PT40M",
+            realtime_t: 2400,
+            realtime_noloads: null,
+            realtime_noloads_t: 0,
+            ingame: null,
+            ingame_t: 0,
+          },
+        }),
+      ]),
+    );
+    const client = makeClient(fetch);
+    const key: LeaderboardKey = {
+      gameId: "game-1",
+      categoryId: "category-1",
+      levelId: null,
+      variables: {},
+      platformId: null,
+      regionId: null,
+      emulator: null,
+      timingMethod: null,
+    };
+
+    const runs = await client.getUserRuns("user-1", key);
+    const requestUrl = new URL(fetch.calls[0]!.url);
+
+    expect(requestUrl.pathname).toBe("/api/v1/runs");
+    expect(requestUrl.searchParams.get("user")).toBe("user-1");
+    expect(requestUrl.searchParams.get("game")).toBe("game-1");
+    expect(requestUrl.searchParams.get("category")).toBe("category-1");
+    expect(requestUrl.searchParams.get("status")).toBe("verified");
+    expect(runs[0]).toMatchObject({
+      place: null,
+      gameId: "game-1",
+      categoryId: "category-1",
+      platformId: "platform-gc",
+      regionId: null,
+      emulator: false,
+      variables: { "optional-var": "value-b" },
+      times: { primarySeconds: 2400, realtimeSeconds: 2400 },
+    });
+  });
+
+  it("passes selected run filters to the /runs endpoint", async () => {
+    const fetch = new FakeFetch();
+    fetch.queueJson(collectionEnvelope([]));
+    const client = makeClient(fetch);
+    const key: LeaderboardKey = {
+      gameId: "game-1",
+      categoryId: "category-1",
+      levelId: "level-1",
+      variables: { varA: "value1" },
+      platformId: "platform-gc",
+      regionId: "region-us",
+      emulator: false,
+      timingMethod: "realtime",
+    };
+
+    await client.getUserRuns("user-1", key);
+
+    const query = new URL(fetch.calls[0]!.url).searchParams;
+    expect(query.get("level")).toBe("level-1");
+    expect(query.get("platform")).toBe("platform-gc");
+    expect(query.get("region")).toBe("region-us");
+    expect(query.get("emulated")).toBe("false");
+    expect(query.get("status")).toBe("verified");
+    expect(query.has("var-varA")).toBe(false);
+    expect(query.has("timing")).toBe(false);
+  });
+
   it("fetches multiple pages until the limit is reached", async () => {
     const fetch = new FakeFetch();
     fetch.queueJson(

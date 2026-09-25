@@ -106,6 +106,29 @@ describe("RaceGraphic", () => {
     expect(threeCommentators.match(/class="commentator"/g)).toHaveLength(3);
   });
 
+  it("shows rank 20, but keeps PB time without a rank badge when rank is hidden", () => {
+    const withinLimit: RaceOverlayData = {
+      ...data,
+      players: data.players.map((player, index) =>
+        index === 0 ? { ...player, personalBest: { time: "1:23:45", rank: 20 } } : player,
+      ) as RaceOverlayData["players"],
+    };
+    const rank20Html = render(withinLimit);
+    expect(rank20Html).toContain('<span class="personal-best-time">1:23:45</span>');
+    expect(rank20Html).toContain('<span class="rank-badge">#20</span>');
+
+    const beyondLimit: RaceOverlayData = {
+      ...withinLimit,
+      players: withinLimit.players.map((player, index) =>
+        index === 0 ? { ...player, personalBest: { time: "1:23:45", rank: null } } : player,
+      ) as RaceOverlayData["players"],
+    };
+    const noRankHtml = render(beyondLimit);
+    expect(noRankHtml).toContain('<span class="personal-best-time">1:23:45</span>');
+    expect(noRankHtml).not.toContain('<span class="rank-badge">#20</span>');
+    expect(noRankHtml.match(/class="rank-badge"/g)).toHaveLength(2);
+  });
+
   it("omits an unassigned slot's video and card content without compacting the fixed slots", () => {
     const partial: RaceOverlayData = {
       ...data,
