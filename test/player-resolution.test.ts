@@ -39,6 +39,14 @@ describe("resolveEntrants: RaceTime user id", () => {
     expect(result.resolved[0]?.matchedBy).toBe("racetime_id");
     expect(result.summary.matchedCount).toBe(1);
     expect(result.summary.newPlayerCount).toBe(0);
+    const resolvedPlayer = result.resolved[0]?.player;
+    expect(resolvedPlayer).toBeDefined();
+    if (p1.speedrunCom.state === "linked" && resolvedPlayer?.speedrunCom.state === "linked") {
+      expect(resolvedPlayer.speedrunCom.value).not.toBe(p1.speedrunCom.value);
+    }
+    if (p1.twitch.state === "linked" && resolvedPlayer?.twitch.state === "linked") {
+      expect(resolvedPlayer.twitch.value).not.toBe(p1.twitch.value);
+    }
   });
 
   it("creates a new player when the RaceTime id does not match", () => {

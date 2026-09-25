@@ -99,11 +99,11 @@ export function playerMappingToDraftPlayer(
     racetime,
     speedrunCom:
       mapping.speedrunCom.state === "linked"
-        ? { state: "linked", value: mapping.speedrunCom.value, source: "spreadsheet" }
+        ? { state: "linked", value: { ...mapping.speedrunCom.value }, source: "spreadsheet" }
         : { state: "none", source: "spreadsheet" },
     twitch:
       mapping.twitch.state === "linked"
-        ? { state: "linked", value: mapping.twitch.value, source: "spreadsheet" }
+        ? { state: "linked", value: { ...mapping.twitch.value }, source: "spreadsheet" }
         : { state: "none", source: "spreadsheet" },
   };
 }
@@ -115,7 +115,7 @@ export function playerMappingToDraftPlayer(
 export function persistentPlayerToDraftPlayer(mapping: PlayerMapping): DraftPlayer {
   const racetime: DraftRaceTimeAccountLink =
     mapping.racetime.state === "linked"
-      ? { state: "linked", value: mapping.racetime.value, source: "spreadsheet" }
+      ? { state: "linked", value: { ...mapping.racetime.value }, source: "spreadsheet" }
       : { state: "none", source: "spreadsheet" };
   return playerMappingToDraftPlayer(mapping, racetime);
 }
