@@ -285,12 +285,17 @@ export class FakeSpeedrunComClient implements SpeedrunComClient {
 
   leaderboardResult: SpeedrunLeaderboard = makeLeaderboard();
   personalBestsResult: SpeedrunPersonalBestEntry[] = [];
+  userRunsResult: SpeedrunPersonalBestEntry[] = [];
   leaderboardError: Error | null = null;
   personalBestsError: Error | null = null;
+  userRunsError: Error | null = null;
   leaderboardPromise: Promise<SpeedrunLeaderboard> | null = null;
   personalBestsHandler: ((userId: string) => Promise<SpeedrunPersonalBestEntry[]>) | null = null;
+  userRunsHandler:
+    ((userId: string, key: LeaderboardKey) => Promise<SpeedrunPersonalBestEntry[]>) | null = null;
   lastLeaderboardTop: number | null = null;
   lastLeaderboardKey: LeaderboardKey | null = null;
+  lastUserRunsRequest: { userId: string; key: LeaderboardKey } | null = null;
 
   async searchGames(query: string, limit: number): Promise<SpeedrunGameSearchResult[]> {
     this.calls.push("searchGames");
@@ -398,6 +403,14 @@ export class FakeSpeedrunComClient implements SpeedrunComClient {
       throw this.personalBestsError;
     }
     return this.personalBestsResult;
+  }
+
+  async getUserRuns(userId: string, key: LeaderboardKey): Promise<SpeedrunPersonalBestEntry[]> {
+    this.calls.push("getUserRuns");
+    this.lastUserRunsRequest = { userId, key };
+    if (this.userRunsHandler) return this.userRunsHandler(userId, key);
+    if (this.userRunsError) throw this.userRunsError;
+    return this.userRunsResult;
   }
 }
 

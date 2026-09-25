@@ -13,11 +13,7 @@ import {
   type SpeedrunLeaderboardEntry,
   type SpeedrunPersonalBestEntry,
 } from "./leaderboard";
-import type { ParsedLeaderboard, ParsedPersonalBest } from "./leaderboard-parser";
-
-function stableVariables(variables: Record<string, string>): string {
-  return JSON.stringify(Object.entries(variables).sort(([a], [b]) => a.localeCompare(b)));
-}
+import type { ParsedLeaderboard, ParsedPersonalBest, ParsedRun } from "./leaderboard-parser";
 
 /**
  * Format seconds as `SS.mmm`, `M:SS.mmm` or `H:MM:SS.mmm`. Milliseconds are
@@ -150,6 +146,21 @@ export function mapPersonalBestEntry(parsed: ParsedPersonalBest): SpeedrunPerson
   };
 }
 
+/** Map a verified `/runs` resource to the shared PB candidate shape. */
+export function mapUserRun(parsed: ParsedRun): SpeedrunPersonalBestEntry {
+  return {
+    place: null,
+    gameId: parsed.gameId,
+    categoryId: parsed.categoryId,
+    levelId: parsed.levelId,
+    variables: parsed.variables,
+    platformId: parsed.platformId,
+    regionId: parsed.regionId,
+    emulator: parsed.emulator,
+    times: parsed.times,
+  };
+}
+
 /** Leaderboard-identity comparison for personal bests (timing excluded). */
 export function personalBestMatchesKey(
   entry: SpeedrunPersonalBestEntry,
@@ -159,10 +170,10 @@ export function personalBestMatchesKey(
     entry.gameId === key.gameId &&
     entry.categoryId === key.categoryId &&
     entry.levelId === key.levelId &&
-    stableVariables(entry.variables) === stableVariables(key.variables) &&
-    entry.platformId === key.platformId &&
-    entry.regionId === key.regionId &&
-    entry.emulator === key.emulator
+    Object.entries(key.variables).every(([id, value]) => entry.variables[id] === value) &&
+    (key.platformId === null || entry.platformId === key.platformId) &&
+    (key.regionId === null || entry.regionId === key.regionId) &&
+    (key.emulator === null || entry.emulator === key.emulator)
   );
 }
 
@@ -179,4 +190,20 @@ export function personalBestToDomain(
     formattedTime: formatRunTime(timeSeconds),
     rank: canUsePersonalBestPlaceAsRank(key) ? entry.place : null,
   };
+}
+
+/** Select the fastest candidate matching the requested leaderboard and timing. */
+export function selectPersonalBest(
+  entries: readonly SpeedrunPersonalBestEntry[],
+  key: LeaderboardKey,
+): PersonalBest | null {
+  let best: PersonalBest | null = null;
+  for (const entry of entries) {
+    if (!personalBestMatchesKey(entry, key)) continue;
+    const candidate = personalBestToDomain(entry, key);
+    if (candidate && (best === null || candidate.timeSeconds < best.timeSeconds)) {
+      best = candidate;
+    }
+  }
+  return best;
 }

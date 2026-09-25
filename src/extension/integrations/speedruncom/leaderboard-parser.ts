@@ -139,6 +139,11 @@ function parseRun(value: unknown, path: string): ParsedRun {
   };
 }
 
+/** Parse one run resource returned directly by `/runs`. */
+export function parseRunResource(value: unknown): ParsedRun {
+  return parseRun(value, "run");
+}
+
 function parseEmbedPlayers(
   value: unknown,
   path: string,

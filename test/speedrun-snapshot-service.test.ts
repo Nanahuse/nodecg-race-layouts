@@ -13,7 +13,10 @@ import {
   SpeedrunComNetworkError,
   SpeedrunComRateLimitedError,
 } from "../src/extension/integrations/speedruncom/errors";
-import type { SpeedrunLeaderboard } from "../src/extension/integrations/speedruncom/leaderboard";
+import type {
+  SpeedrunLeaderboard,
+  SpeedrunPersonalBestEntry,
+} from "../src/extension/integrations/speedruncom/leaderboard";
 import {
   createDefaultDraftConfig,
   createDefaultDraftSpeedrunSnapshot,
@@ -87,6 +90,22 @@ function matchingLeaderboard(
     timingMethod: selection.timingMethod,
     variables: selection.variables,
     entries,
+  });
+}
+
+function personalBestForSelection(
+  selection: NonNullable<DraftConfig["categorySelection"]["selection"]>,
+  overrides: Partial<SpeedrunPersonalBestEntry> = {},
+): SpeedrunPersonalBestEntry {
+  return makePersonalBestEntry({
+    gameId: selection.gameId,
+    categoryId: selection.categoryId,
+    levelId: selection.levelId,
+    variables: selection.variables,
+    platformId: selection.platformId,
+    regionId: selection.regionId,
+    emulator: selection.emulator,
+    ...overrides,
   });
 }
 
@@ -202,6 +221,7 @@ describe("SpeedrunSnapshotService.refresh success", () => {
     // to make this otherwise-ready draft applicable.
     expect(integrationStatus.value.broadcast.state).toBe("ready");
     expect(client.calls).not.toContain("getUserPersonalBests");
+    expect(client.calls).not.toContain("getUserRuns");
   });
 
   it.each([20, 21, 37, 137])(
@@ -220,6 +240,9 @@ describe("SpeedrunSnapshotService.refresh success", () => {
           gameId: selection.gameId,
           categoryId: selection.categoryId,
           place,
+          platformId: "platform-gc",
+          emulator: false,
+          variables: { optionalVar: "value-b" },
         }),
       ];
 
@@ -241,7 +264,7 @@ describe("SpeedrunSnapshotService.refresh success", () => {
     client.leaderboardResult = matchingLeaderboard(draft, [
       makeLeaderboardEntry({ place: 1, players: [{ userId: "other", name: "Other" }] }),
     ]);
-    client.personalBestsHandler = async () => [
+    client.userRunsResult = [
       makePersonalBestEntry({ gameId: "j1l9qz1g", categoryId: "7dgrrxk4", place: 5 }),
     ];
 
@@ -252,6 +275,134 @@ describe("SpeedrunSnapshotService.refresh success", () => {
       formattedTime: "1:00:00.000",
       rank: null,
     });
+    expect(client.calls).toContain("getUserRuns");
+    expect(client.calls).not.toContain("getUserPersonalBests");
+  });
+
+  it("uses the selected platform's fastest run without inferring rank", async () => {
+    const selection = makeSelection({ platformId: "platform-gc", timingMethod: null });
+    const draft = makeDraft({
+      categorySelection: { selection, source: "manual", savedMappingState: "none" },
+    });
+    const { service, client, draftSpeedrunSnapshot } = setup({ draft });
+    client.leaderboardResult = matchingLeaderboard(draft, [
+      makeLeaderboardEntry({ place: 1, players: [{ userId: "other", name: "Other" }] }),
+    ]);
+    client.userRunsResult = [
+      personalBestForSelection(selection, {
+        platformId: "platform-pc",
+        times: {
+          primarySeconds: 1800,
+          realtimeSeconds: 1800,
+          realtimeNoLoadsSeconds: null,
+          ingameSeconds: null,
+        },
+      }),
+      personalBestForSelection(selection, {
+        platformId: "platform-gc",
+        times: {
+          primarySeconds: 1920,
+          realtimeSeconds: 1920,
+          realtimeNoLoadsSeconds: null,
+          ingameSeconds: null,
+        },
+      }),
+    ];
+
+    await service.refresh(10);
+
+    expect(client.calls).toContain("getUserRuns");
+    expect(client.lastUserRunsRequest?.key.platformId).toBe("platform-gc");
+    expect(draftSpeedrunSnapshot.value.snapshot?.personalBests["user-1"]).toEqual({
+      timeSeconds: 1920,
+      formattedTime: "32:00.000",
+      rank: null,
+    });
+  });
+
+  it("chooses the fastest selected timing rather than the fastest primary time", async () => {
+    const selection = makeSelection({ timingMethod: "realtime" });
+    const draft = makeDraft({
+      categorySelection: { selection, source: "manual", savedMappingState: "none" },
+    });
+    const { service, client, draftSpeedrunSnapshot } = setup({ draft });
+    client.leaderboardResult = matchingLeaderboard(draft, [
+      makeLeaderboardEntry({ place: 1, players: [{ userId: "other", name: "Other" }] }),
+    ]);
+    client.userRunsResult = [
+      personalBestForSelection(selection, {
+        times: {
+          primarySeconds: 1800,
+          realtimeSeconds: 2100,
+          realtimeNoLoadsSeconds: null,
+          ingameSeconds: null,
+        },
+      }),
+      personalBestForSelection(selection, {
+        times: {
+          primarySeconds: 1860,
+          realtimeSeconds: 1980,
+          realtimeNoLoadsSeconds: null,
+          ingameSeconds: null,
+        },
+      }),
+    ];
+
+    await service.refresh(10);
+
+    expect(draftSpeedrunSnapshot.value.snapshot?.personalBests["user-1"]).toEqual({
+      timeSeconds: 1980,
+      formattedTime: "33:00.000",
+      rank: null,
+    });
+  });
+
+  it("filters runs by selected variables and stores null when none match", async () => {
+    const selection = makeSelection({
+      variables: { varA: "value1" },
+      timingMethod: "realtime",
+    });
+    const draft = makeDraft({
+      categorySelection: { selection, source: "manual", savedMappingState: "none" },
+    });
+    const { service, client, draftSpeedrunSnapshot } = setup({ draft });
+    client.leaderboardResult = matchingLeaderboard(draft, [
+      makeLeaderboardEntry({ place: 1, players: [{ userId: "other", name: "Other" }] }),
+    ]);
+    client.userRunsResult = [
+      personalBestForSelection(selection, {
+        variables: { varA: "value2" },
+        times: {
+          primarySeconds: 1800,
+          realtimeSeconds: 1800,
+          realtimeNoLoadsSeconds: null,
+          ingameSeconds: null,
+        },
+      }),
+      personalBestForSelection(selection, {
+        variables: { varA: "value1", optionalVar: "extra" },
+        times: {
+          primarySeconds: 1920,
+          realtimeSeconds: 1920,
+          realtimeNoLoadsSeconds: null,
+          ingameSeconds: null,
+        },
+      }),
+    ];
+
+    await service.refresh(10);
+
+    expect(draftSpeedrunSnapshot.value.snapshot?.personalBests["user-1"]).toEqual({
+      timeSeconds: 1920,
+      formattedTime: "32:00.000",
+      rank: null,
+    });
+
+    client.userRunsResult = [
+      personalBestForSelection(selection, { variables: { varA: "value2" } }),
+    ];
+    await service.refresh(10);
+    expect(draftSpeedrunSnapshot.value.snapshot?.personalBests["user-1"]).toBeNull();
   });
 
   it("stores null when no personal best matches", async () => {
@@ -260,7 +411,7 @@ describe("SpeedrunSnapshotService.refresh success", () => {
     client.leaderboardResult = matchingLeaderboard(draft, [
       makeLeaderboardEntry({ place: 1, players: [{ userId: "other", name: "Other" }] }),
     ]);
-    client.personalBestsHandler = async () => [makePersonalBestEntry({ categoryId: "different" })];
+    client.userRunsResult = [makePersonalBestEntry({ categoryId: "different" })];
 
     await service.refresh(10);
 
@@ -329,9 +480,7 @@ describe("SpeedrunSnapshotService failure handling", () => {
     client.leaderboardResult = matchingLeaderboard(draft, [
       makeLeaderboardEntry({ place: 1, players: [{ userId: "other", name: "Other" }] }),
     ]);
-    client.personalBestsHandler = async () => {
-      throw new SpeedrunComNetworkError("pb down");
-    };
+    client.userRunsError = new SpeedrunComNetworkError("pb down");
 
     const result = await service.refresh(10);
 
@@ -360,7 +509,7 @@ describe("SpeedrunSnapshotService failure handling", () => {
       makeLeaderboardEntry({ place: 1, players: [{ userId: "other", name: "Other" }] }),
     ]);
     let handlerCalls = 0;
-    client.personalBestsHandler = async () => {
+    client.userRunsHandler = async () => {
       handlerCalls += 1;
       throw new SpeedrunComRateLimitedError("slow down", 1000);
     };
@@ -393,7 +542,7 @@ describe("SpeedrunSnapshotService concurrency and revision race", () => {
     ]);
     let active = 0;
     let maxActive = 0;
-    client.personalBestsHandler = async () => {
+    client.userRunsHandler = async () => {
       active += 1;
       maxActive = Math.max(maxActive, active);
       await new Promise((resolve) => setTimeout(resolve, 0));

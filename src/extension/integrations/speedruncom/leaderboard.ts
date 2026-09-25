@@ -119,6 +119,10 @@ export function leaderboardQuery(key: LeaderboardKey, top: number): Record<strin
  * extra filters are applied. Otherwise it must not be used as a rank.
  */
 export function canUsePersonalBestPlaceAsRank(key: LeaderboardKey): boolean {
+  return canUseUnfilteredPersonalBests(key);
+}
+
+export function canUseUnfilteredPersonalBests(key: LeaderboardKey): boolean {
   return (
     key.platformId === null &&
     key.regionId === null &&

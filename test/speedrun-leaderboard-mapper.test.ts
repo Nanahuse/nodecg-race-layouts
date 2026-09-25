@@ -9,6 +9,7 @@ import {
   mapWorldRecord,
   personalBestMatchesKey,
   personalBestToDomain,
+  selectPersonalBest,
   toDomainLeaderboardEntry,
 } from "../src/extension/integrations/speedruncom/leaderboard-mapper";
 import {
@@ -219,6 +220,141 @@ describe("personal best mapping", () => {
     expect(personalBestMatchesKey(entry, makeKey({ platformId: "p" }))).toBe(false);
     expect(personalBestMatchesKey(entry, makeKey({ regionId: "r" }))).toBe(false);
     expect(personalBestMatchesKey(entry, makeKey({ emulator: false }))).toBe(false);
+  });
+
+  it("treats omitted platform, region, and emulator as unconstrained", () => {
+    const entry = makePersonalBestEntry({
+      platformId: "platform-gc",
+      regionId: "region-us",
+      emulator: false,
+      variables: { optional: "value-b" },
+    });
+    expect(personalBestMatchesKey(entry, makeKey())).toBe(true);
+  });
+
+  it.each([
+    { field: "platformId" as const, selection: "gc", actual: "gc", other: "pc" },
+    { field: "regionId" as const, selection: "us", actual: "us", other: "jp" },
+  ])(
+    "constrains explicit $field and accepts exact match",
+    ({ field, selection, actual, other }) => {
+      expect(
+        personalBestMatchesKey(
+          makePersonalBestEntry({ [field]: actual }),
+          makeKey({ [field]: selection }),
+        ),
+      ).toBe(true);
+      expect(
+        personalBestMatchesKey(
+          makePersonalBestEntry({ [field]: other }),
+          makeKey({ [field]: selection }),
+        ),
+      ).toBe(false);
+    },
+  );
+
+  it("constrains emulator only when explicitly selected", () => {
+    expect(
+      personalBestMatchesKey(
+        makePersonalBestEntry({ emulator: false }),
+        makeKey({ emulator: false }),
+      ),
+    ).toBe(true);
+    expect(
+      personalBestMatchesKey(
+        makePersonalBestEntry({ emulator: true }),
+        makeKey({ emulator: false }),
+      ),
+    ).toBe(false);
+  });
+
+  it("matches only the selected variable subset", () => {
+    const superset = makePersonalBestEntry({ variables: { a: "1", b: "2" } });
+    expect(personalBestMatchesKey(superset, makeKey({ variables: { a: "1" } }))).toBe(true);
+    expect(
+      personalBestMatchesKey(
+        makePersonalBestEntry({ variables: { a: "2", b: "2" } }),
+        makeKey({ variables: { a: "1" } }),
+      ),
+    ).toBe(false);
+  });
+
+  it("selects the fastest matching PB regardless of response order and selected timing", () => {
+    const candidates = [
+      makePersonalBestEntry({
+        times: {
+          primarySeconds: 2400,
+          realtimeSeconds: 2400,
+          realtimeNoLoadsSeconds: null,
+          ingameSeconds: null,
+        },
+      }),
+      makePersonalBestEntry({
+        times: {
+          primarySeconds: 2280,
+          realtimeSeconds: 2280,
+          realtimeNoLoadsSeconds: null,
+          ingameSeconds: null,
+        },
+      }),
+      makePersonalBestEntry({
+        times: {
+          primarySeconds: 2520,
+          realtimeSeconds: 2520,
+          realtimeNoLoadsSeconds: null,
+          ingameSeconds: null,
+        },
+      }),
+    ];
+    expect(selectPersonalBest(candidates, makeKey())).toMatchObject({ timeSeconds: 2280 });
+    const timingCandidates = [
+      makePersonalBestEntry({
+        times: {
+          primarySeconds: 1800,
+          realtimeSeconds: 2100,
+          realtimeNoLoadsSeconds: null,
+          ingameSeconds: null,
+        },
+      }),
+      makePersonalBestEntry({
+        times: {
+          primarySeconds: 1860,
+          realtimeSeconds: 1980,
+          realtimeNoLoadsSeconds: null,
+          ingameSeconds: null,
+        },
+      }),
+    ];
+    expect(
+      selectPersonalBest(timingCandidates, makeKey({ timingMethod: "realtime" })),
+    ).toMatchObject({
+      timeSeconds: 1980,
+    });
+  });
+
+  it("ignores candidates that do not have the selected timing", () => {
+    const candidates = [
+      makePersonalBestEntry({
+        times: {
+          primarySeconds: 1800,
+          realtimeSeconds: null,
+          realtimeNoLoadsSeconds: null,
+          ingameSeconds: null,
+        },
+      }),
+      makePersonalBestEntry({
+        times: {
+          primarySeconds: 1860,
+          realtimeSeconds: 1980,
+          realtimeNoLoadsSeconds: null,
+          ingameSeconds: null,
+        },
+      }),
+    ];
+
+    expect(selectPersonalBest(candidates, makeKey({ timingMethod: "realtime" }))).toMatchObject({
+      timeSeconds: 1980,
+    });
   });
 
   it("maps a PB to the domain with a safe rank", () => {

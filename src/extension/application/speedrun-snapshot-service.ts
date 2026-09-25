@@ -20,11 +20,13 @@ import {
   describeSpeedrunComError,
   SpeedrunComRateLimitedError,
 } from "../integrations/speedruncom/errors";
-import { leaderboardMatchesKey } from "../integrations/speedruncom/leaderboard";
+import {
+  canUseUnfilteredPersonalBests,
+  leaderboardMatchesKey,
+} from "../integrations/speedruncom/leaderboard";
 import {
   mapWorldRecord,
-  personalBestMatchesKey,
-  personalBestToDomain,
+  selectPersonalBest,
   toDomainLeaderboardEntry,
 } from "../integrations/speedruncom/leaderboard-mapper";
 import { computeDraftBroadcastState } from "./broadcast-status";
@@ -233,6 +235,7 @@ export class SpeedrunSnapshotService {
 
     let stopFetching = false;
     let participantPbFailures = 0;
+    const usePersonalBestsEndpoint = canUseUnfilteredPersonalBests(key);
     const pbResults = await mapWithConcurrency(
       toFetch,
       this.pbConcurrency,
@@ -241,14 +244,17 @@ export class SpeedrunSnapshotService {
           return { userId, ok: false };
         }
         try {
-          const entries = await this.status.run("snapshot.personal_bests", () =>
-            this.client.getUserPersonalBests(userId, key.gameId),
-          );
-          const match = entries.find((entry) => personalBestMatchesKey(entry, key));
+          const entries = usePersonalBestsEndpoint
+            ? await this.status.run("snapshot.personal_bests", () =>
+                this.client.getUserPersonalBests(userId, key.gameId),
+              )
+            : await this.status.run("snapshot.user_runs", () =>
+                this.client.getUserRuns(userId, key),
+              );
           return {
             userId,
             ok: true,
-            personalBest: match ? personalBestToDomain(match, key) : null,
+            personalBest: selectPersonalBest(entries, key),
           };
         } catch (error) {
           if (error instanceof SpeedrunComRateLimitedError) {
