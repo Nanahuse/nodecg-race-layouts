@@ -22,6 +22,12 @@
           "minLength": 1,
           "description": "The id of the spreadsheet (from its URL)."
         },
+        "playersSheet": {
+          "type": "string",
+          "minLength": 1,
+          "deprecated": true,
+          "description": "Ignored compatibility field from versions that stored Player data in Sheets."
+        },
         "categoryMappingsSheet": {
           "type": "string",
           "minLength": 1,
@@ -44,6 +50,5 @@
       "additionalProperties": false
     }
   },
-  "required": ["spreadsheet"],
   "additionalProperties": true
 }

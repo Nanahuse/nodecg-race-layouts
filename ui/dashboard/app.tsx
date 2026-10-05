@@ -18,6 +18,7 @@ import { CategoryPresentationEditor } from "./components/category-presentation-e
 import { SpeedrunSnapshotPanel } from "./components/speedrun-snapshot-panel";
 import { BroadcastApplyPanel } from "./components/broadcast-apply-panel";
 import { PersistencePanel } from "./components/persistence-panel";
+import { SpreadsheetSetupPanel } from "./components/spreadsheet-setup-panel";
 
 function Badge({
   label,
@@ -290,6 +291,7 @@ export function App() {
         <Badge label="Spreadsheet" state={i.spreadsheet.state} message={i.spreadsheet.message} />
         <Badge label="Broadcast" state={i.broadcast.state} message={i.broadcast.message} />
       </section>
+      <SpreadsheetSetupPanel />
       <div className="layout">
         <section className="panel">
           <span className="eyebrow">DRAFT</span>
