@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { spreadsheetSetupApi } from "../api/spreadsheet-setup-api";
 import {
-  configWithSpreadsheet,
   defaultSpreadsheetSettings,
   spreadsheetIdFromInput,
   spreadsheetSettingsFromConfig,
@@ -9,7 +8,6 @@ import {
 } from "../model/spreadsheet-config";
 
 export function SpreadsheetSetupPanel() {
-  const [baseConfig, setBaseConfig] = useState<Record<string, unknown>>({});
   const [settings, setSettings] = useState<SpreadsheetSettings>(defaultSpreadsheetSettings);
   const [sheetNames, setSheetNames] = useState<string[]>([]);
   const [connected, setConnected] = useState(false);
@@ -26,16 +24,7 @@ export function SpreadsheetSetupPanel() {
           typeof response.config === "object" && response.config !== null
             ? (response.config as Record<string, unknown>)
             : {};
-        const config = {
-          event: {
-            name: "RTA Race Event",
-            shortName: "RTA Race",
-            logoUrl: "/bundles/nodecg-race-layouts/assets/event-logo.png",
-          },
-          ...loadedConfig,
-        };
-        setBaseConfig(config);
-        setSettings(spreadsheetSettingsFromConfig(config));
+        setSettings(spreadsheetSettingsFromConfig(loadedConfig));
       })
       .catch(() => setError("Could not load the current bundle settings from NodeCG."));
   }, []);
@@ -43,7 +32,7 @@ export function SpreadsheetSetupPanel() {
   const valid = spreadsheetIdFromInput(settings.spreadsheetId).length > 0;
   const update = (key: keyof SpreadsheetSettings, value: string) => {
     setSettings((current) => ({ ...current, [key]: value }));
-    if (key === "spreadsheetId" || key === "googleCredentialsFile") {
+    if (key === "spreadsheetId") {
       setConnected(false);
       setSheetNames([]);
       setNotice(null);
@@ -56,10 +45,7 @@ export function SpreadsheetSetupPanel() {
     setNotice(null);
     setConnected(false);
     try {
-      const response = await spreadsheetSetupApi.connect(
-        settings.spreadsheetId,
-        settings.googleCredentialsFile,
-      );
+      const response = await spreadsheetSetupApi.connect(settings.spreadsheetId);
       if (!response.ok) {
         setError(response.message);
         return;
@@ -89,8 +75,23 @@ export function SpreadsheetSetupPanel() {
     }
   };
 
-  const downloadConfig = () => {
-    const content = configWithSpreadsheet(baseConfig, settings);
+  const generateConfig = async () => {
+    const response = await spreadsheetSetupApi.save({
+      spreadsheetUrl: settings.spreadsheetId,
+      categoryMappingsSheet: settings.categoryMappingsSheet,
+      categoryPresentationSheet: settings.categoryPresentationSheet,
+      raceHistorySheet: settings.raceHistorySheet,
+    });
+    if (!response.ok) {
+      setError(response.message);
+      return null;
+    }
+    return response.configJson;
+  };
+
+  const downloadConfig = async () => {
+    const content = await generateConfig();
+    if (content === null) return;
     const blobUrl = URL.createObjectURL(new Blob([content], { type: "application/json" }));
     const link = document.createElement("a");
     link.href = blobUrl;
@@ -102,7 +103,9 @@ export function SpreadsheetSetupPanel() {
 
   const copyConfig = async () => {
     try {
-      await navigator.clipboard.writeText(configWithSpreadsheet(baseConfig, settings));
+      const content = await generateConfig();
+      if (content === null) return;
+      await navigator.clipboard.writeText(content);
       setNotice(
         "Configuration copied. Save it as cfg/nodecg-race-layouts.json, then restart NodeCG.",
       );
@@ -123,15 +126,6 @@ export function SpreadsheetSetupPanel() {
           value={settings.spreadsheetId}
           onChange={(event) => update("spreadsheetId", event.target.value)}
           placeholder="https://docs.google.com/spreadsheets/d/..."
-          autoComplete="off"
-        />
-      </label>
-      <label>
-        Google credentials file path (optional; uses ADC when blank)
-        <input
-          value={settings.googleCredentialsFile}
-          onChange={(event) => update("googleCredentialsFile", event.target.value)}
-          placeholder="C:/credentials/google-service-account.json"
           autoComplete="off"
         />
       </label>
@@ -178,9 +172,11 @@ export function SpreadsheetSetupPanel() {
         </button>
       </div>
       <p className="muted">
-        The selected tabs and credentials file path will be written to <code>spreadsheet</code> in
-        the bundle config. Place the downloaded file at <code>cfg/nodecg-race-layouts.json</code>
-        and restart NodeCG to apply it. Make sure the Google account has access to the spreadsheet.
+        The selected tabs will be written to <code>spreadsheet</code> in the bundle config.
+        Authentication remains configured in NodeCG and is not shown or changed here. Place the
+        downloaded file at
+        <code>cfg/nodecg-race-layouts.json</code> and restart NodeCG to apply it. Make sure the
+        Google account has access to the spreadsheet.
       </p>
       {notice && (
         <p className="callout success" role="status">

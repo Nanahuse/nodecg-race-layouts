@@ -6,7 +6,6 @@ import {
 
 export type SpreadsheetSettings = {
   spreadsheetId: string;
-  googleCredentialsFile: string;
   categoryMappingsSheet: string;
   categoryPresentationSheet: string;
   raceHistorySheet: string;
@@ -29,8 +28,6 @@ export function spreadsheetSettingsFromConfig(raw: unknown): SpreadsheetSettings
   const value = spreadsheet as Record<string, unknown>;
   return {
     spreadsheetId: typeof value.spreadsheetId === "string" ? value.spreadsheetId : "",
-    googleCredentialsFile:
-      typeof value.googleCredentialsFile === "string" ? value.googleCredentialsFile : "",
     categoryMappingsSheet:
       typeof value.categoryMappingsSheet === "string"
         ? value.categoryMappingsSheet
@@ -49,29 +46,8 @@ export function spreadsheetSettingsFromConfig(raw: unknown): SpreadsheetSettings
 export function defaultSpreadsheetSettings(): SpreadsheetSettings {
   return {
     spreadsheetId: "",
-    googleCredentialsFile: "",
     categoryMappingsSheet: DEFAULT_CATEGORY_MAPPINGS_SHEET,
     categoryPresentationSheet: DEFAULT_CATEGORY_PRESENTATION_SHEET,
     raceHistorySheet: DEFAULT_RACE_HISTORY_SHEET,
   };
-}
-
-export function configWithSpreadsheet(raw: unknown, settings: SpreadsheetSettings): string {
-  const source =
-    typeof raw === "object" && raw !== null && !Array.isArray(raw)
-      ? (raw as Record<string, unknown>)
-      : {};
-  const config = {
-    ...source,
-    spreadsheet: {
-      spreadsheetId: spreadsheetIdFromInput(settings.spreadsheetId),
-      ...(settings.googleCredentialsFile.trim()
-        ? { googleCredentialsFile: settings.googleCredentialsFile.trim() }
-        : {}),
-      categoryMappingsSheet: settings.categoryMappingsSheet.trim(),
-      categoryPresentationSheet: settings.categoryPresentationSheet.trim(),
-      raceHistorySheet: settings.raceHistorySheet.trim(),
-    },
-  };
-  return `${JSON.stringify(config, null, 2)}\n`;
 }
