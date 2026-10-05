@@ -51,14 +51,14 @@ test/             単体・統合フロー・Schemaテスト
    `pnpm run build`はExtensionを`dist/`へ出力し、Dashboardパネルと4種類のGraphicsを生成します。生成物はGit管理対象外です。
 
 4. `config.example.json`をNodeCGホストの`cfg/nodecg-race-layouts.json`へコピーし、イベント情報を設定します。Spreadsheet設定はRace Control Dashboardの**Spreadsheet Setup**で作成・編集できます。生成したファイルをNodeCGホストの`cfg/nodecg-race-layouts.json`へ置き、NodeCGを再起動してください。Player ManagerでPlayerの作成・更新を行い、未解決参加者はRace ControlからPlayer ManagerのRegistration画面へ進めます。
-5. NodeCGを起動するプロセスからGoogle ADCを利用できるようにします。サービスアカウントの鍵ファイルを使う場合は、そのプロセスの環境変数`GOOGLE_APPLICATION_CREDENTIALS`に設定し、該当アカウントにSpreadsheetへのアクセス権を付与します。認証情報をバンドル設定やリポジトリへ保存しないでください。
+5. `googleCredentialsFile`を設定した場合は、その認証ファイルのアカウントにSpreadsheetへのアクセス権を付与します。省略する場合はNodeCGを起動するプロセスからGoogle ADCを利用できるようにしてください。認証ファイルそのものをリポジトリへ保存しないでください。
 6. ホスト環境の通常の手順でNodeCGを起動し、Race Controlを開きます。必須bundleのPlayer Managerを先にNodeCG環境へ配置してください。
 
 RaceTime.ggとSpeedrun.comの検索は各サービスの公開APIを利用します。Spreadsheet設定や認証に問題がある場合はDashboardの連携ステータスに表示され、スプレッドシート依存機能が利用できないことがあります。
 
 ## 設定
 
-`config.example.json`を設定のひな型として使います。Spreadsheetを利用するには`spreadsheet.spreadsheetId`が必要です。Race Control Dashboardの**Spreadsheet Setup**で設定を入力し、生成されたJSONをNodeCGの設定ファイルへ配置できます。シート名は省略でき、省略時は`CategoryMappings`、`CategoryPresentation`、`RaceHistory`が使われます。Graphicsには空でない`event.name`が必要です。`shortName`と`logoUrl`は任意です。
+`config.example.json`を設定のひな型として使います。Spreadsheetを利用するには`spreadsheet.spreadsheetId`が必要です。Race Control Dashboardの**Spreadsheet Setup**でURL接続し、接続先からタブを選択できます。`spreadsheet.googleCredentialsFile`にはNodeCGホスト上の認証JSONファイルのパスを指定できます。省略時はADCを使います。生成されたJSONをNodeCGの設定ファイルへ配置し、NodeCGを再起動してください。シート名は省略でき、省略時は`CategoryMappings`、`CategoryPresentation`、`RaceHistory`が使われます。Graphicsには空でない`event.name`が必要です。`shortName`と`logoUrl`は任意です。
 
 ```json
 {

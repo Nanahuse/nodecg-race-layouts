@@ -15,9 +15,9 @@ pnpm run build
 
 `config.example.json`をNodeCGホストの`cfg/nodecg-race-layouts.json`へコピーします。空でないイベント名とGoogle Spreadsheet IDを設定してください。シート名は変更できます。省略時の既定値は`CategoryMappings`、`CategoryPresentation`、`RaceHistory`です。Player情報はPlayer Managerで管理します。
 
-Spreadsheet設定の作成・変更はRace Control Dashboardの**Spreadsheet Setup**から行えます。既存の設定を引き継ぐ場合は現在の`nodecg-race-layouts.json`を読み込み、Spreadsheet URLまたはIDとタブ名を入力して設定ファイルをダウンロードします。NodeCGはブラウザーからホストの設定ファイルへ直接保存できないため、ダウンロードしたファイルを`cfg/nodecg-race-layouts.json`へ置き換え、NodeCGを再起動してください。最初の起動でSpreadsheet設定を省略している場合も、Dashboardから設定ファイルを作成できます。既存の設定を読み込まず作成した場合はイベント名などの他の設定を確認してください。
+Spreadsheet設定の作成・変更はRace Control Dashboardの**Spreadsheet Setup**から行えます。NodeCGが`cfg/nodecg-race-layouts.json`から読み込んだ現在の設定を自動で表示します。Spreadsheet URLまたはIDと認証JSONファイルのパスを入力して接続すると、接続先のタブ一覧からCategoryMappings、CategoryPresentation、RaceHistoryに使うタブを選択できます。`googleCredentialsFile`はNodeCGホスト上の認証JSONファイルのパスです。省略時はApplication Default Credentials（ADC）を使います。設定ファイルをダウンロードしたら`cfg/nodecg-race-layouts.json`へ置き換えてNodeCGを再起動してください。最初の起動でSpreadsheet設定を省略している場合も、Dashboardから設定ファイルを作成できます。
 
-NodeCGプロセスからGoogle Application Default Credentials（ADC）を利用できるようにしてください。一般的には環境変数`GOOGLE_APPLICATION_CREDENTIALS`を設定し、その認証情報のアカウントへSpreadsheetを共有します。認証ファイルや秘密情報をバンドル設定やリポジトリに保存しないでください。プロセス環境またはバンドル設定を変更したら、NodeCGを再起動してください。
+`googleCredentialsFile`を指定した場合は、その認証JSONのアカウントへSpreadsheetを共有してください。指定しない場合はNodeCGプロセスからADCを利用できるようにします。認証ファイルそのものや秘密情報をリポジトリへ保存しないでください。設定を変更したらNodeCGを再起動してください。
 
 ### スプレッドシートの準備
 

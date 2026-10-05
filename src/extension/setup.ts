@@ -48,6 +48,7 @@ import { registerRacePresentationMessages } from "./messages/race-presentation-m
 import { registerSpeedrunMessages } from "./messages/speedrun-messages";
 import { registerSpeedrunSnapshotMessages } from "./messages/speedrun-snapshot-messages";
 import { registerPersistenceMessages } from "./messages/persistence-messages";
+import { registerSpreadsheetSetupMessages } from "./messages/spreadsheet-setup-messages";
 import { PostApplyPersistenceService } from "./application/post-apply-persistence-service";
 import { SpreadsheetRaceHistoryRepository } from "./integrations/spreadsheet/race-history-repository";
 import { SpreadsheetOperationStatusCoordinator } from "./application/spreadsheet-status-coordinator";
@@ -91,10 +92,15 @@ export function setupSpreadsheetIntegration(nodecg: NodeCG): SpreadsheetIntegrat
     return null;
   }
 
-  const { spreadsheetId, categoryMappingsSheet, categoryPresentationSheet, raceHistorySheet } =
-    parsed.config.spreadsheet;
+  const {
+    spreadsheetId,
+    googleCredentialsFile,
+    categoryMappingsSheet,
+    categoryPresentationSheet,
+    raceHistorySheet,
+  } = parsed.config.spreadsheet;
 
-  const client = GoogleSheetsClient.create({ spreadsheetId });
+  const client = GoogleSheetsClient.create({ spreadsheetId, googleCredentialsFile });
   const status = new SpreadsheetOperationStatusCoordinator(
     nodecg.Replicant("integration-status"),
     nodecg.log,
@@ -330,6 +336,7 @@ export function bootstrapExtension(nodecg: NodeCG): {
     postApplyPersistence,
   );
   registerPersistenceMessages(nodecg, postApplyPersistence);
+  registerSpreadsheetSetupMessages(nodecg);
   postApplyPersistence?.resume();
   const graphicsProjection = setupGraphicsProjection(nodecg);
   registerRaceMessages(nodecg, raceDraft);

@@ -12,6 +12,7 @@ describe("parseBundleConfig", () => {
     const result = parseBundleConfig({
       spreadsheet: {
         spreadsheetId: "sheet-123",
+        googleCredentialsFile: "C:/keys/sheets.json",
         categoryMappingsSheet: "Mappings",
         categoryPresentationSheet: "Presentation",
         raceHistorySheet: DEFAULT_RACE_HISTORY_SHEET,
@@ -22,6 +23,7 @@ describe("parseBundleConfig", () => {
     if (result.ok) {
       expect(result.config.spreadsheet).toEqual({
         spreadsheetId: "sheet-123",
+        googleCredentialsFile: "C:/keys/sheets.json",
         categoryMappingsSheet: "Mappings",
         categoryPresentationSheet: "Presentation",
         raceHistorySheet: DEFAULT_RACE_HISTORY_SHEET,

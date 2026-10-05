@@ -11,6 +11,7 @@ type SheetsApi = ReturnType<typeof createSheetsApi>;
 
 export type GoogleSheetsClientOptions = {
   spreadsheetId: string;
+  googleCredentialsFile?: string;
   timeoutMs?: number;
 };
 
@@ -31,8 +32,8 @@ function normalizeValues(values: unknown[][] | null | undefined): SpreadsheetVal
 /**
  * Google Sheets implementation of {@link SpreadsheetClient}.
  *
- * Authentication uses Application Default Credentials via `GoogleAuth`; no
- * credentials are stored in the repository or bundle config.
+ * Authentication uses an optional local service-account file, falling back to
+ * Application Default Credentials when no file path is configured.
  */
 export class GoogleSheetsClient implements SpreadsheetClient {
   private readonly api: SheetsApi;
@@ -44,7 +45,10 @@ export class GoogleSheetsClient implements SpreadsheetClient {
   }
 
   static create(options: GoogleSheetsClientOptions): GoogleSheetsClient {
-    const auth = new GoogleAuth({ scopes: [SPREADSHEETS_SCOPE] });
+    const auth = new GoogleAuth({
+      ...(options.googleCredentialsFile ? { keyFile: options.googleCredentialsFile } : {}),
+      scopes: [SPREADSHEETS_SCOPE],
+    });
     const api = createSheetsApi({
       version: "v4",
       auth,
@@ -62,6 +66,22 @@ export class GoogleSheetsClient implements SpreadsheetClient {
       return normalizeValues(response.data.values);
     } catch (error) {
       throw new SpreadsheetClientError(`Failed to read range "${range}".`, { cause: error });
+    }
+  }
+
+  async listSheets(): Promise<string[]> {
+    try {
+      const response = await this.api.spreadsheets.get({
+        spreadsheetId: this.spreadsheetId,
+        fields: "sheets.properties.title",
+      });
+      return (response.data.sheets ?? [])
+        .map((sheet) => sheet.properties?.title)
+        .filter((title): title is string => typeof title === "string");
+    } catch (error) {
+      throw new SpreadsheetClientError("Failed to connect to the Google Spreadsheet.", {
+        cause: error,
+      });
     }
   }
 

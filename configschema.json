@@ -22,6 +22,10 @@
           "minLength": 1,
           "description": "The id of the spreadsheet (from its URL)."
         },
+        "googleCredentialsFile": {
+          "type": "string",
+          "description": "Optional path to a Google service account credentials JSON file, relative to the NodeCG process working directory or absolute."
+        },
         "playersSheet": {
           "type": "string",
           "minLength": 1,

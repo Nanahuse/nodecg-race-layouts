@@ -16,6 +16,7 @@ describe("spreadsheet setup config helpers", () => {
   it("uses default tab names when loading a config with only the spreadsheet ID", () => {
     expect(spreadsheetSettingsFromConfig({ spreadsheet: { spreadsheetId: "sheet-id" } })).toEqual({
       spreadsheetId: "sheet-id",
+      googleCredentialsFile: "",
       categoryMappingsSheet: "CategoryMappings",
       categoryPresentationSheet: "CategoryPresentation",
       raceHistorySheet: "RaceHistory",
@@ -28,6 +29,7 @@ describe("spreadsheet setup config helpers", () => {
         { event: { name: "Local Final" }, oldSetting: true },
         {
           spreadsheetId: "https://docs.google.com/spreadsheets/d/sheet-id/edit",
+          googleCredentialsFile: "C:/keys/sheets.json",
           categoryMappingsSheet: "Mappings",
           categoryPresentationSheet: "Presentation",
           raceHistorySheet: "History",
@@ -39,6 +41,7 @@ describe("spreadsheet setup config helpers", () => {
       oldSetting: true,
       spreadsheet: {
         spreadsheetId: "sheet-id",
+        googleCredentialsFile: "C:/keys/sheets.json",
         categoryMappingsSheet: "Mappings",
         categoryPresentationSheet: "Presentation",
         raceHistorySheet: "History",

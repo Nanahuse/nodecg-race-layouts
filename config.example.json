@@ -6,6 +6,7 @@
   },
   "spreadsheet": {
     "spreadsheetId": "your-spreadsheet-id",
+    "googleCredentialsFile": "C:/path/to/google-credentials.json",
     "categoryMappingsSheet": "CategoryMappings",
     "categoryPresentationSheet": "CategoryPresentation",
     "raceHistorySheet": "RaceHistory"
