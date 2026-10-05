@@ -121,7 +121,7 @@ export const REPLICANT_DEFINITIONS: readonly ReplicantDefinition[] = [
   {
     name: "integration-status",
     defaultValue: createDefaultIntegrationStatus(),
-    persistent: true,
+    persistent: false,
   },
   {
     name: "post-apply-persistence",
