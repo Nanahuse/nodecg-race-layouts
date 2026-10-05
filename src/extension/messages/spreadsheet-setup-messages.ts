@@ -53,12 +53,16 @@ export function registerSpreadsheetSetupMessages(
       });
       const sheetNames = await client.listSheets();
       if (ack && !ack.handled) ack(null, { ok: true, sheetNames });
-    } catch {
+    } catch (error) {
+      nodecg.log.warn(
+        "[spreadsheet.setup.connect.failed] Could not read spreadsheet metadata.",
+        error,
+      );
       if (ack && !ack.handled) {
         ack(null, {
           ok: false,
           message:
-            "Could not connect. Check the spreadsheet URL, sharing permissions, and Google credentials file path.",
+            "Could not connect. Check the spreadsheet URL, sharing permissions, and server-side Google authentication settings.",
         });
       }
     }
