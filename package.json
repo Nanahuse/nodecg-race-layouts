@@ -4,7 +4,7 @@
   "private": true,
   "description": "NodeCG layouts for RTA race events",
   "license": "Apache-2.0",
-  "packageManager": "pnpm@12.4.0",
+  "packageManager": "pnpm@12.9.1",
   "engines": {
     "node": ">=24.0.0"
   },
@@ -28,7 +28,7 @@
   "nodecg": {
     "compatibleRange": "^2.0.0",
     "bundleDependencies": {
-      "player-manager": "^1.0.0"
+      "player-manager": "^1.0.1"
     },
     "dashboardPanels": [
       {
@@ -84,7 +84,7 @@
   "dependencies": {
     "@googleapis/sheets": "^18.0.0",
     "google-auth-library": "^11.1.0",
-    "@nanahuse/player-manager-protocol": "github:Nanahuse/player-manager#v1.0.0&path:/packages/player-manager-protocol",
+    "@nanahuse/player-manager-protocol": "github:Nanahuse/player-manager#v1.0.1&path:/packages/player-manager-protocol",
     "react": "^19.3.0",
     "react-dom": "^19.3.0"
   }
