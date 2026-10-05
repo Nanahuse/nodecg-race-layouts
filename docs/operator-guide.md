@@ -17,7 +17,7 @@ pnpm run build
 
 Spreadsheet設定はRace Control Dashboardの**Spreadsheet Setup**から入力します。Spreadsheet URLまたはIDで接続すると、接続先のタブ一覧からCategoryMappings、CategoryPresentation、RaceHistoryに使うタブを選べます。**Save settings**を押すと、Spreadsheet IDとタブ選択はNodeCG DBのpersistent Replicantへ保存され、実行中の連携にも反映されます。CategoryMappings対応表とCategoryPresentationデータは引き続きGoogle Sheetsへ保存されます。Google認証ファイルのパスは`cfg/nodecg-race-layouts.json`のトップレベル`googleCredentialsFile`へ設定してください。省略時はApplication Default Credentials（ADC）を使います。
 
-認証JSONのアカウントへSpreadsheetを共有してください。認証ファイルそのものや秘密情報をリポジトリへ保存しないでください。既存cfgに旧`spreadsheet`設定が残っている場合は、最初の起動時にNodeCG DBへ一度だけ移行されます。
+認証JSONのアカウントへSpreadsheetを**編集者**として共有してください。接続確認は読み取りだけを行うため、閲覧者権限でも接続に成功する場合がありますが、CategoryMappingsなどの保存には編集者権限が必要です。認証ファイルそのものや秘密情報をリポジトリへ保存しないでください。既存cfgに旧`spreadsheet`設定が残っている場合は、最初の起動時にNodeCG DBへ一度だけ移行されます。
 
 ### スプレッドシートの準備
 

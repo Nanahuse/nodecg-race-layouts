@@ -376,6 +376,7 @@ describe("CategoryDraftService mapping operations", () => {
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.reason).toBe("save_failed");
+      expect(result.message).toContain("write failed");
     }
     expect(draftConfig.value).toBe(before);
     expect(integrationStatus.value.spreadsheet.state).toBe("error");
