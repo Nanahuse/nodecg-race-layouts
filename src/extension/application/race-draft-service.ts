@@ -221,6 +221,7 @@ export type RaceDraftServiceOptions = {
   log: NodeCGLogger;
   personRefFactory?: () => DraftPersonRef;
   categoryPresets?: CategoryPresetProvider;
+  refreshSnapshot?: (draftRevision: number) => Promise<{ ok: boolean; message?: string }>;
 };
 
 function describeError(error: unknown): string {
@@ -237,6 +238,7 @@ export class RaceDraftService {
   private readonly log: NodeCGLogger;
   private readonly personRefFactory: () => DraftPersonRef;
   private readonly categoryPresets: CategoryPresetProvider;
+  private readonly refreshSnapshot?: RaceDraftServiceOptions["refreshSnapshot"];
   private suppressReconcile = false;
 
   constructor(options: RaceDraftServiceOptions) {
@@ -249,6 +251,7 @@ export class RaceDraftService {
     this.log = options.log;
     this.personRefFactory = options.personRefFactory ?? randomUUID;
     this.categoryPresets = options.categoryPresets ?? nullCategoryPresetProvider;
+    this.refreshSnapshot = options.refreshSnapshot;
   }
 
   async loadRace(url: string): Promise<RaceLoadOutcome> {
@@ -308,6 +311,7 @@ export class RaceDraftService {
         participantCount: candidate.participants.length,
         unresolvedPlayerCount,
       });
+      if (categoryPreset.mapping) this.refreshSnapshotForMappedCategory(candidate);
       return {
         ok: true,
         draftRevision: candidate.revision,
@@ -405,6 +409,9 @@ export class RaceDraftService {
         participantCount: finalDraft.participants.length,
         unresolvedPlayerCount,
       });
+      if (outcome.categoryChanged && categoryPreset?.mapping) {
+        this.refreshSnapshotForMappedCategory(finalDraft);
+      }
       return {
         ok: true,
         changed,
@@ -456,6 +463,31 @@ export class RaceDraftService {
       return null;
     }
   }
+
+  private refreshSnapshotForMappedCategory(draft: DraftConfig): void {
+    if (!this.refreshSnapshot || draft.categorySelection.source !== "saved_mapping") return;
+    void this.refreshSnapshot(draft.revision)
+      .then((result) => {
+        if (!result.ok) {
+          this.logEvent(
+            "race.category_mapping.snapshot_refresh_failed",
+            {
+              draftRevision: draft.revision,
+              message: result.message ?? "Snapshot refresh failed.",
+            },
+            "warn",
+          );
+        }
+      })
+      .catch((error) => {
+        this.logEvent(
+          "race.category_mapping.snapshot_refresh_failed",
+          { draftRevision: draft.revision, error },
+          "warn",
+        );
+      });
+  }
+
   private currentDraftRevision(): number | null {
     return this.draftConfig.value?.revision ?? null;
   }

@@ -258,6 +258,7 @@ export function setupRaceTimeIntegration(
     integrationStatus,
     log: nodecg.log,
     categoryPresets: categoryPresetProviderFor(spreadsheet),
+    refreshSnapshot: (draftRevision) => speedrunSnapshot.refresh(draftRevision),
   });
 
   const categoryDraft = new CategoryDraftService({
