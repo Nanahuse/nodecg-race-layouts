@@ -1,12 +1,10 @@
 import type {
   ActiveConfig,
-  ActivePlayer,
   ActiveRaceParticipant,
   ActiveRaceScreenSlots,
   DraftConfig,
-  DraftPlayer,
+  PlayerSnapshot,
   PlayerId,
-  PlayerMapping,
   RaceOverlayData,
   RaceReference,
   SpeedrunCategorySelection,
@@ -37,55 +35,21 @@ export const sampleCategorySelection: SpeedrunCategorySelection = {
 
 export function makeActivePlayer(
   playerId: PlayerId,
-  overrides: Partial<ActivePlayer> = {},
-): ActivePlayer {
+  overrides: Partial<PlayerSnapshot> = {},
+): PlayerSnapshot {
   return {
     playerId,
-    manualDisplayName: null,
-    racetime: {
-      state: "linked",
-      value: { userId: `rt-account-${playerId}`, name: `${playerId}-racetime`, twitchLogin: null },
-    },
-    speedrunCom: {
-      state: "linked",
-      value: { userId: `src-account-${playerId}`, name: `${playerId}-src`, twitchLogin: null },
-    },
-    twitch: {
-      state: "linked",
-      value: { userId: null, login: `${playerId}` },
-    },
-    ...overrides,
-  };
-}
-
-export function makeDraftPlayer(
-  playerId: PlayerId,
-  overrides: Partial<DraftPlayer> = {},
-): DraftPlayer {
-  return {
-    playerId,
-    manualDisplayName: null,
-    racetime: {
-      state: "linked",
-      value: { userId: `rt-account-${playerId}`, name: `${playerId}-racetime`, twitchLogin: null },
-      source: "racetime",
-    },
-    speedrunCom: {
-      state: "linked",
-      value: { userId: `src-account-${playerId}`, name: `${playerId}-src`, twitchLogin: null },
-      source: "speedruncom",
-    },
-    twitch: {
-      state: "linked",
-      value: { userId: null, login: `${playerId}` },
-      source: "racetime",
-    },
+    displayName: playerId,
+    racetime: { userId: `rt-account-${playerId}`, name: `${playerId}-racetime` },
+    speedrunCom: { userId: `src-account-${playerId}`, name: `${playerId}-src` },
+    twitch: { userId: null, login: `${playerId}`, displayName: `${playerId}` },
+    youtube: null,
     ...overrides,
   };
 }
 
 export function makeActiveConfig(overrides: Partial<ActiveConfig> = {}): ActiveConfig {
-  const players: Record<PlayerId, PlayerMapping> = {};
+  const players: Record<PlayerId, PlayerSnapshot> = {};
   const participants: ActiveRaceParticipant[] = [];
   const slots = { 1: "", 2: "", 3: "", 4: "" } as ActiveRaceScreenSlots;
 

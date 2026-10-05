@@ -1,16 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { resetParticipantLocalState } from "../ui/dashboard/model/participant-state";
+import { makeDraftPerson } from "./support/draft-fakes";
 
-describe("participant local state", () => {
-  it("resets editing fields when the mapped player changes", () => {
-    expect(
-      resetParticipantLocalState({
-        playerId: "p2",
-        manualDisplayName: "New Name",
-        racetime: { state: "unresolved" },
-        speedrunCom: { state: "unresolved" },
-        twitch: { state: "unresolved" },
-      }),
-    ).toEqual({ displayName: "New Name", speedrunId: "", twitchLogin: "", error: null });
-  });
+describe("DraftPerson resolution states", () => {
+  it.each(["unresolved", "ambiguous", "conflict"] as const)(
+    "keeps %s identities without inventing a Player ID",
+    (resolution) => {
+      expect(makeDraftPerson("draft-ref", "rt-user", resolution)).toMatchObject({
+        ref: "draft-ref",
+        playerId: null,
+        player: null,
+        resolution,
+      });
+    },
+  );
 });

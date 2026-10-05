@@ -10,7 +10,6 @@ export default defineConfig({
     rollupOptions: {
       input: {
         "race-control": "ui/dashboard/race-control.html",
-        "player-mapping": "ui/dashboard/player-mapping.html",
       },
     },
   },

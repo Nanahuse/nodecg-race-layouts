@@ -1,0 +1,31 @@
+{
+  "$ref": "#/definitions/SpreadsheetSettings",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "definitions": {
+    "SpreadsheetSettings": {
+      "additionalProperties": false,
+      "properties": {
+        "categoryMappingsSheet": {
+          "type": "string"
+        },
+        "categoryPresentationSheet": {
+          "type": "string"
+        },
+        "raceHistorySheet": {
+          "type": "string"
+        },
+        "spreadsheetId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "spreadsheetId",
+        "categoryMappingsSheet",
+        "categoryPresentationSheet",
+        "raceHistorySheet"
+      ],
+      "type": "object"
+    }
+  },
+  "title": "spreadsheet-settings"
+}

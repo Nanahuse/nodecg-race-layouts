@@ -1,85 +1,28 @@
 import { describe, expect, it } from "vitest";
 
-import type { DraftConfig, DraftPlayer } from "../src/domain";
+import type { DraftConfig, DraftPerson } from "../src/domain";
 import {
-  ActiveConfigBuildError,
   buildActiveConfig,
   buildActiveSpeedrunSnapshot,
-  draftAccountLinkToActive,
-  draftPlayerToPlayerMapping,
+  ActiveConfigBuildError,
 } from "../src/extension/application/active-config-builder";
 import { createDefaultDraftSpeedrunSnapshot } from "../src/replicants/defaults";
-import { makeDraftPlayer, makeParticipantDraft } from "./support/draft-fakes";
-
-function linkedPlayer(playerId: string, overrides: Partial<DraftPlayer> = {}): DraftPlayer {
-  return makeDraftPlayer(playerId, {
-    speedrunCom: {
-      state: "linked" as const,
-      value: { userId: `src-${playerId}`, name: `Player ${playerId}`, twitchLogin: null },
-      source: "manual" as const,
-    },
-    twitch: { state: "none" as const, source: "manual" as const },
-    ...overrides,
-  });
-}
+import { makeDraftPerson, makeParticipantDraft } from "./support/draft-fakes";
 
 function readyDraft(): DraftConfig {
-  const players = Object.fromEntries(
-    [1, 2, 3, 4].map((index) => [`p${index}`, linkedPlayer(`p${index}`)]),
-  );
+  const persons = Object.fromEntries(
+    [1, 2, 3, 4].map((index) => [`p${index}`, makeDraftPerson(`p${index}`, `rt-p${index}`)]),
+  ) as Record<string, DraftPerson>;
   const draft = makeParticipantDraft({
-    players,
+    persons,
     participants: [1, 2, 3, 4].map((index) => ({
       racetimeUserId: `rt-p${index}`,
-      playerId: `p${index}`,
+      personRef: `p${index}`,
     })),
   });
   draft.raceScreenSlots = { 1: "rt-p1", 2: "rt-p2", 3: "rt-p3", 4: "rt-p4" };
   return draft;
 }
-
-describe("draftAccountLinkToActive", () => {
-  it("drops source from linked and none links", () => {
-    expect(
-      draftAccountLinkToActive({
-        state: "linked",
-        value: { userId: "u", name: "N", twitchLogin: null },
-        source: "auto",
-      }),
-    ).toEqual({ state: "linked", value: { userId: "u", name: "N", twitchLogin: null } });
-    expect(draftAccountLinkToActive({ state: "none", source: "spreadsheet" })).toEqual({
-      state: "none",
-    });
-  });
-
-  it("throws for unresolved links", () => {
-    expect(() => draftAccountLinkToActive({ state: "unresolved" })).toThrow(ActiveConfigBuildError);
-  });
-});
-
-describe("draftPlayerToPlayerMapping", () => {
-  it("converts all link sources without leaking source", () => {
-    const player = linkedPlayer("p1", {
-      racetime: {
-        state: "linked",
-        value: { userId: "rt-p1", name: "One", twitchLogin: "one" },
-        source: "racetime",
-      },
-      speedrunCom: {
-        state: "linked",
-        value: { userId: "src-p1", name: "Player p1", twitchLogin: null },
-        source: "auto",
-      },
-      twitch: { state: "linked", value: { userId: null, login: "one" }, source: "manual" },
-    });
-    const mapping = draftPlayerToPlayerMapping(player);
-    expect(mapping.racetime).toEqual({
-      state: "linked",
-      value: { userId: "rt-p1", name: "One", twitchLogin: "one" },
-    });
-    expect(mapping).not.toHaveProperty("racetime.source");
-  });
-});
 
 describe("buildActiveConfig", () => {
   it("builds a complete active config", () => {
@@ -114,7 +57,7 @@ describe("buildActiveConfig", () => {
 
   it("includes only referenced players", () => {
     const draft = readyDraft();
-    draft.players["unused"] = linkedPlayer("unused");
+    draft.persons["unused"] = makeDraftPerson("unused");
     const result = buildActiveConfig(draft, 1);
     expect(result.ok).toBe(true);
     if (result.ok) {
@@ -124,7 +67,7 @@ describe("buildActiveConfig", () => {
 
   it("includes a commentator-only player", () => {
     const draft = readyDraft();
-    draft.players["commentator"] = linkedPlayer("commentator");
+    draft.commentators["commentator"] = makeDraftPerson("commentator").player!;
     draft.commentatorPlayerIds = ["commentator"];
     const result = buildActiveConfig(draft, 1);
     expect(result.ok).toBe(true);
@@ -152,21 +95,21 @@ describe("buildActiveConfig", () => {
 
   it("rejects unresolved identities", () => {
     const draft = readyDraft();
-    draft.players["p1"] = makeDraftPlayer("p1");
+    draft.persons["p1"] = makeDraftPerson("p1", "rt-p1", "ambiguous");
     const result = buildActiveConfig(draft, 1);
     expect(result.ok).toBe(false);
     if (!result.ok) {
-      expect(result.issues.map((issue) => issue.code)).toContain("identity_unresolved");
+      expect(result.issues.map((issue) => issue.code)).toContain("participant_unresolved");
     }
   });
 
   it("rejects an unmapped participant", () => {
     const draft = readyDraft();
-    draft.participants[0] = { racetimeUserId: "rt-p1", playerId: null };
+    draft.persons["p1"] = makeDraftPerson("p1", "rt-p1", "unresolved");
     const result = buildActiveConfig(draft, 1);
     expect(result.ok).toBe(false);
     if (!result.ok) {
-      expect(result.issues.map((issue) => issue.code)).toContain("participant_player_unresolved");
+      expect(result.issues.map((issue) => issue.code)).toContain("participant_unresolved");
     }
   });
 
@@ -183,7 +126,7 @@ describe("buildActiveConfig", () => {
     const result = buildActiveConfig(draft, 1);
     if (!result.ok) throw new Error("expected ok");
     const before = structuredClone(result.config);
-    draft.players["p1"] = makeDraftPlayer("p1");
+    draft.persons["p1"] = makeDraftPerson("p1", "rt-p1", "unresolved");
     draft.raceScreenSlots[1] = null;
     draft.categoryPresentation = null;
     expect(result.config).toEqual(before);

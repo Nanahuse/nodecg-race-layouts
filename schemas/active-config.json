@@ -41,7 +41,7 @@
         },
         "players": {
           "additionalProperties": {
-            "$ref": "#/definitions/PlayerMapping"
+            "$ref": "#/definitions/PlayerSnapshot"
           },
           "type": "object"
         },
@@ -169,50 +169,111 @@
       ],
       "type": "object"
     },
-    "NoneAccountLink": {
-      "additionalProperties": false,
-      "properties": {
-        "state": {
-          "const": "none",
-          "type": "string"
-        }
-      },
-      "required": [
-        "state"
-      ],
-      "type": "object"
-    },
     "PlayerId": {
       "type": "string"
     },
-    "PlayerMapping": {
+    "PlayerSnapshot": {
       "additionalProperties": false,
       "properties": {
-        "manualDisplayName": {
+        "displayName": {
+          "type": "string"
+        },
+        "playerId": {
+          "type": "string"
+        },
+        "racetime": {
+          "anyOf": [
+            {
+              "additionalProperties": false,
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "userId": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "userId",
+                "name"
+              ],
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "speedrunCom": {
+          "anyOf": [
+            {
+              "additionalProperties": false,
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "userId": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "userId",
+                "name"
+              ],
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "twitch": {
+          "anyOf": [
+            {
+              "additionalProperties": false,
+              "properties": {
+                "displayName": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "login": {
+                  "type": "string"
+                },
+                "userId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "userId",
+                "login",
+                "displayName"
+              ],
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "youtube": {
           "type": [
             "string",
             "null"
           ]
-        },
-        "playerId": {
-          "$ref": "#/definitions/PlayerId"
-        },
-        "racetime": {
-          "$ref": "#/definitions/RaceTimeAccountLink"
-        },
-        "speedrunCom": {
-          "$ref": "#/definitions/SpeedrunComAccountLink"
-        },
-        "twitch": {
-          "$ref": "#/definitions/TwitchAccountLink"
         }
       },
       "required": [
         "playerId",
-        "manualDisplayName",
+        "displayName",
         "racetime",
         "speedrunCom",
-        "twitch"
+        "twitch",
+        "youtube"
       ],
       "type": "object"
     },
@@ -241,53 +302,6 @@
         "categorySlug",
         "categoryName",
         "goal"
-      ],
-      "type": "object"
-    },
-    "RaceTimeAccountLink": {
-      "anyOf": [
-        {
-          "additionalProperties": false,
-          "properties": {
-            "state": {
-              "const": "linked",
-              "type": "string"
-            },
-            "value": {
-              "$ref": "#/definitions/RaceTimeIdentity"
-            }
-          },
-          "required": [
-            "state",
-            "value"
-          ],
-          "type": "object"
-        },
-        {
-          "$ref": "#/definitions/NoneAccountLink"
-        }
-      ]
-    },
-    "RaceTimeIdentity": {
-      "additionalProperties": false,
-      "properties": {
-        "name": {
-          "type": "string"
-        },
-        "twitchLogin": {
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        "userId": {
-          "type": "string"
-        }
-      },
-      "required": [
-        "userId",
-        "name",
-        "twitchLogin"
       ],
       "type": "object"
     },
@@ -364,53 +378,6 @@
       ],
       "type": "object"
     },
-    "SpeedrunComAccountLink": {
-      "anyOf": [
-        {
-          "additionalProperties": false,
-          "properties": {
-            "state": {
-              "const": "linked",
-              "type": "string"
-            },
-            "value": {
-              "$ref": "#/definitions/SpeedrunComIdentity"
-            }
-          },
-          "required": [
-            "state",
-            "value"
-          ],
-          "type": "object"
-        },
-        {
-          "$ref": "#/definitions/NoneAccountLink"
-        }
-      ]
-    },
-    "SpeedrunComIdentity": {
-      "additionalProperties": false,
-      "properties": {
-        "name": {
-          "type": "string"
-        },
-        "twitchLogin": {
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        "userId": {
-          "type": "string"
-        }
-      },
-      "required": [
-        "userId",
-        "name",
-        "twitchLogin"
-      ],
-      "type": "object"
-    },
     "TimingMethod": {
       "enum": [
         "realtime",
@@ -418,49 +385,6 @@
         "ingame"
       ],
       "type": "string"
-    },
-    "TwitchAccountLink": {
-      "anyOf": [
-        {
-          "additionalProperties": false,
-          "properties": {
-            "state": {
-              "const": "linked",
-              "type": "string"
-            },
-            "value": {
-              "$ref": "#/definitions/TwitchIdentity"
-            }
-          },
-          "required": [
-            "state",
-            "value"
-          ],
-          "type": "object"
-        },
-        {
-          "$ref": "#/definitions/NoneAccountLink"
-        }
-      ]
-    },
-    "TwitchIdentity": {
-      "additionalProperties": false,
-      "properties": {
-        "login": {
-          "type": "string"
-        },
-        "userId": {
-          "type": [
-            "string",
-            "null"
-          ]
-        }
-      },
-      "required": [
-        "userId",
-        "login"
-      ],
-      "type": "object"
     }
   },
   "title": "active-config"

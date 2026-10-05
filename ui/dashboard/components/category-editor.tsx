@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { DraftConfig } from "../../../src/domain";
 import type {
   SpeedrunCategoryOption,
@@ -11,7 +11,7 @@ import { createSpeedrunApi } from "../api/speedrun-api";
 
 export function CategoryEditor({ draft }: { draft: DraftConfig }) {
   const categoryApi = createCategoryApi(() => draft.revision);
-  const speedrunApi = createSpeedrunApi();
+  const speedrunApi = useMemo(() => createSpeedrunApi(), []);
   const [query, setQuery] = useState("");
   const [games, setGames] = useState<SpeedrunGameSearchResult[]>([]);
   const [options, setOptions] = useState<SpeedrunGameOptions | null>(null);
@@ -20,37 +20,36 @@ export function CategoryEditor({ draft }: { draft: DraftConfig }) {
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [mappingBusy, setMappingBusy] = useState<string | null>(null);
-  const [syncTargetRevision, setSyncTargetRevision] = useState<number | null>(null);
   const discoveryGeneration = useRef(0);
-  const restoreDiscovery = async (next: typeof selection) => {
-    if (!next) return;
-    const generation = ++discoveryGeneration.current;
-    const game = await speedrunApi.gameOptions(next.gameId);
-    if (generation !== discoveryGeneration.current || !game.ok) return;
-    setOptions(game.options);
-    const variablesResult = await speedrunApi.categoryVariables(next.categoryId);
-    if (generation === discoveryGeneration.current && variablesResult.ok)
-      setVariables(variablesResult.variables);
-  };
+  const draftSelectionKey = JSON.stringify(draft.categorySelection.selection);
+  const draftSelection = useMemo(
+    () => JSON.parse(draftSelectionKey) as typeof selection,
+    [draftSelectionKey],
+  );
+  const restoreDiscovery = useCallback(
+    async (next: typeof selection) => {
+      if (!next) return;
+      const generation = ++discoveryGeneration.current;
+      const game = await speedrunApi.gameOptions(next.gameId);
+      if (generation !== discoveryGeneration.current || !game.ok) return;
+      setOptions(game.options);
+      const variablesResult = await speedrunApi.categoryVariables(next.categoryId);
+      if (generation === discoveryGeneration.current && variablesResult.ok)
+        setVariables(variablesResult.variables);
+    },
+    [speedrunApi],
+  );
   useEffect(() => {
-    setSelection(draft.categorySelection.selection);
+    setSelection(draftSelection);
     setGames([]);
     setOptions(null);
     setVariables([]);
     setQuery("");
     setMessage(null);
     setMappingBusy(null);
-    setSyncTargetRevision(null);
     discoveryGeneration.current += 1;
-  }, [draft.race?.raceId]);
-  useEffect(() => {
-    if (syncTargetRevision !== null && draft.revision === syncTargetRevision) {
-      const next = draft.categorySelection.selection;
-      setSelection(next);
-      void restoreDiscovery(next);
-      setSyncTargetRevision(null);
-    }
-  }, [draft.revision, draft.categorySelection.selection, syncTargetRevision]);
+    void restoreDiscovery(draftSelection);
+  }, [draft.race?.raceId, draftSelection, restoreDiscovery]);
   const search = async () => {
     setBusy(true);
     const result = await speedrunApi.searchGames(query);
@@ -89,7 +88,6 @@ export function CategoryEditor({ draft }: { draft: DraftConfig }) {
     try {
       const result = await categoryApi.select(selection);
       if (!result.ok) setMessage(result.message);
-      else setSyncTargetRevision(result.draftRevision);
     } catch (cause) {
       setMessage(cause instanceof Error ? cause.message : "NodeCG communication error");
     } finally {
@@ -105,8 +103,6 @@ export function CategoryEditor({ draft }: { draft: DraftConfig }) {
     try {
       const result = await action();
       if (!result.ok) setMessage(result.message ?? "Mapping operation failed.");
-      else if (operation === "revert" && result.draftRevision !== undefined)
-        setSyncTargetRevision(result.draftRevision);
     } catch (cause) {
       setMessage(cause instanceof Error ? cause.message : "NodeCG communication error");
     } finally {
@@ -166,6 +162,9 @@ export function CategoryEditor({ draft }: { draft: DraftConfig }) {
       ))}
       {options && (
         <>
+          <p>
+            Game: <strong>{options.game.name}</strong>
+          </p>
           <label>
             Category
             <select

@@ -2,14 +2,12 @@ import { useEffect, useState } from "react";
 import type {
   ActiveConfig,
   DraftConfig,
-  DraftPlayer,
+  DraftSpeedrunSnapshot,
   IntegrationStatus,
-  PlayerDirectory,
   PostApplyPersistenceState,
   RaceSession,
-  DraftSpeedrunSnapshot,
 } from "../../src/domain";
-import { resolveDisplayName } from "../../src/domain";
+import type { PlayerSnapshot } from "../../src/domain";
 import { raceApi } from "./api/race-api";
 import { createParticipantApi } from "./api/participant-api";
 import { createRacePresentationApi } from "./api/race-presentation-api";
@@ -20,7 +18,7 @@ import { CategoryPresentationEditor } from "./components/category-presentation-e
 import { SpeedrunSnapshotPanel } from "./components/speedrun-snapshot-panel";
 import { BroadcastApplyPanel } from "./components/broadcast-apply-panel";
 import { PersistencePanel } from "./components/persistence-panel";
-import { resetParticipantLocalState } from "./model/participant-state";
+import { SpreadsheetSetupPanel } from "./components/spreadsheet-setup-panel";
 
 function Badge({
   label,
@@ -39,78 +37,51 @@ function Badge({
   );
 }
 
-function Identity({
-  label,
-  link,
-}: {
-  label: string;
-  link: DraftPlayer["speedrunCom"] | DraftPlayer["twitch"];
-}) {
-  if (link.state === "linked")
-    return (
-      <div className="identity">
-        <strong>{label}</strong>
-        <span className="identity-linked">
-          linked:{" "}
-          {"name" in link.value ? `${link.value.name} / ${link.value.userId}` : link.value.login}
-        </span>
-      </div>
-    );
-  return (
-    <div className="identity">
-      <strong>{label}</strong>
-      <span className={link.state === "unresolved" ? "identity-unresolved" : "identity-none"}>
-        {link.state}
-      </span>
-    </div>
-  );
-}
-
 function ParticipantCard({
+  draft,
   participant,
-  player,
   entrantName,
-  directory,
-  usedPlayerIds,
-  revision,
+  players,
 }: {
+  draft: DraftConfig;
   participant: DraftConfig["participants"][number];
-  player: DraftPlayer | undefined;
   entrantName: string;
-  directory: PlayerDirectory;
-  usedPlayerIds: Set<string>;
-  revision: number;
+  players: PlayerSnapshot[];
 }) {
-  const api = createParticipantApi(() => revision);
-  const [displayName, setDisplayName] = useState(player?.manualDisplayName ?? "");
-  const [speedrunId, setSpeedrunId] = useState("");
-  const [twitchLogin, setTwitchLogin] = useState("");
-  const [pending, setPending] = useState<string | null>(null);
+  const api = createParticipantApi(() => draft.revision);
+  const person = draft.persons[participant.personRef];
+  const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  useEffect(() => {
-    const next = resetParticipantLocalState(player);
-    setDisplayName(next.displayName);
-    setSpeedrunId(next.speedrunId);
-    setTwitchLogin(next.twitchLogin);
-    setError(next.error);
-    setPending(null);
-  }, [player?.playerId]);
-  const run = async (
-    operation: string,
-    action: () => Promise<{ ok: boolean; message?: string }>,
-  ) => {
-    setPending(operation);
+  const assign = async (playerId: string) => {
+    setPending(true);
     setError(null);
     try {
-      const result = await action();
-      if (!result.ok) setError(result.message ?? "Participant update failed.");
+      const result = (await api.setPlayer(participant.racetimeUserId, playerId)) as {
+        ok: boolean;
+        message?: string;
+      };
+      if (!result.ok) setError(result.message ?? "Player assignment failed.");
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Participant update failed.");
+      setError(cause instanceof Error ? cause.message : "Player assignment failed.");
     } finally {
-      setPending(null);
+      setPending(false);
     }
   };
-  const currentDisplay = player ? (resolveDisplayName(player) ?? player.playerId) : "Unassigned";
+  const register = async () => {
+    setPending(true);
+    setError(null);
+    try {
+      const result = await api.beginRegistration(participant.racetimeUserId);
+      if (result.ok && result.url) window.open(result.url, "_blank", "noopener,noreferrer");
+      else setError(result.message ?? "Registration could not be started.");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Registration could not be started.");
+    } finally {
+      setPending(false);
+    }
+  };
+  const status = person?.resolution ?? "conflict";
+  const display = person?.player?.displayName ?? entrantName;
   return (
     <article className="participant-card">
       <header>
@@ -118,128 +89,40 @@ function ParticipantCard({
           <h4>{entrantName}</h4>
           <p className="muted">RaceTime ID: {participant.racetimeUserId}</p>
         </div>
-        <strong>{currentDisplay}</strong>
+        <strong>{display}</strong>
       </header>
-      {player ? (
-        <>
-          <label>
-            Player Mapping
-            <select
-              value={player.playerId}
-              disabled={pending !== null}
-              onChange={(event) =>
-                void run("player", () =>
-                  api.setPlayer(participant.racetimeUserId, event.target.value),
-                )
-              }
-            >
-              <option value={player.playerId}>
-                {currentDisplay} — {player.playerId}
-              </option>
-              {Object.values(directory)
-                .filter((candidate) => candidate.playerId !== player.playerId)
-                .map((candidate) => (
-                  <option
-                    key={candidate.playerId}
-                    value={candidate.playerId}
-                    disabled={usedPlayerIds.has(candidate.playerId)}
-                  >
-                    {resolveDisplayName(candidate) ?? candidate.playerId} — {candidate.playerId}
-                    {usedPlayerIds.has(candidate.playerId) ? " (in use)" : ""}
-                  </option>
-                ))}
-            </select>
-          </label>
-          <div className="identity-edit">
-            <label>
-              Display Name
-              <input
-                value={displayName}
-                disabled={pending !== null}
-                onChange={(event) => setDisplayName(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter") {
-                    event.preventDefault();
-                    void run("display", () =>
-                      api.setDisplayName(participant.racetimeUserId, displayName.trim() || null),
-                    );
-                  }
-                }}
-              />
-            </label>
-            <button
-              disabled={pending !== null}
-              onClick={() =>
-                void run("display", () =>
-                  api.setDisplayName(participant.racetimeUserId, displayName.trim() || null),
-                )
-              }
-            >
-              Save
-            </button>
-          </div>
-          <Identity label="Speedrun.com" link={player.speedrunCom} />
-          <div className="identity-edit">
-            <input
-              placeholder="Speedrun.com user ID"
-              value={speedrunId}
-              disabled={pending !== null}
-              onChange={(event) => setSpeedrunId(event.target.value)}
-            />
-            <button
-              disabled={pending !== null || !speedrunId.trim()}
-              onClick={() =>
-                void run("speedrun", () =>
-                  api.setSpeedrunCom(participant.racetimeUserId, speedrunId.trim()),
-                )
-              }
-            >
-              Set
-            </button>
-            <button
-              disabled={pending !== null}
-              onClick={() =>
-                void run("speedrun-none", () => api.setSpeedrunComNone(participant.racetimeUserId))
-              }
-            >
-              None
-            </button>
-          </div>
-          <Identity label="Twitch" link={player.twitch} />
-          <div className="identity-edit">
-            <input
-              placeholder="Twitch login"
-              value={twitchLogin}
-              disabled={pending !== null}
-              onChange={(event) => setTwitchLogin(event.target.value)}
-            />
-            <button
-              disabled={pending !== null || !twitchLogin.trim()}
-              onClick={() =>
-                void run("twitch", () =>
-                  api.setTwitch(participant.racetimeUserId, twitchLogin.trim()),
-                )
-              }
-            >
-              Set
-            </button>
-            <button
-              disabled={pending !== null}
-              onClick={() =>
-                void run("twitch-none", () => api.setTwitchNone(participant.racetimeUserId))
-              }
-            >
-              None
-            </button>
-          </div>
-        </>
-      ) : (
-        <p className="identity-unresolved">No Player Mapping assigned.</p>
-      )}
-      {pending && (
-        <p className="pending" role="status">
-          Updating {pending}…
+      <p>
+        Player Manager: <strong>{status}</strong>
+        {person?.playerId ? ` · ${person.playerId}` : ""}
+      </p>
+      {person?.player && (
+        <p>
+          {[person.player.speedrunCom?.name, person.player.twitch?.login]
+            .filter(Boolean)
+            .join(" · ")}
         </p>
+      )}
+      <label>
+        Assign Player Manager player
+        <select
+          value={person?.playerId ?? ""}
+          disabled={pending}
+          onChange={(event) => {
+            if (event.target.value) void assign(event.target.value);
+          }}
+        >
+          <option value="">Choose a player…</option>
+          {players.map((player) => (
+            <option key={player.playerId} value={player.playerId}>
+              {player.playerId} — {player.displayName}
+            </option>
+          ))}
+        </select>
+      </label>
+      {status !== "matched" && (
+        <button disabled={pending} onClick={() => void register()}>
+          {pending ? "Starting…" : "Register / resolve in Player Manager"}
+        </button>
       )}
       {error && (
         <p className="callout error" role="alert">
@@ -253,26 +136,23 @@ function ParticipantCard({
 function PresentationEditor({
   draft,
   session,
-  directory,
+  players,
 }: {
   draft: DraftConfig;
   session: RaceSession;
-  directory: PlayerDirectory;
+  players: PlayerSnapshot[];
 }) {
   const api = createRacePresentationApi(() => draft.revision);
-  const raceKey = draft.race?.raceId ?? "none";
   const [slots, setSlots] = useState(draft.raceScreenSlots);
-  const [commentators, setCommentators] = useState<string[]>(draft.commentatorPlayerIds);
-  const [pending, setPending] = useState<"slots" | "commentators" | null>(null);
+  const [commentators, setCommentators] = useState(draft.commentatorPlayerIds);
+  const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
     setSlots(draft.raceScreenSlots);
     setCommentators(draft.commentatorPlayerIds);
-    setError(null);
-  }, [raceKey]);
-  const entrants = session.race?.entrants ?? [];
+  }, [draft.revision]);
   const save = async (kind: "slots" | "commentators") => {
-    setPending(kind);
+    setPending(true);
     setError(null);
     try {
       const result =
@@ -283,11 +163,10 @@ function PresentationEditor({
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Presentation update failed.");
     } finally {
-      setPending(null);
+      setPending(false);
     }
   };
-  const slotValues = Object.values(slots);
-  const playerCandidates = Object.values({ ...directory, ...draft.players });
+  const entrants = session.race?.entrants ?? [];
   return (
     <>
       <h3>Race Screen</h3>
@@ -297,36 +176,22 @@ function PresentationEditor({
             P{slot}
             <select
               value={slots[slot] ?? ""}
-              disabled={pending !== null}
+              disabled={pending}
               onChange={(event) => setSlots({ ...slots, [slot]: event.target.value || null })}
             >
               <option value="">Unassigned</option>
-              {draft.participants.map((participant) => {
-                const entrant = entrants.find((item) => item.userId === participant.racetimeUserId);
-                const used =
-                  slotValues.includes(participant.racetimeUserId) &&
-                  slots[slot] !== participant.racetimeUserId;
-                const player = participant.playerId
-                  ? draft.players[participant.playerId]
-                  : undefined;
-                return (
-                  <option
-                    key={participant.racetimeUserId}
-                    value={participant.racetimeUserId}
-                    disabled={used}
-                  >
-                    {entrant?.name ?? participant.racetimeUserId}
-                    {player ? ` — ${resolveDisplayName(player) ?? player.playerId}` : ""}
-                    {used ? " (in use)" : ""}
-                  </option>
-                );
-              })}
+              {draft.participants.map((participant) => (
+                <option key={participant.racetimeUserId} value={participant.racetimeUserId}>
+                  {entrants.find((entrant) => entrant.userId === participant.racetimeUserId)
+                    ?.name ?? participant.racetimeUserId}
+                </option>
+              ))}
             </select>
           </label>
         ))}
       </div>
-      <button disabled={pending !== null} onClick={() => void save("slots")}>
-        {pending === "slots" ? "Saving slots…" : "Save Slots"}
+      <button disabled={pending} onClick={() => void save("slots")}>
+        Save Slots
       </button>
       <h3>Commentators</h3>
       <div className="presentation-editor">
@@ -335,7 +200,7 @@ function PresentationEditor({
             {index + 1}
             <select
               value={commentators[index] ?? ""}
-              disabled={pending !== null}
+              disabled={pending}
               onChange={(event) => {
                 const next = [...commentators];
                 next[index] = event.target.value;
@@ -343,22 +208,17 @@ function PresentationEditor({
               }}
             >
               <option value="">Unassigned</option>
-              {playerCandidates.map((player) => {
-                const used =
-                  commentators.includes(player.playerId) && commentators[index] !== player.playerId;
-                return (
-                  <option key={player.playerId} value={player.playerId} disabled={used}>
-                    {resolveDisplayName(player) ?? player.playerId}
-                    {used ? " (in use)" : ""}
-                  </option>
-                );
-              })}
+              {players.map((player) => (
+                <option key={player.playerId} value={player.playerId}>
+                  {player.displayName}
+                </option>
+              ))}
             </select>
           </label>
         ))}
       </div>
-      <button disabled={pending !== null} onClick={() => void save("commentators")}>
-        {pending === "commentators" ? "Saving commentators…" : "Save Commentators"}
+      <button disabled={pending} onClick={() => void save("commentators")}>
+        Save Commentators
       </button>
       {error && (
         <p className="callout error" role="alert">
@@ -373,23 +233,29 @@ export function App() {
   const draft = useReplicant<DraftConfig | null>("draft-config");
   const active = useReplicant<ActiveConfig | null>("active-config");
   const session = useReplicant<RaceSession>("draft-race-session");
-  const directory = useReplicant<PlayerDirectory>("player-directory");
   const integration = useReplicant<IntegrationStatus>("integration-status");
   const persistence = useReplicant<PostApplyPersistenceState>("post-apply-persistence");
   const snapshot = useReplicant<DraftSpeedrunSnapshot>("draft-speedrun-snapshot");
+  const [players, setPlayers] = useState<PlayerSnapshot[]>([]);
   const [url, setUrl] = useState("");
   const [operation, setOperation] = useState<"idle" | "load" | "reconcile">("idle");
   const [error, setError] = useState<string | null>(null);
-  if (
-    ![draft, active, session, directory, integration, persistence, snapshot].every(
-      (item) => item.ready,
-    )
-  )
+  useEffect(() => {
+    void createParticipantApi(() => draft.value?.revision ?? 0)
+      .listPlayers()
+      .then((result) => {
+        if (result.ok) setPlayers(result.players ?? []);
+        else setError(result.message ?? "Player Manager is unavailable.");
+      })
+      .catch((cause: unknown) =>
+        setError(cause instanceof Error ? cause.message : "Player Manager is unavailable."),
+      );
+  }, [draft.ready, draft.value?.revision]);
+  if (![draft, active, session, integration, persistence, snapshot].every((item) => item.ready))
     return <main className="loading">Connecting to NodeCG…</main>;
   const d = draft.value!;
   const a = active.value!;
   const s = session.value!;
-  const dir = directory.value!;
   const i = integration.value!;
   const p = persistence.value!;
   const snap = snapshot.value!;
@@ -406,9 +272,6 @@ export function App() {
       setOperation("idle");
     }
   };
-  const used = new Set(
-    d.participants.map((item) => item.playerId).filter((id): id is string => id !== null),
-  );
   return (
     <main>
       <header>
@@ -419,10 +282,16 @@ export function App() {
       </header>
       <section className="statusbar">
         <Badge label="RaceTime" state={i.racetime.state} message={i.racetime.message} />
+        <Badge
+          label="Player Manager"
+          state={i.playerManager.state}
+          message={i.playerManager.message}
+        />
         <Badge label="Speedrun.com" state={i.speedrunCom.state} message={i.speedrunCom.message} />
         <Badge label="Spreadsheet" state={i.spreadsheet.state} message={i.spreadsheet.message} />
         <Badge label="Broadcast" state={i.broadcast.state} message={i.broadcast.message} />
       </section>
+      <SpreadsheetSetupPanel />
       <div className="layout">
         <section className="panel">
           <span className="eyebrow">DRAFT</span>
@@ -465,30 +334,21 @@ export function App() {
             {d.participants.map((participant) => (
               <ParticipantCard
                 key={participant.racetimeUserId}
+                draft={d}
                 participant={participant}
-                player={participant.playerId ? d.players[participant.playerId] : undefined}
                 entrantName={
                   s.race?.entrants.find((entrant) => entrant.userId === participant.racetimeUserId)
                     ?.name ?? participant.racetimeUserId
                 }
-                directory={dir}
-                usedPlayerIds={used}
-                revision={d.revision}
+                players={players}
               />
             ))}
           </div>
-          <PresentationEditor draft={d} session={s} directory={dir} />
+          <PresentationEditor draft={d} session={s} players={players} />
           <CategoryEditor draft={d} />
           <CategoryPresentationEditor draft={d} />
           <SpeedrunSnapshotPanel draft={d} snapshot={snap} />
-          <BroadcastApplyPanel
-            draft={d}
-            active={a}
-            snapshot={snap}
-            integration={i}
-            directory={dir}
-            session={s}
-          />
+          <BroadcastApplyPanel draft={d} active={a} snapshot={snap} integration={i} session={s} />
         </section>
         <section className="panel">
           <span className="eyebrow">ON AIR</span>

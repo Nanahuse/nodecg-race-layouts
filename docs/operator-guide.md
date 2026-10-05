@@ -13,19 +13,15 @@ pnpm install --frozen-lockfile
 pnpm run build
 ```
 
-`config.example.json`をNodeCGホストの`cfg/nodecg-race-layouts.json`へコピーします。空でないイベント名とGoogle Spreadsheet IDを設定してください。シート名は変更できます。省略時の既定値は`Players`、`CategoryMappings`、`CategoryPresentation`、`RaceHistory`です。
+`config.example.json`をNodeCGホストの`cfg/nodecg-race-layouts.json`へコピーします。空でないイベント名と必要に応じてGoogle認証JSONのパスを設定してください。Player情報はPlayer Managerで管理します。
 
-NodeCGプロセスからGoogle Application Default Credentials（ADC）を利用できるようにしてください。一般的には環境変数`GOOGLE_APPLICATION_CREDENTIALS`を設定し、その認証情報のアカウントへSpreadsheetを共有します。認証ファイルや秘密情報をバンドル設定やリポジトリに保存しないでください。プロセス環境またはバンドル設定を変更したら、NodeCGを再起動してください。
+Spreadsheet設定はRace Control Dashboardの**Spreadsheet Setup**から入力します。Spreadsheet URLまたはIDで接続すると、接続先のタブ一覧からCategoryMappings、CategoryPresentation、RaceHistoryに使うタブを選べます。**Save settings**を押すと、Spreadsheet IDとタブ選択はNodeCG DBのpersistent Replicantへ保存され、実行中の連携にも反映されます。CategoryMappings対応表とCategoryPresentationデータは引き続きGoogle Sheetsへ保存されます。Google認証ファイルのパスは`cfg/nodecg-race-layouts.json`のトップレベル`googleCredentialsFile`へ設定してください。省略時はApplication Default Credentials（ADC）を使います。
+
+認証JSONのアカウントへSpreadsheetを**編集者**として共有してください。接続確認は読み取りだけを行うため、閲覧者権限でも接続に成功する場合がありますが、CategoryMappingsなどの保存には編集者権限が必要です。認証ファイルそのものや秘密情報をリポジトリへ保存しないでください。既存cfgに旧`spreadsheet`設定が残っている場合は、最初の起動時にNodeCG DBへ一度だけ移行されます。
 
 ### スプレッドシートの準備
 
-設定した各シートにヘッダー行を作成してください。連携処理は列の位置ではなくヘッダー名で列を判別します。大文字・小文字、綴り、アンダースコアを含め、次の名称を正確に使用してください。列の順番は変更できますが、必須ヘッダーは削除しないでください。データがまだないシートにも、ヘッダー行は必要です。
-
-**Players**
-
-```text
-player_id, manual_display_name, racetime_state, racetime_user_id, racetime_name, racetime_twitch_login, speedruncom_state, speedruncom_user_id, speedruncom_name, speedruncom_twitch_login, twitch_state, twitch_user_id, twitch_login, updated_at
-```
+Category、Presentation、RaceHistoryの各シートにヘッダー行を作成してください。連携処理は列の位置ではなくヘッダー名で列を判別します。大文字・小文字、綴り、アンダースコアを含め、次の名称を正確に使用してください。列の順番は変更できますが、必須ヘッダーは削除しないでください。データがまだないシートにも、ヘッダー行は必要です。
 
 **CategoryMappings**
 
@@ -45,25 +41,25 @@ racetime_category_slug, racetime_goal, display_title, display_subtitle, rule_hea
 racetime_url, racetime_race_id, category_slug, category_name, goal, participants_json, race_screen_slots_json, commentators_json, active_revision, first_applied_at, last_applied_at
 ```
 
-バンドル起動時にPlayersディレクトリを読み込みます。CategoryMappingsとCategoryPresentationは保存済みプリセットとして使用されます。RaceHistoryはBroadcast Apply成功後に書き込まれます。`src_variables`、`participants_json`、`race_screen_slots_json`、`commentators_json`などのJSON列はバンドルが管理します。期待される形式を把握していない場合は、保存済みのJSON値を直接編集しないでください。
+CategoryMappingsとCategoryPresentationは保存済みプリセットとして使用されます。RaceHistoryはBroadcast Apply成功後に書き込まれます。`src_variables`、`participants_json`、`race_screen_slots_json`、`commentators_json`などのJSON列はバンドルが管理します。期待される形式を把握していない場合は、保存済みのJSON値を直接編集しないでください。
 
 ### 連携とDashboardの確認
 
-NodeCGを起動してDashboardを開きます。Race ControlのステータスバーでRaceTime、Speedrun.com、Spreadsheet、Broadcastの状態を確認してください。Player Mappingを開き、Player一覧が読み込まれていることを確認します。シートやアクセス権の問題を修正した後は、**Reload from Spreadsheet**を実行します。
+NodeCGとPlayer Managerを起動してDashboardを開きます。Race ControlのステータスバーでRaceTime、Player Manager、Speedrun.com、Spreadsheet、Broadcastの状態を確認してください。Playerの作成やプロフィール管理はPlayer Managerで行います。
 
-Player Mappingは再利用可能なID情報のディレクトリです。レース参加者はPlayerレコードに紐づきますが、RaceTime entrantはRaceTime user IDを保持します。Draft、Active broadcast、または保存待ち処理で使用中のPlayerは、更新や削除が制限される場合があります。
+Race LayoutsはParticipantを内部Draft Person参照とPlayer Managerのcanonical Player IDに結びつけます。未解決または曖昧な参加者はRace ControlからPlayer Manager Registrationへ進めます。Player情報自体はPlayer Managerが所有します。
 
 ## レース当日の手順
 
 ### 1. Draftにレースを読み込む
 
-Race Control → Draft RaceでRaceTime.ggのレースURLを入力し、**Load Race**を選択します。レースを編集可能なDraftへ読み込み、RaceTime Sessionを監視します。この操作だけでは放送に反映されません。Entrantは最初にRaceTime user ID、次に一意に一致するTwitch loginでPlayerと照合されます。名前の類似度による推測は行いません。参加者を確認し、未一致または曖昧なIDを解決してください。
+Race Control → Draft RaceでRaceTime.ggのレースURLを入力し、**Load Race**を選択します。レースを編集可能なDraftへ読み込み、RaceTime Sessionを監視します。この操作だけでは放送に反映されません。RaceTime entrantはPlayer Manager Protocolで解決され、`matched`、`unresolved`、`ambiguous`、`conflict`の状態が表示されます。未解決時はPlayer Manager Registrationを開始するか、既存Playerを選択します。Playerプロフィールの編集はPlayer Managerで行います。
 
 読み込み後にRaceTime側の構造変更が検出されると、BroadcastステータスにReconcileが必要であることが表示されます。変更内容を確認して**Reconcile Draft**を選択すると、可能な範囲でオペレーターの編集を維持しながらDraftを更新します。順位やタイムなどの結果だけの変更では、通常Reconcileは必要ありません。
 
 ### 2. 参加者とID情報を確認する
 
-参加者ごとに、関連付けられたPlayerと解決済み表示名を確認します。必要に応じてPlayer Mappingまたは参加者のPlayer割り当てを修正してください。Leaderboardや画面表示に必要なSpeedrun.com / Twitch IDも確認します。IDの重複や未解決の参加者があると、DraftがApply可能にならないことがあります。使用中PlayerのPlayer Mapping変更が制限された場合は、該当するDraft、Active broadcast、または保存待ち処理を先に解消してください。
+参加者ごとのPlayer Manager解決状態とPlayer Snapshotを確認します。別の既存Playerへ割り当てる場合はRace Controlの候補から選び、新規登録や曖昧なidentityの解決はPlayer Manager画面で行います。未解決のParticipantがあるとDraftをApplyできません。
 
 ### 3. Categoryと表示内容を選ぶ
 
@@ -77,7 +73,7 @@ Leaderboardの取得条件を変更すると、現在のSnapshotは無効にな�
 
 **Race Screen**のP1～P4は、左上・右上・左下・右下に対応します。参加者または**Unassigned**を選び、**Save Slots**を押してください。同じ参加者を複数Slotに割り当てることはできません。Slotは内部的にRaceTime user IDを使用します。未割り当てSlotは許可され、Applyを妨げません。該当するRace GraphicのHUD位置は非表示になります。不明な参加者や重複割り当ては無効です。
 
-Commentatorは0～3人を順番に選び、**Save Commentators**を押します。候補はPlayerディレクトリとDraft Playerから選ばれ、レース参加者である必要はありません。参加者をCommentatorにすることもできますが、同じPlayerを複数のCommentator枠に設定できません。
+Commentatorは0～3人をPlayer Managerの一覧から選び、**Save Commentators**を押します。レース参加者である必要はありません。選択したPlayer SnapshotはDraftへ保存され、Apply時にActiveへ固定されます。
 
 ### 5. Speedrun Snapshotを更新・確認する
 
@@ -91,7 +87,7 @@ Broadcast Applyの概要とステータスを確認します。Applyには、準
 
 ### 7. Apply後の保存状態を確認する
 
-Active broadcastの確定とSpreadsheetへの保存は別処理です。Applyが成功して放送に反映されても、PlayersまたはRaceHistoryへの書き込みが保留中・失敗中の場合があります。**Persistence**で状態、キュー数、各項目の試行回数、直近のエラーを確認してください。Spreadsheetやアクセス権の問題を修正し、利用可能になったら**Retry Persistence**を実行します。キューはFIFO順で処理され、Extension起動時にも再開します。保存失敗によってActive broadcastが取り消されることはありません。
+Active broadcastの確定とRaceHistoryのSpreadsheet保存は別処理です。Applyが成功して放送に反映されても、RaceHistoryへの書き込みが保留中・失敗中の場合があります。**Persistence**で状態、キュー数、各項目の試行回数、直近のエラーを確認してください。Spreadsheetやアクセス権の問題を修正し、利用可能になったら**Retry Persistence**を実行します。キューはFIFO順で処理され、Extension起動時にも再開します。保存失敗によってActive broadcastが取り消されることはありません。
 
 ## OBS Graphics
 
@@ -134,7 +130,7 @@ OBSの推奨レイヤー順（下から上）は次のとおりです。
 | ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | DashboardまたはGraphicsが空白      | バンドルが`package.json`とともにNodeCGの`bundles`ディレクトリに配置されているか確認します。バンドル内で`pnpm install --frozen-lockfile`と`pnpm run build`を実行し、NodeCGを再起動してログを確認します。    |
 | Spreadsheetステータスが`error`     | Spreadsheet ID、設定したタブ名、ヘッダー行、Google APIのアクセス権、NodeCGプロセスからADCを利用できるかを確認します。原因を修正した後、Reload from Spreadsheetを実行します。                               |
-| Playersシートを読み込めない        | Playersのヘッダーに上記の必須列がすべてあること、linked状態の行に有効な状態・ID情報があることを確認します。データが空のシートにもヘッダー行が必要です。                                                    |
+| Player Managerが利用できない       | Player Manager bundleが同じNodeCGホストで起動し、`ready`状態であることを確認します。参加者解決、Registration、Commentator一覧はこのbundleから提供されます。                                                |
 | Applyできない                      | BroadcastとSnapshotの状態を確認します。Category選択、必須Variable、参加者ID、Race Reconcileの要否、Snapshotのrevision・取得条件、検証メッセージを確認してください。Race Screenの空Slotは許可されています。 |
 | Speedrun Snapshot取得に失敗する    | Speedrun.comステータス、選択中のゲーム・カテゴリ・フィルター、必須Variable、Snapshotが現在のDraft向けかを確認します。Leaderboard条件を変更した後は再取得してください。                                     |
 | Persistenceキューが保留または失敗  | キュー項目の直近エラーと試行回数を確認し、Spreadsheetやアクセス権の問題を修正してから再試行します。保存エラーでActive broadcastが取り消されることはありません。                                            |

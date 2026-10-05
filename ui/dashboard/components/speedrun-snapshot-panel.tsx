@@ -1,6 +1,5 @@
 import { useState } from "react";
 import type { DraftConfig, DraftSpeedrunSnapshot } from "../../../src/domain";
-import { resolveDisplayName } from "../../../src/domain";
 import { createSnapshotApi } from "../api/speedrun-snapshot-api";
 export function SpeedrunSnapshotPanel({
   draft,
@@ -47,12 +46,13 @@ export function SpeedrunSnapshotPanel({
           <h4>Participant PB</h4>
           <ul>
             {draft.participants.map((participant) => {
-              const player = participant.playerId ? draft.players[participant.playerId] : undefined;
-              if (!player || player.speedrunCom.state !== "linked") return null;
-              const pb = snapshot.snapshot?.personalBests[player.speedrunCom.value.userId] ?? null;
+              const person = draft.persons[participant.personRef];
+              const player = person?.player;
+              if (!player?.speedrunCom) return null;
+              const pb = snapshot.snapshot?.personalBests[player.speedrunCom.userId] ?? null;
               return (
                 <li key={participant.racetimeUserId}>
-                  {resolveDisplayName(player) ?? player.playerId}:{" "}
+                  {player.displayName}:{" "}
                   {pb ? `${pb.formattedTime} (rank ${pb.rank ?? "—"})` : "Unavailable"}
                 </li>
               );

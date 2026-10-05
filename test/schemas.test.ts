@@ -12,7 +12,6 @@ import { REPLICANT_NAMES, type ReplicantName } from "../src/replicants/names";
 import { isValid, loadSchema } from "./helpers";
 import {
   makeActiveConfig,
-  makeActivePlayer,
   makeDraftConfig,
   makeRaceOverlayData,
   makeSpeedrunSnapshot,
@@ -21,6 +20,7 @@ import {
   createDefaultDraftSpeedrunSnapshot,
   createDefaultIntegrationStatus,
   createDefaultRaceSession,
+  createDefaultSpreadsheetSettings,
 } from "../src/replicants/defaults";
 
 const defaultsByName = Object.fromEntries(
@@ -75,7 +75,6 @@ const validRaceResultPageData: RaceResultPageData = {
 const validFixtures: Record<ReplicantName, unknown> = {
   "draft-race-session": createDefaultRaceSession(),
   "active-race-session": createDefaultRaceSession(),
-  "player-directory": { "player-1": makeActivePlayer("player-1") },
   "draft-config": makeDraftConfig(),
   "active-config": makeActiveConfig(),
   "draft-speedrun-snapshot": createDefaultDraftSpeedrunSnapshot(),
@@ -91,12 +90,12 @@ const validFixtures: Record<ReplicantName, unknown> = {
     lastSavedActiveRevision: null,
     message: null,
   },
+  "spreadsheet-settings": createDefaultSpreadsheetSettings(),
 };
 
 const invalidFixtures: Record<ReplicantName, unknown> = {
   "draft-race-session": {},
   "active-race-session": {},
-  "player-directory": [],
   "draft-config": {},
   "active-config": {},
   "draft-speedrun-snapshot": {},
@@ -107,6 +106,7 @@ const invalidFixtures: Record<ReplicantName, unknown> = {
   "race-result-page-data": {},
   "integration-status": {},
   "post-apply-persistence": {},
+  "spreadsheet-settings": {},
 };
 
 describe.each(REPLICANT_NAMES)("replicant schema: %s", (name) => {

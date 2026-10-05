@@ -4,7 +4,6 @@ import type {
   DraftConfig,
   DraftSpeedrunSnapshot,
   IntegrationStatus,
-  PlayerDirectory,
   RaceSession,
 } from "../../../src/domain";
 import { createBroadcastApi } from "../api/broadcast-api";
@@ -15,14 +14,12 @@ export function BroadcastApplyPanel({
   active,
   snapshot,
   integration,
-  directory,
   session,
 }: {
   draft: DraftConfig;
   active: ActiveConfig | null;
   snapshot: DraftSpeedrunSnapshot;
   integration: IntegrationStatus;
-  directory: PlayerDirectory;
   session: RaceSession;
 }) {
   const [applyPending, setApplyPending] = useState(false);
@@ -44,13 +41,7 @@ export function BroadcastApplyPanel({
       setApplyPending(false);
     }
   };
-  const summary = buildBroadcastApplySummary(
-    draft,
-    snapshot,
-    session,
-    active?.revision ?? null,
-    directory,
-  );
+  const summary = buildBroadcastApplySummary(draft, snapshot, session, active?.revision ?? null);
   const applyAllowed = canApply(integration.broadcast.state, applyPending);
   return (
     <section className="subpanel">

@@ -1,7 +1,7 @@
 import type { BroadcastStatusState, DraftConfig, DraftSpeedrunSnapshot } from "../../domain";
 import { leaderboardKeyFromSelection, leaderboardKeysEqual } from "../../domain";
 import { isDraftStructurallyReady } from "./draft-readiness";
-import { countUnresolvedPlayers } from "./race-draft-reconciliation";
+import { countUnresolvedPeople } from "./race-draft-reconciliation";
 
 export type DraftBroadcastStateInput = {
   current: BroadcastStatusState | undefined;
@@ -31,7 +31,7 @@ export function computeDraftBroadcastState(input: DraftBroadcastStateInput): Bro
   if (!draft.race) {
     return "empty";
   }
-  if (countUnresolvedPlayers(draft) > 0) {
+  if (countUnresolvedPeople(draft) > 0) {
     return "resolution_required";
   }
   if (!isDraftStructurallyReady(draft)) {

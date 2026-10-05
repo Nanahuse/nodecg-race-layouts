@@ -7,6 +7,7 @@ import { registerCategoryMessages } from "../src/extension/messages/category-mes
 import { registerRaceMessages } from "../src/extension/messages/race-messages";
 import { registerSpeedrunMessages } from "../src/extension/messages/speedrun-messages";
 import { bootstrapExtension } from "../src/extension/setup";
+import { REPLICANT_DEFINITIONS } from "../src/replicants/defaults";
 import type { MessageHandler, NodeCG } from "../src/types/nodecg";
 import { createFakeLogger, TrackingReplicant } from "./support/fakes";
 
@@ -20,7 +21,10 @@ function makeFakeNodeCG(bundleConfig: unknown) {
     Replicant: (name: string) => {
       let replicant = replicants.get(name);
       if (!replicant) {
-        replicant = new TrackingReplicant<unknown>(name, undefined);
+        replicant = new TrackingReplicant<unknown>(
+          name,
+          REPLICANT_DEFINITIONS.find((definition) => definition.name === name)?.defaultValue,
+        );
         replicants.set(name, replicant);
       }
       return replicant;
@@ -59,11 +63,10 @@ describe("bootstrapExtension", () => {
     expect(listened).toContain("speedrun.user.get");
     expect(listened).toContain("speedrun.snapshot.refresh");
     expect(listened).toContain("participant.set-player");
-    expect(listened).toContain("participant.set-speedruncom");
-    expect(listened).toContain("participant.set-speedruncom-none");
-    expect(listened).toContain("participant.set-twitch");
-    expect(listened).toContain("participant.set-twitch-none");
-    expect(listened).toContain("participant.set-display-name");
+    expect(listened).toContain("participant.registration.start");
+    expect(listened).toContain("player-manager.list");
+    expect(listened).toContain("player-manager.v1.registrationCompleted");
+    expect(listened).toContain("player-manager.v1.registrationCancelled");
     expect(listened).toContain("race-screen.set-slots");
     expect(listened).toContain("commentators.set");
     expect(listened).toContain("broadcast.apply");

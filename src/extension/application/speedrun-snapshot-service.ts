@@ -31,7 +31,7 @@ import {
 } from "../integrations/speedruncom/leaderboard-mapper";
 import { computeDraftBroadcastState } from "./broadcast-status";
 import { mapWithConcurrency } from "./concurrency";
-import { countUnresolvedPlayers } from "./race-draft-reconciliation";
+import { countUnresolvedPeople } from "./race-draft-reconciliation";
 import type { SpeedrunOperationStatusCoordinator } from "./speedrun-status-coordinator";
 
 export const DEFAULT_TOP_PLACES = 20;
@@ -79,13 +79,9 @@ function fail(
 function linkedParticipantUserIds(draft: DraftConfig): string[] {
   const userIds = new Set<string>();
   for (const participant of draft.participants) {
-    if (!participant.playerId) {
-      continue;
-    }
-    const player = draft.players[participant.playerId];
-    if (player?.speedrunCom.state === "linked") {
-      userIds.add(player.speedrunCom.value.userId);
-    }
+    const person = draft.persons[participant.personRef];
+    const userId = person?.player?.speedrunCom?.userId;
+    if (person?.resolution === "matched" && userId) userIds.add(userId);
   }
   return [...userIds];
 }
@@ -137,7 +133,7 @@ export class SpeedrunSnapshotService {
         `Draft revision is ${draft.revision}, expected ${expectedDraftRevision}.`,
       );
     }
-    if (countUnresolvedPlayers(draft) > 0) {
+    if (countUnresolvedPeople(draft) > 0) {
       return fail("resolution_required", "Some players still have unresolved identities.");
     }
 

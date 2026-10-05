@@ -106,15 +106,23 @@
           "type": "array",
           "uniqueItems": true
         },
+        "commentators": {
+          "additionalProperties": {
+            "$ref": "#/definitions/PlayerSnapshot"
+          },
+          "maxItems": 3,
+          "type": "object",
+          "uniqueItems": true
+        },
         "participants": {
           "items": {
             "$ref": "#/definitions/DraftRaceParticipant"
           },
           "type": "array"
         },
-        "players": {
+        "persons": {
           "additionalProperties": {
-            "$ref": "#/definitions/DraftPlayer"
+            "$ref": "#/definitions/DraftPerson"
           },
           "type": "object"
         },
@@ -139,78 +147,96 @@
         "revision",
         "race",
         "participants",
-        "players",
+        "persons",
         "raceScreenSlots",
         "commentatorPlayerIds",
+        "commentators",
         "categorySelection",
         "categoryPresentation"
       ],
       "type": "object"
     },
-    "DraftNoneAccountLink": {
+    "DraftPerson": {
       "additionalProperties": false,
       "properties": {
-        "source": {
-          "enum": [
-            "spreadsheet",
-            "manual"
+        "identity": {
+          "additionalProperties": false,
+          "properties": {
+            "racetimeUserId": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "speedrunComUserId": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "twitchLogin": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "racetimeUserId",
+            "twitchLogin",
+            "speedrunComUserId"
           ],
-          "type": "string"
+          "type": "object"
         },
-        "state": {
-          "const": "none",
-          "type": "string"
-        }
-      },
-      "required": [
-        "state",
-        "source"
-      ],
-      "type": "object"
-    },
-    "DraftPlayer": {
-      "additionalProperties": false,
-      "properties": {
-        "manualDisplayName": {
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        "playerId": {
-          "$ref": "#/definitions/PlayerId"
-        },
-        "racetime": {
-          "$ref": "#/definitions/DraftRaceTimeAccountLink"
-        },
-        "speedrunCom": {
-          "$ref": "#/definitions/DraftSpeedrunComAccountLink"
-        },
-        "twitch": {
-          "$ref": "#/definitions/DraftTwitchAccountLink"
-        }
-      },
-      "required": [
-        "playerId",
-        "manualDisplayName",
-        "racetime",
-        "speedrunCom",
-        "twitch"
-      ],
-      "type": "object"
-    },
-    "DraftRaceParticipant": {
-      "additionalProperties": false,
-      "properties": {
-        "playerId": {
+        "player": {
           "anyOf": [
             {
-              "$ref": "#/definitions/PlayerId"
+              "$ref": "#/definitions/PlayerSnapshot"
             },
             {
               "type": "null"
             }
           ]
+        },
+        "playerId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "ref": {
+          "$ref": "#/definitions/DraftPersonRef"
+        },
+        "resolution": {
+          "$ref": "#/definitions/DraftPersonResolution"
+        }
+      },
+      "required": [
+        "ref",
+        "playerId",
+        "identity",
+        "player",
+        "resolution"
+      ],
+      "type": "object"
+    },
+    "DraftPersonRef": {
+      "type": "string"
+    },
+    "DraftPersonResolution": {
+      "enum": [
+        "matched",
+        "unresolved",
+        "ambiguous",
+        "conflict"
+      ],
+      "type": "string"
+    },
+    "DraftRaceParticipant": {
+      "additionalProperties": false,
+      "properties": {
+        "personRef": {
+          "type": "string"
         },
         "racetimeUserId": {
           "$ref": "#/definitions/RaceTimeUserId"
@@ -218,7 +244,7 @@
       },
       "required": [
         "racetimeUserId",
-        "playerId"
+        "personRef"
       ],
       "type": "object"
     },
@@ -274,124 +300,113 @@
       ],
       "type": "object"
     },
-    "DraftRaceTimeAccountLink": {
-      "anyOf": [
-        {
-          "additionalProperties": false,
-          "properties": {
-            "source": {
-              "$ref": "#/definitions/LinkSource"
-            },
-            "state": {
-              "const": "linked",
-              "type": "string"
-            },
-            "value": {
-              "$ref": "#/definitions/RaceTimeIdentity"
-            }
-          },
-          "required": [
-            "state",
-            "value",
-            "source"
-          ],
-          "type": "object"
-        },
-        {
-          "$ref": "#/definitions/DraftNoneAccountLink"
-        },
-        {
-          "$ref": "#/definitions/DraftUnresolvedAccountLink"
-        }
-      ]
+    "PlayerId": {
+      "type": "string"
     },
-    "DraftSpeedrunComAccountLink": {
-      "anyOf": [
-        {
-          "additionalProperties": false,
-          "properties": {
-            "source": {
-              "$ref": "#/definitions/LinkSource"
-            },
-            "state": {
-              "const": "linked",
-              "type": "string"
-            },
-            "value": {
-              "$ref": "#/definitions/SpeedrunComIdentity"
-            }
-          },
-          "required": [
-            "state",
-            "value",
-            "source"
-          ],
-          "type": "object"
-        },
-        {
-          "$ref": "#/definitions/DraftNoneAccountLink"
-        },
-        {
-          "$ref": "#/definitions/DraftUnresolvedAccountLink"
-        }
-      ]
-    },
-    "DraftTwitchAccountLink": {
-      "anyOf": [
-        {
-          "additionalProperties": false,
-          "properties": {
-            "source": {
-              "$ref": "#/definitions/LinkSource"
-            },
-            "state": {
-              "const": "linked",
-              "type": "string"
-            },
-            "value": {
-              "$ref": "#/definitions/TwitchIdentity"
-            }
-          },
-          "required": [
-            "state",
-            "value",
-            "source"
-          ],
-          "type": "object"
-        },
-        {
-          "$ref": "#/definitions/DraftNoneAccountLink"
-        },
-        {
-          "$ref": "#/definitions/DraftUnresolvedAccountLink"
-        }
-      ]
-    },
-    "DraftUnresolvedAccountLink": {
+    "PlayerSnapshot": {
       "additionalProperties": false,
       "properties": {
-        "state": {
-          "const": "unresolved",
+        "displayName": {
           "type": "string"
+        },
+        "playerId": {
+          "type": "string"
+        },
+        "racetime": {
+          "anyOf": [
+            {
+              "additionalProperties": false,
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "userId": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "userId",
+                "name"
+              ],
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "speedrunCom": {
+          "anyOf": [
+            {
+              "additionalProperties": false,
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "userId": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "userId",
+                "name"
+              ],
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "twitch": {
+          "anyOf": [
+            {
+              "additionalProperties": false,
+              "properties": {
+                "displayName": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "login": {
+                  "type": "string"
+                },
+                "userId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "userId",
+                "login",
+                "displayName"
+              ],
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "youtube": {
+          "type": [
+            "string",
+            "null"
+          ]
         }
       },
       "required": [
-        "state"
+        "playerId",
+        "displayName",
+        "racetime",
+        "speedrunCom",
+        "twitch",
+        "youtube"
       ],
       "type": "object"
-    },
-    "LinkSource": {
-      "enum": [
-        "spreadsheet",
-        "racetime",
-        "speedruncom",
-        "auto",
-        "manual"
-      ],
-      "type": "string"
-    },
-    "PlayerId": {
-      "type": "string"
     },
     "RaceReference": {
       "additionalProperties": false,
@@ -418,29 +433,6 @@
         "categorySlug",
         "categoryName",
         "goal"
-      ],
-      "type": "object"
-    },
-    "RaceTimeIdentity": {
-      "additionalProperties": false,
-      "properties": {
-        "name": {
-          "type": "string"
-        },
-        "twitchLogin": {
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        "userId": {
-          "type": "string"
-        }
-      },
-      "required": [
-        "userId",
-        "name",
-        "twitchLogin"
       ],
       "type": "object"
     },
@@ -517,29 +509,6 @@
       ],
       "type": "object"
     },
-    "SpeedrunComIdentity": {
-      "additionalProperties": false,
-      "properties": {
-        "name": {
-          "type": "string"
-        },
-        "twitchLogin": {
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        "userId": {
-          "type": "string"
-        }
-      },
-      "required": [
-        "userId",
-        "name",
-        "twitchLogin"
-      ],
-      "type": "object"
-    },
     "TimingMethod": {
       "enum": [
         "realtime",
@@ -547,25 +516,6 @@
         "ingame"
       ],
       "type": "string"
-    },
-    "TwitchIdentity": {
-      "additionalProperties": false,
-      "properties": {
-        "login": {
-          "type": "string"
-        },
-        "userId": {
-          "type": [
-            "string",
-            "null"
-          ]
-        }
-      },
-      "required": [
-        "userId",
-        "login"
-      ],
-      "type": "object"
     }
   },
   "title": "draft-config"

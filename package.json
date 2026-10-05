@@ -36,12 +36,6 @@
         "title": "Race Control",
         "file": "race-control.html",
         "fullbleed": true
-      },
-      {
-        "name": "player-mapping",
-        "title": "Player Mapping",
-        "file": "player-mapping.html",
-        "fullbleed": true
       }
     ],
     "graphics": [

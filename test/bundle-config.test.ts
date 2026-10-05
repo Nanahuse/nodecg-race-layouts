@@ -3,7 +3,6 @@ import { describe, expect, it } from "vitest";
 import {
   DEFAULT_CATEGORY_MAPPINGS_SHEET,
   DEFAULT_CATEGORY_PRESENTATION_SHEET,
-  DEFAULT_PLAYERS_SHEET,
   DEFAULT_RACE_HISTORY_SHEET,
   parseBundleConfig,
 } from "../src/extension/config";
@@ -13,7 +12,7 @@ describe("parseBundleConfig", () => {
     const result = parseBundleConfig({
       spreadsheet: {
         spreadsheetId: "sheet-123",
-        playersSheet: "Runners",
+        googleCredentialsFile: "C:/keys/sheets.json",
         categoryMappingsSheet: "Mappings",
         categoryPresentationSheet: "Presentation",
         raceHistorySheet: DEFAULT_RACE_HISTORY_SHEET,
@@ -24,7 +23,7 @@ describe("parseBundleConfig", () => {
     if (result.ok) {
       expect(result.config.spreadsheet).toEqual({
         spreadsheetId: "sheet-123",
-        playersSheet: "Runners",
+        googleCredentialsFile: "C:/keys/sheets.json",
         categoryMappingsSheet: "Mappings",
         categoryPresentationSheet: "Presentation",
         raceHistorySheet: DEFAULT_RACE_HISTORY_SHEET,
@@ -36,7 +35,6 @@ describe("parseBundleConfig", () => {
     const result = parseBundleConfig({ spreadsheet: { spreadsheetId: "sheet-123" } });
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(result.config.spreadsheet.playersSheet).toBe(DEFAULT_PLAYERS_SHEET);
       expect(result.config.spreadsheet.categoryMappingsSheet).toBe(DEFAULT_CATEGORY_MAPPINGS_SHEET);
       expect(result.config.spreadsheet.categoryPresentationSheet).toBe(
         DEFAULT_CATEGORY_PRESENTATION_SHEET,
@@ -50,17 +48,11 @@ describe("parseBundleConfig", () => {
   });
 
   it("rejects a missing spreadsheetId", () => {
-    expect(parseBundleConfig({ spreadsheet: { playersSheet: "Players" } }).ok).toBe(false);
+    expect(parseBundleConfig({ spreadsheet: {} }).ok).toBe(false);
   });
 
   it("rejects a blank spreadsheetId", () => {
     expect(parseBundleConfig({ spreadsheet: { spreadsheetId: "   " } }).ok).toBe(false);
-  });
-
-  it("rejects a blank playersSheet when provided", () => {
-    expect(
-      parseBundleConfig({ spreadsheet: { spreadsheetId: "sheet-123", playersSheet: "  " } }).ok,
-    ).toBe(false);
   });
 
   it("rejects a non-object config", () => {

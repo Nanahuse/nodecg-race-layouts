@@ -6,11 +6,11 @@ import type {
   IntegrationStatus,
   LeaderboardPageData,
   ParticipantListData,
-  PlayerDirectory,
   RaceOverlayData,
   RaceResultPageData,
   RaceSession,
   PostApplyPersistenceState,
+  SpreadsheetSettings,
 } from "../domain";
 import type { ReplicantName } from "./names";
 
@@ -25,7 +25,6 @@ import type { ReplicantName } from "./names";
  */
 export type DraftRaceSessionValue = RaceSession;
 export type ActiveRaceSessionValue = RaceSession;
-export type PlayerDirectoryValue = PlayerDirectory;
 export type DraftConfigValue = DraftConfig;
 export type ActiveConfigValue = ActiveConfig | null;
 export type DraftSpeedrunSnapshotValue = DraftSpeedrunSnapshot;
@@ -36,12 +35,12 @@ export type LeaderboardPageDataValue = LeaderboardPageData | null;
 export type RaceResultPageDataValue = RaceResultPageData | null;
 export type PostApplyPersistenceValue = PostApplyPersistenceState;
 export type IntegrationStatusValue = IntegrationStatus;
+export type SpreadsheetSettingsValue = SpreadsheetSettings;
 
 /** Maps each Replicant name to the TypeScript type it stores. */
 export type ReplicantValueMap = {
   "draft-race-session": DraftRaceSessionValue;
   "active-race-session": ActiveRaceSessionValue;
-  "player-directory": PlayerDirectoryValue;
   "draft-config": DraftConfigValue;
   "active-config": ActiveConfigValue;
   "draft-speedrun-snapshot": DraftSpeedrunSnapshotValue;
@@ -52,6 +51,7 @@ export type ReplicantValueMap = {
   "race-result-page-data": RaceResultPageDataValue;
   "integration-status": IntegrationStatusValue;
   "post-apply-persistence": PostApplyPersistenceValue;
+  "spreadsheet-settings": SpreadsheetSettingsValue;
 };
 
 /** Compile-time guard that the map above covers every Replicant. */

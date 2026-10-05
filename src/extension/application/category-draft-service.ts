@@ -67,6 +67,7 @@ export type CategoryDraftServiceOptions = {
   presentationRepository: CategoryPresentationRepository | null;
   log: NodeCGLogger;
   spreadsheetStatus?: SpreadsheetOperationStatusCoordinator | null;
+  refreshSnapshot?: (draftRevision: number) => Promise<{ ok: boolean; message?: string }>;
 };
 
 type RaceKey = {
@@ -75,7 +76,18 @@ type RaceKey = {
 };
 
 function describeError(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
+  if (!(error instanceof Error)) return String(error);
+
+  const details: string[] = [error.message];
+  const cause = error.cause;
+  if (cause !== undefined && cause !== error) {
+    details.push(describeError(cause));
+  }
+  const issues = (error as Error & { issues?: readonly { message: string }[] }).issues;
+  if (issues?.length) {
+    details.push(...issues.map((issue) => issue.message));
+  }
+  return [...new Set(details)].join(" ");
 }
 
 type CategoryFailure = {
@@ -105,6 +117,7 @@ export class CategoryDraftService {
   private readonly presentationRepository: CategoryPresentationRepository | null;
   private readonly log: NodeCGLogger;
   private readonly spreadsheetStatus: SpreadsheetOperationStatusCoordinator | null;
+  private readonly refreshSnapshot?: CategoryDraftServiceOptions["refreshSnapshot"];
 
   constructor(options: CategoryDraftServiceOptions) {
     this.draftConfig = options.draftConfig;
@@ -115,6 +128,7 @@ export class CategoryDraftService {
     this.presentationRepository = options.presentationRepository;
     this.log = options.log;
     this.spreadsheetStatus = options.spreadsheetStatus ?? null;
+    this.refreshSnapshot = options.refreshSnapshot;
   }
 
   async select(
@@ -205,13 +219,16 @@ export class CategoryDraftService {
     }
 
     const mapping = this.buildMapping(key, draft, selection);
-    if (!(await this.saveMapping(mapping))) {
-      return fail("save_failed", "Failed to save the category mapping.");
+    const saveError = await this.saveMapping(mapping);
+    if (saveError !== null) {
+      return fail("save_failed", `Failed to save the category mapping. ${saveError}`);
     }
     if (this.currentDraft().revision !== expectedDraftRevision)
       return fail("draft_changed", "Draft changed while saving the mapping.");
 
-    return this.applySavedMappingState(draft);
+    const outcome = this.applySavedMappingState(draft);
+    await this.refreshSnapshotAfterMapping(outcome);
+    return outcome;
   }
 
   async updateMapping(expectedDraftRevision: number): Promise<CategoryMutationOutcome> {
@@ -242,13 +259,16 @@ export class CategoryDraftService {
     }
 
     const mapping = this.buildMapping(key, draft, selection);
-    if (!(await this.saveMapping(mapping))) {
-      return fail("save_failed", "Failed to update the category mapping.");
+    const saveError = await this.saveMapping(mapping);
+    if (saveError !== null) {
+      return fail("save_failed", `Failed to update the category mapping. ${saveError}`);
     }
     if (this.currentDraft().revision !== expectedDraftRevision)
       return fail("draft_changed", "Draft changed while saving the mapping.");
 
-    return this.applySavedMappingState(draft);
+    const outcome = this.applySavedMappingState(draft);
+    await this.refreshSnapshotAfterMapping(outcome);
+    return outcome;
   }
 
   async revertMapping(expectedDraftRevision: number): Promise<CategoryMutationOutcome> {
@@ -423,6 +443,22 @@ export class CategoryDraftService {
     return { ok: true, changed: true, draftRevision: next.revision };
   }
 
+  private async refreshSnapshotAfterMapping(outcome: CategoryMutationOutcome): Promise<void> {
+    if (!outcome.ok || !this.refreshSnapshot) return;
+    try {
+      const result = await this.refreshSnapshot(outcome.draftRevision);
+      if (!result.ok) {
+        this.logEvent(
+          "category.mapping.snapshot_refresh_failed",
+          { message: result.message ?? "Snapshot refresh failed." },
+          "warn",
+        );
+      }
+    } catch (error) {
+      this.logEvent("category.mapping.snapshot_refresh_failed", { error }, "warn");
+    }
+  }
+
   private buildMapping(
     key: RaceKey,
     draft: DraftConfig,
@@ -438,9 +474,9 @@ export class CategoryDraftService {
     };
   }
 
-  private async saveMapping(mapping: CategoryMapping): Promise<boolean> {
+  private async saveMapping(mapping: CategoryMapping): Promise<string | null> {
     if (!this.mappingsRepository) {
-      return false;
+      return "Spreadsheet integration is not configured.";
     }
     const operation = this.spreadsheetStatus?.begin("saving");
     try {
@@ -451,12 +487,13 @@ export class CategoryDraftService {
         categorySlug: mapping.racetime.categorySlug,
         goal: mapping.racetime.goal,
       });
-      return true;
+      return null;
     } catch (error) {
-      operation?.failure(describeError(error));
+      const message = describeError(error);
+      operation?.failure(message);
       if (!operation) this.setLegacySpreadsheetStatus("error", describeError(error));
       this.logEvent("category.mapping.save_failed", { error }, "error");
-      return false;
+      return message;
     }
   }
 

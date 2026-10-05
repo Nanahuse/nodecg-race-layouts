@@ -1,6 +1,5 @@
 import type { ActiveConfig, RaceResultPageData, RaceSession } from "../../domain";
 import type { EventConfig } from "../config";
-import { resolveDisplayName } from "../../domain/display-name";
 import { formatRaceTimeDuration } from "./racetime-duration";
 import type { BuildResult } from "./graphics-view-model-builder";
 
@@ -15,18 +14,18 @@ export function buildRaceResultPageData(
     const player = config.players[participant.playerId];
     if (!player)
       return { ok: false, issues: [`Participant player missing: ${participant.playerId}`] };
-    if (!resolveDisplayName(player)) {
+    if (!player.displayName) {
       return { ok: false, issues: [`Display name unresolved: ${participant.playerId}`] };
     }
   }
   const results = config.participants.map((participant) => {
     const p = config.players[participant.playerId];
     if (!p) throw new Error("validated participant player is missing");
-    const displayName = resolveDisplayName(p) as string;
+    const displayName = p.displayName;
     const live = session.race?.results.find((r) => r.userId === participant.racetimeUserId);
     const status = live?.status ?? "other";
     const place = live?.place ?? null;
-    const liveName = p.racetime.state === "linked" ? p.racetime.value.name : null;
+    const liveName = p.racetime?.name ?? null;
     return {
       racetimeUserId: participant.racetimeUserId,
       place,

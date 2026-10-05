@@ -4,11 +4,5 @@
     "shortName": "RTA Race",
     "logoUrl": "/bundles/nodecg-race-layouts/assets/event-logo.png"
   },
-  "spreadsheet": {
-    "spreadsheetId": "your-spreadsheet-id",
-    "playersSheet": "Players",
-    "categoryMappingsSheet": "CategoryMappings",
-    "categoryPresentationSheet": "CategoryPresentation",
-    "raceHistorySheet": "RaceHistory"
-  }
+  "googleCredentialsFile": "C:/path/to/google-credentials.json"
 }

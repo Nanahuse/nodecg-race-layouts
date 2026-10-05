@@ -1,11 +1,10 @@
-export const DEFAULT_PLAYERS_SHEET = "Players";
 export const DEFAULT_CATEGORY_MAPPINGS_SHEET = "CategoryMappings";
 export const DEFAULT_CATEGORY_PRESENTATION_SHEET = "CategoryPresentation";
 export const DEFAULT_RACE_HISTORY_SHEET = "RaceHistory";
 
 export type SpreadsheetConfig = {
   spreadsheetId: string;
-  playersSheet: string;
+  googleCredentialsFile?: string;
   categoryMappingsSheet: string;
   categoryPresentationSheet: string;
   raceHistorySheet: string;
@@ -61,7 +60,7 @@ function parseSheetName(value: unknown, label: string, fallback: string, issues:
 
 /**
  * Parse and validate the bundle config. Credentials are never part of the
- * config; only the spreadsheet id and sheet names are read here.
+ * config; only the credentials file path, spreadsheet ID and sheet names are read here.
  */
 export function parseBundleConfig(raw: unknown): BundleConfigParseResult {
   if (!isRecord(raw)) {
@@ -80,13 +79,13 @@ export function parseBundleConfig(raw: unknown): BundleConfigParseResult {
   if (spreadsheetId === "") {
     issues.push('"spreadsheet.spreadsheetId" is required and must be a non-empty string.');
   }
+  const googleCredentialsFileRaw = spreadsheet.googleCredentialsFile;
+  const googleCredentialsFile =
+    typeof googleCredentialsFileRaw === "string" ? googleCredentialsFileRaw.trim() : undefined;
+  if (googleCredentialsFileRaw !== undefined && typeof googleCredentialsFileRaw !== "string") {
+    issues.push('"spreadsheet.googleCredentialsFile" must be a string when provided.');
+  }
 
-  const playersSheet = parseSheetName(
-    spreadsheet.playersSheet,
-    "playersSheet",
-    DEFAULT_PLAYERS_SHEET,
-    issues,
-  );
   const categoryMappingsSheet = parseSheetName(
     spreadsheet.categoryMappingsSheet,
     "categoryMappingsSheet",
@@ -115,7 +114,7 @@ export function parseBundleConfig(raw: unknown): BundleConfigParseResult {
     config: {
       spreadsheet: {
         spreadsheetId,
-        playersSheet,
+        ...(googleCredentialsFile ? { googleCredentialsFile } : {}),
         categoryMappingsSheet,
         categoryPresentationSheet,
         raceHistorySheet,
