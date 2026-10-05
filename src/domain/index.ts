@@ -4,6 +4,7 @@ export * from "./category-selection";
 export * from "./category-validation";
 export * from "./config";
 export * from "./display-name";
+export * from "./draft-person";
 export * from "./identity";
 export * from "./ids";
 export * from "./integration-status";

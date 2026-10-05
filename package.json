@@ -4,11 +4,12 @@
   "private": true,
   "description": "NodeCG layouts for RTA race events",
   "license": "Apache-2.0",
+  "packageManager": "pnpm@12.4.0",
   "engines": {
     "node": ">=24.0.0"
   },
   "scripts": {
-    "build": "npm run build:extension && npm run build:dashboard && npm run build:graphics",
+    "build": "pnpm run build:extension && pnpm run build:dashboard && pnpm run build:graphics",
     "build:extension": "tsc -p tsconfig.build.json",
     "build:dashboard": "vite build --config vite.dashboard.config.ts",
     "build:graphics": "vite build --config vite.graphics.config.ts",
@@ -20,9 +21,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "schema:compile": "rimraf .schema-tool && tsc -p tsconfig.schema.json",
-    "schema:generate": "npm run schema:compile && node .schema-tool/scripts/generate-schemas.js",
-    "schema:check": "npm run schema:compile && node .schema-tool/scripts/generate-schemas.js --check",
-    "verify": "npm run typecheck && npm run lint && npm run schema:check && npm run test"
+    "schema:generate": "pnpm run schema:compile && node .schema-tool/scripts/generate-schemas.js",
+    "schema:check": "pnpm run schema:compile && node .schema-tool/scripts/generate-schemas.js --check",
+    "verify": "pnpm run typecheck && pnpm run lint && pnpm run schema:check && pnpm run test"
   },
   "nodecg": {
     "compatibleRange": "^2.0.0",
@@ -63,6 +64,9 @@
       }
     ]
   },
+  "bundleDependencies": [
+    "@nanahuse/player-manager-protocol"
+  ],
   "devDependencies": {
     "@types/node": "^24.13.6",
     "@types/react": "^19.3.0",
@@ -80,6 +84,7 @@
   "dependencies": {
     "@googleapis/sheets": "^18.0.0",
     "google-auth-library": "^11.1.0",
+    "@nanahuse/player-manager-protocol": "github:Nanahuse/player-manager#v1.0.0&path:/packages/player-manager-protocol",
     "react": "^19.3.0",
     "react-dom": "^19.3.0"
   }

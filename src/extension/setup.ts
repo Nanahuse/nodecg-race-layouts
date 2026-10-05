@@ -57,6 +57,7 @@ import { SpreadsheetRaceHistoryRepository } from "./integrations/spreadsheet/rac
 import { SpreadsheetOperationStatusCoordinator } from "./application/spreadsheet-status-coordinator";
 import { PlayerMappingManagementService } from "./application/player-mapping-management-service";
 import { registerPlayerDirectoryMessages } from "./messages/player-directory-messages";
+import { setupPlayerManagerIntegration } from "./integrations/player-manager/client";
 
 export type SpreadsheetIntegration = {
   playerDirectoryService: PlayerDirectoryService;
@@ -326,6 +327,7 @@ export function bootstrapExtension(nodecg: NodeCG): {
   graphicsProjection: GraphicsProjectionService | null;
 } {
   declareReplicants(nodecg);
+  setupPlayerManagerIntegration(nodecg, nodecg.Replicant<IntegrationStatus>("integration-status"));
   const spreadsheet = setupSpreadsheetIntegration(nodecg);
   const { discovery: speedrunDiscovery, snapshot: speedrunSnapshot } =
     setupSpeedrunIntegration(nodecg);
