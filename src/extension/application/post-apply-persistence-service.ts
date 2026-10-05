@@ -5,7 +5,6 @@ import type {
 } from "../../domain";
 import { persistenceItemFromConfig } from "../../domain";
 import type { NodeCGLogger, Replicant } from "../../types/nodecg";
-import type { PlayerDirectoryService } from "./player-directory-service";
 import type { RaceHistoryRepository } from "../integrations/spreadsheet/race-history-repository";
 import type { SpreadsheetOperationStatusCoordinator } from "./spreadsheet-status-coordinator";
 
@@ -24,7 +23,6 @@ export class PostApplyPersistenceService implements PostApplyPersistenceSink {
   private flushing = false;
   constructor(
     private readonly state: Replicant<PostApplyPersistenceState>,
-    private readonly players: Pick<PlayerDirectoryService, "savePlayers">,
     private readonly history: RaceHistoryRepository,
     private readonly log: NodeCGLogger,
     private readonly now: () => Date = () => new Date(),
@@ -66,7 +64,6 @@ export class PostApplyPersistenceService implements PostApplyPersistenceSink {
         );
         const operation = this.coordinator?.begin("saving");
         try {
-          await this.players.savePlayers(item.players);
           await this.history.upsert(item.raceHistory, item.activeRevision, item.appliedAt);
           const current = this.state.value;
           this.state.value = {

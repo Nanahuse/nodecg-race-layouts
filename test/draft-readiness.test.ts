@@ -6,27 +6,17 @@ import {
   isDraftStructurallyReady,
   validateDraftReadiness,
 } from "../src/extension/application/draft-readiness";
-import { makeDraftPlayer, makeParticipantDraft } from "./support/draft-fakes";
+import { makeDraftPerson, makeParticipantDraft } from "./support/draft-fakes";
 
 function readyDraft(): DraftConfig {
-  const players = Object.fromEntries(
-    [1, 2, 3, 4].map((index) => [
-      `p${index}`,
-      makeDraftPlayer(`p${index}`, {
-        speedrunCom: {
-          state: "linked" as const,
-          value: { userId: `src-${index}`, name: `Player ${index}`, twitchLogin: null },
-          source: "manual" as const,
-        },
-        twitch: { state: "none" as const, source: "manual" as const },
-      }),
-    ]),
+  const persons = Object.fromEntries(
+    [1, 2, 3, 4].map((index) => [`p${index}`, makeDraftPerson(`p${index}`, `rt-p${index}`)]),
   );
   const draft = makeParticipantDraft({
-    players,
+    persons,
     participants: [1, 2, 3, 4].map((index) => ({
       racetimeUserId: `rt-p${index}`,
-      playerId: `p${index}`,
+      personRef: `p${index}`,
     })),
   });
   draft.raceScreenSlots = { 1: "rt-p1", 2: "rt-p2", 3: "rt-p3", 4: "rt-p4" };
@@ -52,7 +42,6 @@ describe("validateDraftReadiness", () => {
   it("allows unassigned race screen slots", () => {
     const draft = readyDraft();
     draft.raceScreenSlots = { 1: "rt-p1", 2: "rt-p2", 3: "rt-p3", 4: null };
-    expect(codes(draft)).not.toContain(DRAFT_READINESS_ISSUE_CODES.slotMissing);
     expect(isDraftStructurallyReady(draft)).toBe(true);
   });
 
@@ -90,18 +79,23 @@ describe("validateDraftReadiness", () => {
 
   it("rejects an unresolvable display name", () => {
     const draft = readyDraft();
-    draft.players["p1"] = makeDraftPlayer("p1", {
-      manualDisplayName: null,
-      racetime: { state: "none", source: "manual" },
-      speedrunCom: { state: "none", source: "manual" },
-      twitch: { state: "none", source: "manual" },
-    });
-    expect(codes(draft)).toContain(DRAFT_READINESS_ISSUE_CODES.displayNameUnresolved);
+    draft.persons["p1"] = {
+      ...draft.persons["p1"]!,
+      resolution: "unresolved",
+      playerId: null,
+      player: null,
+    };
+    expect(codes(draft)).toContain(DRAFT_READINESS_ISSUE_CODES.participantResolutionRequired);
   });
 
   it("rejects an unresolved identity", () => {
     const draft = readyDraft();
-    draft.players["p1"] = makeDraftPlayer("p1");
-    expect(codes(draft)).toContain(DRAFT_READINESS_ISSUE_CODES.identityUnresolved);
+    draft.persons["p1"] = {
+      ...draft.persons["p1"]!,
+      resolution: "ambiguous",
+      playerId: null,
+      player: null,
+    };
+    expect(codes(draft)).toContain(DRAFT_READINESS_ISSUE_CODES.participantResolutionRequired);
   });
 });

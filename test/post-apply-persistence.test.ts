@@ -22,7 +22,7 @@ describe("persistenceItemFromConfig", () => {
 
     const item = persistenceItemFromConfig(config, "2026-09-23T07:00:00.000Z");
 
-    expect(item.players).toHaveLength(4);
+    expect(item).not.toHaveProperty("players");
     expect(item.raceHistory.raceScreenSlots).toEqual(config.raceScreenSlots);
     expect(() => structuredClone(item)).not.toThrow();
   });

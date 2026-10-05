@@ -7,7 +7,6 @@ import type { ReplicantName } from "./names";
 export const REPLICANT_SCHEMA_TYPES: Record<ReplicantName, string> = {
   "draft-race-session": "DraftRaceSessionValue",
   "active-race-session": "ActiveRaceSessionValue",
-  "player-directory": "PlayerDirectoryValue",
   "draft-config": "DraftConfigValue",
   "active-config": "ActiveConfigValue",
   "draft-speedrun-snapshot": "DraftSpeedrunSnapshotValue",

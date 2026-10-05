@@ -1,17 +1,22 @@
+import { randomUUID } from "node:crypto";
 import type {
   BroadcastStatusState,
   CategoryMapping,
   CategoryPresentation,
   DraftConfig,
+  DraftPerson,
+  DraftPersonRef,
   DraftRaceScreenSlots,
   DraftSpeedrunSnapshot,
   IntegrationStatus,
-  PlayerDirectory,
   RaceSession,
+  RaceTimeEntrant,
 } from "../../domain";
 import {
   MAX_COMMENTATORS,
+  applyResolutionToDraftPerson,
   categorySelectionFromMapping,
+  createDraftPersonFromEntrant,
   retagDraftSpeedrunSnapshot,
 } from "../../domain";
 import {
@@ -21,10 +26,8 @@ import {
 } from "../../replicants/defaults";
 import type { NodeCGLogger, Replicant } from "../../types/nodecg";
 import { jsonEquals } from "../integrations/racetime/equality";
-import {
-  noopAutomaticIdentityResolver,
-  type AutomaticIdentityResolver,
-} from "./automatic-identity-resolution-service";
+import { bindPlayerToDraftPerson } from "../integrations/player-manager/mapper";
+import type { PlayerManagerGateway } from "../integrations/player-manager/types";
 import { computeDraftBroadcastState } from "./broadcast-status";
 import {
   nullCategoryPresetProvider,
@@ -32,13 +35,7 @@ import {
   type CategoryPresetProvider,
 } from "./category-preset-provider";
 import {
-  createRandomPlayerIdFactory,
-  resolvePlayers,
-  type PlayerIdFactory,
-  type PlayerResolutionResult,
-} from "./player-resolution-service";
-import {
-  countUnresolvedPlayers,
+  countUnresolvedPeople,
   needsDraftReconciliation,
   participantSpeedrunUserIds,
   reconcileDraft,
@@ -48,18 +45,10 @@ import type { RaceSessionService } from "./race-session-service";
 
 export type RaceLoadFailureReason =
   "invalid_url" | "race_not_found" | "race_load_failed" | "draft_build_failed";
-
 export type RaceLoadOutcome =
-  | {
-      ok: true;
-      draftRevision: number;
-      participantCount: number;
-      unresolvedPlayerCount: number;
-    }
+  | { ok: true; draftRevision: number; participantCount: number; unresolvedPlayerCount: number }
   | { ok: false; reason: RaceLoadFailureReason; message: string };
-
 export type RaceReconcileFailureReason = "draft_changed" | "no_race_loaded" | "reconcile_failed";
-
 export type RaceReconcileOutcome =
   | {
       ok: true;
@@ -69,53 +58,65 @@ export type RaceReconcileOutcome =
       unresolvedPlayerCount: number;
     }
   | { ok: false; reason: RaceReconcileFailureReason; message: string };
-
-export type DraftIntegrityIssue = {
-  code: string;
-  message: string;
-};
-
-export type InitialDraftBuild = {
-  draft: DraftConfig;
-  resolution: PlayerResolutionResult;
-};
-
+export type DraftIntegrityIssue = { code: string; message: string };
+export type InitialDraftBuild = { draft: DraftConfig; matchedCount: number };
 export type BuildInitialDraftOptions = {
   session: RaceSession;
-  directory: PlayerDirectory;
-  playerIdFactory: PlayerIdFactory;
+  playerManager: PlayerManagerGateway;
   revision: number;
-  /** Persisted category preset for this race's category key, if any. */
+  personRefFactory?: () => DraftPersonRef;
   categoryPreset?: CategoryPreset;
 };
 
-/**
- * Build the first draft for a freshly loaded race. Pure: it never touches a
- * replicant and the only external input is the injected player id factory.
- */
-export function buildInitialDraft(options: BuildInitialDraftOptions): InitialDraftBuild {
-  const { session } = options;
-  const race = session.race;
-  const canonicalUrl = session.canonicalUrl;
-  if (!race || !canonicalUrl) {
-    throw new Error("Cannot build a draft without a loaded race.");
-  }
-
-  const resolution = resolvePlayers({
-    entrants: race.entrants,
-    directory: options.directory,
-    playerIdFactory: options.playerIdFactory,
+async function resolveEntrant(
+  entrant: RaceTimeEntrant,
+  playerManager: PlayerManagerGateway,
+  ref: DraftPersonRef,
+): Promise<DraftPerson> {
+  const person = createDraftPersonFromEntrant({
+    racetimeUserId: entrant.userId,
+    racetimeName: entrant.name,
+    twitchLogin: entrant.twitchLogin,
+    ref,
   });
+  const resolution = await playerManager.resolve({
+    racetime: { userId: entrant.userId, name: entrant.name },
+    twitch: entrant.twitchLogin ? { login: entrant.twitchLogin } : null,
+    speedrunCom: null,
+  });
+  const resolved = applyResolutionToDraftPerson(person, resolution);
+  if (resolved.resolution !== "matched" || !resolved.playerId) return resolved;
+  const player = await playerManager.get(resolved.playerId);
+  return player
+    ? bindPlayerToDraftPerson(resolved, player)
+    : { ...resolved, playerId: null, player: null, resolution: "unresolved" };
+}
 
+export async function buildInitialDraft(
+  options: BuildInitialDraftOptions,
+): Promise<InitialDraftBuild> {
+  const race = options.session.race;
+  const canonicalUrl = options.session.canonicalUrl;
+  if (!race || !canonicalUrl) throw new Error("Cannot build a draft without a loaded race.");
+  const makeRef = options.personRefFactory ?? randomUUID;
+  const resolved = await Promise.all(
+    race.entrants.map((entrant) => resolveEntrant(entrant, options.playerManager, makeRef())),
+  );
+  const persons = Object.fromEntries(resolved.map((person) => [person.ref, person]));
+  const participants = race.entrants.map((entrant, index) => ({
+    racetimeUserId: entrant.userId,
+    personRef: resolved[index]?.ref ?? makeRef(),
+  }));
   const raceScreenSlots: DraftRaceScreenSlots = {
-    1: resolution.participants[0]?.racetimeUserId ?? null,
-    2: resolution.participants[1]?.racetimeUserId ?? null,
-    3: resolution.participants[2]?.racetimeUserId ?? null,
-    4: resolution.participants[3]?.racetimeUserId ?? null,
+    1: participants[0]?.racetimeUserId ?? null,
+    2: participants[1]?.racetimeUserId ?? null,
+    3: participants[2]?.racetimeUserId ?? null,
+    4: participants[3]?.racetimeUserId ?? null,
   };
-
   return {
-    resolution,
+    matchedCount: resolved.filter(
+      (person) => person.resolution === "matched" && person.player !== null,
+    ).length,
     draft: {
       revision: options.revision,
       race: {
@@ -125,151 +126,137 @@ export function buildInitialDraft(options: BuildInitialDraftOptions): InitialDra
         categoryName: race.categoryName,
         goal: race.goal,
       },
-      participants: resolution.participants,
-      players: resolution.players,
+      participants,
+      persons,
       raceScreenSlots,
       commentatorPlayerIds: [],
+      commentators: {},
       categorySelection: categorySelectionFromMapping(options.categoryPreset?.mapping ?? null),
       categoryPresentation: options.categoryPreset?.presentation ?? null,
     },
   };
 }
 
-/** Lightweight integrity check run before a candidate draft is committed. */
 export function validateDraftIntegrity(draft: DraftConfig): DraftIntegrityIssue[] {
   const issues: DraftIntegrityIssue[] = [];
-  const seenPlayerIds = new Set<string>();
-
+  const seenPlayers = new Set<string>();
   for (const participant of draft.participants) {
-    const playerId = participant.playerId;
-    if (!playerId) {
+    const person = draft.persons[participant.personRef];
+    if (
+      !person ||
+      person.ref !== participant.personRef ||
+      person.identity.racetimeUserId !== participant.racetimeUserId
+    ) {
+      issues.push({
+        code: "participant_person_missing",
+        message: `Participant "${participant.racetimeUserId}" has no matching DraftPerson.`,
+      });
       continue;
     }
-    if (!draft.players[playerId]) {
+    if (
+      person.resolution === "matched" &&
+      (!person.playerId || !person.player || person.player.playerId !== person.playerId)
+    ) {
       issues.push({
         code: "participant_player_missing",
-        message: `Participant "${participant.racetimeUserId}" references unknown player "${playerId}".`,
+        message: `Participant "${participant.racetimeUserId}" has an incomplete matched Player.`,
       });
     }
-    if (seenPlayerIds.has(playerId)) {
-      issues.push({
-        code: "participant_player_duplicate",
-        message: `Player "${playerId}" is assigned to more than one participant.`,
-      });
+    if (person.playerId) {
+      if (seenPlayers.has(person.playerId))
+        issues.push({
+          code: "participant_player_duplicate",
+          message: `Player "${person.playerId}" is assigned to more than one participant.`,
+        });
+      seenPlayers.add(person.playerId);
     }
-    seenPlayerIds.add(playerId);
   }
-
-  const participantRacetimeIds = new Set(
-    draft.participants.map((participant) => participant.racetimeUserId),
-  );
+  const raceTimeIds = new Set(draft.participants.map((participant) => participant.racetimeUserId));
   const slotOwners = new Map<string, string>();
   for (const slot of ["1", "2", "3", "4"] as const) {
     const value = draft.raceScreenSlots[slot];
-    if (value === null) {
-      continue;
-    }
-    if (!participantRacetimeIds.has(value)) {
+    if (value === null) continue;
+    if (!raceTimeIds.has(value))
       issues.push({
         code: "slot_unknown_participant",
         message: `Race screen slot ${slot} references unknown participant "${value}".`,
       });
-    }
-    const existingSlot = slotOwners.get(value);
-    if (existingSlot !== undefined) {
+    const previous = slotOwners.get(value);
+    if (previous !== undefined)
       issues.push({
         code: "slot_duplicate",
-        message: `RaceTime user "${value}" is used in slots ${existingSlot} and ${slot}.`,
+        message: `RaceTime user "${value}" is used in slots ${previous} and ${slot}.`,
       });
-    } else {
-      slotOwners.set(value, slot);
-    }
+    else slotOwners.set(value, slot);
   }
-
-  if (draft.commentatorPlayerIds.length > MAX_COMMENTATORS) {
+  if (draft.commentatorPlayerIds.length > MAX_COMMENTATORS)
     issues.push({
       code: "commentator_too_many",
       message: `At most ${MAX_COMMENTATORS} commentators are allowed.`,
     });
-  }
   const seenCommentators = new Set<string>();
   for (const playerId of draft.commentatorPlayerIds) {
-    if (seenCommentators.has(playerId)) {
+    if (seenCommentators.has(playerId))
       issues.push({
         code: "commentator_duplicate",
         message: `Commentator "${playerId}" is listed more than once.`,
       });
-    }
     seenCommentators.add(playerId);
-    if (!draft.players[playerId]) {
+    if (draft.commentators[playerId]?.playerId !== playerId)
       issues.push({
         code: "commentator_player_missing",
-        message: `Commentator "${playerId}" is not a known draft player.`,
+        message: `Commentator "${playerId}" has no Player Manager snapshot.`,
       });
-    }
   }
-
   return issues;
 }
 
 export type RaceDraftServiceOptions = {
   raceSessions: RaceSessionService;
   draftRaceSession: Replicant<RaceSession>;
-  playerDirectory: Replicant<PlayerDirectory>;
+  playerManager: PlayerManagerGateway;
   draftConfig: Replicant<DraftConfig>;
   draftSpeedrunSnapshot: Replicant<DraftSpeedrunSnapshot>;
   integrationStatus: Replicant<IntegrationStatus>;
   log: NodeCGLogger;
-  playerIdFactory?: PlayerIdFactory;
+  personRefFactory?: () => DraftPersonRef;
   categoryPresets?: CategoryPresetProvider;
-  automaticIdentityResolver?: AutomaticIdentityResolver;
 };
 
 function describeError(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-/**
- * Owns the draft race workflow: `race.load` builds a draft from a RaceTime
- * session, and `race.reconcile` pulls RaceTime structural changes in on demand.
- * Active state is never touched here.
- */
 export class RaceDraftService {
   private readonly raceSessions: RaceSessionService;
   private readonly draftRaceSession: Replicant<RaceSession>;
-  private readonly playerDirectory: Replicant<PlayerDirectory>;
+  private readonly playerManager: PlayerManagerGateway;
   private readonly draftConfig: Replicant<DraftConfig>;
   private readonly draftSpeedrunSnapshot: Replicant<DraftSpeedrunSnapshot>;
   private readonly integrationStatus: Replicant<IntegrationStatus>;
   private readonly log: NodeCGLogger;
-  private readonly playerIdFactory: PlayerIdFactory;
+  private readonly personRefFactory: () => DraftPersonRef;
   private readonly categoryPresets: CategoryPresetProvider;
-  private readonly automaticIdentityResolver: AutomaticIdentityResolver;
-
   private suppressReconcile = false;
 
   constructor(options: RaceDraftServiceOptions) {
     this.raceSessions = options.raceSessions;
     this.draftRaceSession = options.draftRaceSession;
-    this.playerDirectory = options.playerDirectory;
+    this.playerManager = options.playerManager;
     this.draftConfig = options.draftConfig;
     this.draftSpeedrunSnapshot = options.draftSpeedrunSnapshot;
     this.integrationStatus = options.integrationStatus;
     this.log = options.log;
-    this.playerIdFactory = options.playerIdFactory ?? createRandomPlayerIdFactory();
+    this.personRefFactory = options.personRefFactory ?? randomUUID;
     this.categoryPresets = options.categoryPresets ?? nullCategoryPresetProvider;
-    this.automaticIdentityResolver =
-      options.automaticIdentityResolver ?? noopAutomaticIdentityResolver;
   }
 
   async loadRace(url: string): Promise<RaceLoadOutcome> {
     const safeUrl = typeof url === "string" ? url : "";
     this.logEvent("race.load.started", { url: safeUrl });
     this.suppressReconcile = true;
-
     try {
       this.setBroadcastState("loading", null, this.currentDraftRevision());
-
       const result = await this.raceSessions.loadRace("draft", safeUrl);
       if (!result.ok) {
         const reason: RaceLoadFailureReason =
@@ -282,38 +269,24 @@ export class RaceDraftService {
         this.logEvent("race.load.failed", { reason, message: result.message }, "error");
         return { ok: false, reason, message: result.message };
       }
-
       this.setBroadcastState("resolving", null, this.currentDraftRevision());
-
       const race = result.session.race;
       const categoryPreset = race
         ? await this.loadCategoryPreset(race.categorySlug, race.goal)
         : { mapping: null, presentation: null };
-
-      const revision = (this.draftConfig.value?.revision ?? 0) + 1;
-      const built = buildInitialDraft({
+      const built = await buildInitialDraft({
         session: result.session,
-        directory: this.playerDirectory.value ?? {},
-        playerIdFactory: this.playerIdFactory,
-        revision,
+        playerManager: this.playerManager,
+        personRefFactory: this.personRefFactory,
+        revision: (this.draftConfig.value?.revision ?? 0) + 1,
         categoryPreset,
       });
-
-      // Automatic Speedrun.com identity resolution runs on the candidate, before
-      // the single commit, so the draft is never committed twice.
-      const resolved = await this.automaticIdentityResolver.resolve(
-        built.draft,
-        this.playerDirectory.value ?? {},
-      );
-      const candidate = resolved.draft;
-
+      const candidate = built.draft;
       const integrityIssues = validateDraftIntegrity(candidate);
-      if (integrityIssues.length > 0) {
+      if (integrityIssues.length)
         throw new Error(
           `Draft integrity check failed: ${integrityIssues.map((issue) => issue.message).join("; ")}`,
         );
-      }
-
       this.draftConfig.value = candidate;
       this.draftSpeedrunSnapshot.value = {
         draftRevision: candidate.revision,
@@ -321,18 +294,13 @@ export class RaceDraftService {
         snapshot: null,
         message: null,
       };
-
-      const unresolvedPlayerCount = countUnresolvedPlayers(candidate);
+      const unresolvedPlayerCount = countUnresolvedPeople(candidate);
       this.recomputeBroadcastState(candidate);
-
       this.logEvent("player_resolution.completed", {
         raceId: candidate.race?.raceId,
         participantCount: candidate.participants.length,
-        matchedCount: built.resolution.summary.matchedCount,
-        autoLinkedCount: built.resolution.summary.autoLinkedCount,
-        newPlayerCount: built.resolution.summary.newPlayerCount,
+        matchedCount: built.matchedCount,
         unresolvedPlayerCount,
-        autoSrcLinked: resolved.summary.linked,
       });
       this.logEvent("race.load.completed", {
         raceId: candidate.race?.raceId,
@@ -340,7 +308,6 @@ export class RaceDraftService {
         participantCount: candidate.participants.length,
         unresolvedPlayerCount,
       });
-
       return {
         ok: true,
         draftRevision: candidate.revision,
@@ -359,79 +326,85 @@ export class RaceDraftService {
 
   async reconcile(expectedDraftRevision: number): Promise<RaceReconcileOutcome> {
     const session = this.draftRaceSession.value;
-    if (!session || !session.race || !session.canonicalUrl) {
+    if (!session?.race || !session.canonicalUrl)
       return { ok: false, reason: "no_race_loaded", message: "No race is loaded." };
-    }
-
     const draft = this.draftConfig.value ?? createDefaultDraftConfig();
-    if (typeof expectedDraftRevision !== "number" || draft.revision !== expectedDraftRevision) {
+    if (typeof expectedDraftRevision !== "number" || draft.revision !== expectedDraftRevision)
       return {
         ok: false,
         reason: "draft_changed",
         message: `Draft revision is ${draft.revision}, expected ${expectedDraftRevision}.`,
       };
-    }
-
     this.logEvent("race.reconcile.started", { draftRevision: draft.revision });
-
     try {
-      const categoryKeyChanged =
+      const categoryChanged =
         draft.race?.categorySlug !== session.race.categorySlug ||
         draft.race?.goal !== session.race.goal;
-      const categoryPreset = categoryKeyChanged
+      const categoryPreset = categoryChanged
         ? await this.loadCategoryPreset(session.race.categorySlug, session.race.goal)
         : undefined;
-
-      const directory = this.playerDirectory.value ?? {};
-      const srcUserIdsBefore = participantSpeedrunUserIds(draft);
-
+      const existing = new Map(
+        draft.participants.map((participant) => [
+          participant.racetimeUserId,
+          draft.persons[participant.personRef],
+        ]),
+      );
+      const newPersons = new Map<string, DraftPerson>();
+      const updatedPersons = new Map<string, DraftPerson>();
+      await Promise.all(
+        session.race.entrants.map(async (entrant) => {
+          const person = existing.get(entrant.userId);
+          if (person) {
+            if (
+              person.resolution === "matched" ||
+              person.identity.twitchLogin === entrant.twitchLogin
+            )
+              return;
+            updatedPersons.set(
+              entrant.userId,
+              await resolveEntrant(entrant, this.playerManager, person.ref),
+            );
+            return;
+          }
+          newPersons.set(
+            entrant.userId,
+            await resolveEntrant(entrant, this.playerManager, this.personRefFactory()),
+          );
+        }),
+      );
+      const sourceIdsBefore = participantSpeedrunUserIds(draft);
       const outcome = reconcileDraft({
         draft,
         session,
-        directory,
-        playerIdFactory: this.playerIdFactory,
+        resolvedNewPersons: newPersons,
+        resolvedExistingPersons: updatedPersons,
         categoryPreset,
       });
-
-      // Automatic Speedrun.com identity resolution runs on the reconcile
-      // candidate before the single commit.
-      const resolved = await this.automaticIdentityResolver.resolve(outcome.draft, directory);
-      const candidateNoRevision: DraftConfig = { ...resolved.draft, revision: draft.revision };
-      const changed = !jsonEquals(candidateNoRevision, draft);
-      const finalDraft = changed ? { ...resolved.draft, revision: draft.revision + 1 } : draft;
-
+      const candidate = { ...outcome.draft, revision: draft.revision };
+      const changed = !jsonEquals(candidate, draft);
+      const finalDraft = changed ? { ...outcome.draft, revision: draft.revision + 1 } : draft;
       if (changed) {
         this.draftConfig.value = finalDraft;
         const srcSetChanged = !speedrunUserIdSetsEqual(
-          srcUserIdsBefore,
+          sourceIdsBefore,
           participantSpeedrunUserIds(finalDraft),
         );
-        if (outcome.participantsChanged || outcome.categoryChanged || srcSetChanged) {
-          this.draftSpeedrunSnapshot.value = {
-            draftRevision: finalDraft.revision,
-            state: "empty",
-            snapshot: null,
-            message: null,
-          };
-        } else {
-          this.draftSpeedrunSnapshot.value = retagDraftSpeedrunSnapshot(
-            this.draftSpeedrunSnapshot.value ?? createDefaultDraftSpeedrunSnapshot(),
-            finalDraft.revision,
-          );
-        }
+        this.draftSpeedrunSnapshot.value =
+          outcome.participantsChanged || outcome.categoryChanged || srcSetChanged
+            ? { draftRevision: finalDraft.revision, state: "empty", snapshot: null, message: null }
+            : retagDraftSpeedrunSnapshot(
+                this.draftSpeedrunSnapshot.value ?? createDefaultDraftSpeedrunSnapshot(),
+                finalDraft.revision,
+              );
       }
-
       this.recomputeBroadcastState(finalDraft);
-
-      const unresolvedPlayerCount = countUnresolvedPlayers(finalDraft);
+      const unresolvedPlayerCount = countUnresolvedPeople(finalDraft);
       this.logEvent("race.reconcile.completed", {
         draftRevision: finalDraft.revision,
         changed,
         participantCount: finalDraft.participants.length,
         unresolvedPlayerCount,
-        autoSrcLinked: resolved.summary.linked,
       });
-
       return {
         ok: true,
         changed,
@@ -446,27 +419,11 @@ export class RaceDraftService {
     }
   }
 
-  /**
-   * Called by the race session service whenever the draft race session changes.
-   * Marks the draft as needing reconciliation when RaceTime structural changes
-   * are detected; the draft itself is never modified here.
-   */
   handleDraftSessionChange(session: RaceSession): void {
-    if (this.suppressReconcile) {
-      return;
-    }
-
+    if (this.suppressReconcile) return;
     const draft = this.draftConfig.value;
-    if (!draft || !draft.race) {
-      return;
-    }
-    if (!needsDraftReconciliation(draft, session)) {
-      return;
-    }
-    if (this.integrationStatus.value?.broadcast.state === "reconciliation_required") {
-      return;
-    }
-
+    if (!draft?.race || !needsDraftReconciliation(draft, session)) return;
+    if (this.integrationStatus.value?.broadcast.state === "reconciliation_required") return;
     this.setBroadcastState("reconciliation_required", null, draft.revision);
     this.logEvent("race.reconciliation.required", {
       raceId: draft.race.raceId,
@@ -475,59 +432,42 @@ export class RaceDraftService {
   }
 
   private async loadCategoryPreset(categorySlug: string, goal: string): Promise<CategoryPreset> {
-    const mapping = await this.lookupMapping(categorySlug, goal);
-    const presentation = await this.lookupPresentation(categorySlug, goal);
-    return { mapping, presentation };
+    return {
+      mapping: await this.lookupMapping(categorySlug, goal),
+      presentation: await this.lookupPresentation(categorySlug, goal),
+    };
   }
-
   private async lookupMapping(categorySlug: string, goal: string): Promise<CategoryMapping | null> {
     try {
-      const mapping = await this.categoryPresets.findMapping(categorySlug, goal);
-      this.logEvent("category.mapping.lookup.completed", {
-        categorySlug,
-        goal,
-        found: mapping !== null,
-      });
-      return mapping;
+      return await this.categoryPresets.findMapping(categorySlug, goal);
     } catch (error) {
       this.logEvent("category.mapping.lookup.failed", { categorySlug, goal, error }, "error");
       return null;
     }
   }
-
   private async lookupPresentation(
     categorySlug: string,
     goal: string,
   ): Promise<CategoryPresentation | null> {
     try {
-      const presentation = await this.categoryPresets.findPresentation(categorySlug, goal);
-      this.logEvent("category.presentation.lookup.completed", {
-        categorySlug,
-        goal,
-        found: presentation !== null,
-      });
-      return presentation;
+      return await this.categoryPresets.findPresentation(categorySlug, goal);
     } catch (error) {
       this.logEvent("category.presentation.lookup.failed", { categorySlug, goal, error }, "error");
       return null;
     }
   }
-
   private currentDraftRevision(): number | null {
     return this.draftConfig.value?.revision ?? null;
   }
-
   private recomputeBroadcastState(draft: DraftConfig): void {
     const current = this.integrationStatus.value ?? createDefaultIntegrationStatus();
     const snapshot = this.draftSpeedrunSnapshot.value ?? createDefaultDraftSpeedrunSnapshot();
-    const state = computeDraftBroadcastState({
-      current: current.broadcast.state,
-      draft,
-      snapshot,
-    });
-    this.setBroadcastState(state, null, draft.revision);
+    this.setBroadcastState(
+      computeDraftBroadcastState({ current: current.broadcast.state, draft, snapshot }),
+      null,
+      draft.revision,
+    );
   }
-
   private setBroadcastState(
     state: BroadcastStatusState,
     message: string | null,
@@ -544,27 +484,19 @@ export class RaceDraftService {
       },
     };
   }
-
   private logEvent(
     event: string,
     fields: Record<string, unknown>,
     level: "info" | "warn" | "error" = "info",
   ): void {
-    const parts: string[] = [];
-    for (const [key, value] of Object.entries(fields)) {
-      if (value === undefined) {
-        continue;
-      }
-      parts.push(`${key}=${value instanceof Error ? describeError(value) : String(value)}`);
-    }
-    const message = parts.length > 0 ? `[${event}] ${parts.join(" ")}` : `[${event}]`;
-
-    if (level === "error") {
-      this.log.error(message);
-    } else if (level === "warn") {
-      this.log.warn(message);
-    } else {
-      this.log.info(message);
-    }
+    const parts = Object.entries(fields)
+      .filter(([, value]) => value !== undefined)
+      .map(
+        ([key, value]) => `${key}=${value instanceof Error ? describeError(value) : String(value)}`,
+      );
+    const message = parts.length ? `[${event}] ${parts.join(" ")}` : `[${event}]`;
+    if (level === "error") this.log.error(message);
+    else if (level === "warn") this.log.warn(message);
+    else this.log.info(message);
   }
 }

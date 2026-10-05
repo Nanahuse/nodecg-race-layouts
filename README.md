@@ -1,6 +1,6 @@
 # nodecg-race-layouts
 
-RTAレース運営用のNodeCGバンドルです。Race Controlダッシュボード、Player Mappingダッシュボード、レース状態およびSpeedrun.com連携、スプレッドシート保存、OBS向けGraphicsを提供します。
+RTAレース運営用のNodeCGバンドルです。Race Control、Player Manager連携、レース状態およびSpeedrun.com連携、Category / RaceHistoryのスプレッドシート保存、OBS向けGraphicsを提供します。Player情報はPlayer Managerで管理し、Race LayoutsはRaceTime参加者の解決、Registrationへの遷移、Commentator選択、放送用Snapshotの保持を担当します。
 
 レース当日の操作手順とスプレッドシートの設定は、[オペレーターガイド](docs/operator-guide.md)を参照してください。
 
@@ -11,11 +11,11 @@ RTAレース運営用のNodeCGバンドルです。Race Controlダッシュボ�
 主なディレクトリ:
 
 ```text
-src/domain/       レース、Player、検証、投影のドメインロジック
+src/domain/       レース、Draft Person、Player Snapshot、検証、投影のドメインロジック
 src/extension/    NodeCGサービス、Message handler、外部連携
 src/replicants/   Replicant名、型、安全な初期値、宣言
 src/protocol/     共有Message contract
-ui/dashboard/     Race Control / Player Mappingパネル
+ui/dashboard/     Race Controlパネル
 ui/graphics/      Race / Participants / Leaderboard / Result Graphics
 schemas/          Replicantから生成されたJSON Schema
 test/             単体・統合フロー・Schemaテスト
@@ -27,7 +27,7 @@ test/             単体・統合フロー・Schemaテスト
 - pnpm
 - NodeCG 2.8.0以降のホスト（このリポジトリはバンドルであり、NodeCGサーバー本体は含みません）
 - Player Manager 1.0.1以降（必須bundle。`nodecg.bundleDependencies`で宣言しています）
-- Player、Category、RaceHistoryのスプレッドシート連携を使う場合は、Google SpreadsheetとGoogle Application Default Credentials
+- Category / RaceHistoryのスプレッドシート連携を使う場合は、Google SpreadsheetとGoogle Application Default Credentials
 
 ## クイックスタート
 
@@ -50,15 +50,15 @@ test/             単体・統合フロー・Schemaテスト
 
    `pnpm run build`はExtensionを`dist/`へ出力し、Dashboardパネルと4種類のGraphicsを生成します。生成物はGit管理対象外です。
 
-4. `config.example.json`をNodeCGホストの`cfg/nodecg-race-layouts.json`へコピーし、イベント情報とSpreadsheet IDを設定します。シート名が既定値と異なる場合はそれも指定します。
+4. `config.example.json`をNodeCGホストの`cfg/nodecg-race-layouts.json`へコピーし、イベント情報とSpreadsheet IDを設定します。Player ManagerでPlayerの作成・更新を行い、未解決参加者はRace ControlからPlayer ManagerのRegistration画面へ進めます。
 5. NodeCGを起動するプロセスからGoogle ADCを利用できるようにします。サービスアカウントの鍵ファイルを使う場合は、そのプロセスの環境変数`GOOGLE_APPLICATION_CREDENTIALS`に設定し、該当アカウントにSpreadsheetへのアクセス権を付与します。認証情報をバンドル設定やリポジトリへ保存しないでください。
-6. ホスト環境の通常の手順でNodeCGを起動し、Dashboardを開きます。Race ControlとPlayer Mappingのパネルはバンドルの`package.json`で登録されています。
+6. ホスト環境の通常の手順でNodeCGを起動し、Race Controlを開きます。必須bundleのPlayer Managerを先にNodeCG環境へ配置してください。
 
 RaceTime.ggとSpeedrun.comの検索は各サービスの公開APIを利用します。Spreadsheet設定や認証に問題がある場合はDashboardの連携ステータスに表示され、スプレッドシート依存機能が利用できないことがあります。
 
 ## 設定
 
-`config.example.json`を設定のひな型として使います。バンドル設定には`spreadsheet.spreadsheetId`が必要です。シート名は省略でき、省略時は`Players`、`CategoryMappings`、`CategoryPresentation`、`RaceHistory`が使われます。Graphicsには空でない`event.name`が必要です。`shortName`と`logoUrl`は任意です。
+`config.example.json`を設定のひな型として使います。バンドル設定には`spreadsheet.spreadsheetId`が必要です。シート名は省略でき、省略時は`CategoryMappings`、`CategoryPresentation`、`RaceHistory`が使われます。Graphicsには空でない`event.name`が必要です。`shortName`と`logoUrl`は任意です。
 
 ```json
 {
@@ -69,7 +69,6 @@ RaceTime.ggとSpeedrun.comの検索は各サービスの公開APIを利用しま
   },
   "spreadsheet": {
     "spreadsheetId": "your-spreadsheet-id",
-    "playersSheet": "Players",
     "categoryMappingsSheet": "CategoryMappings",
     "categoryPresentationSheet": "CategoryPresentation",
     "raceHistorySheet": "RaceHistory"
@@ -100,7 +99,7 @@ GraphicsはActive broadcastから投影されたページデータを参照し�
 - **Integrations**: RaceTime.gg、Speedrun.com、Google Sheetsと連携します。
 - **Graphics**: Active状態の投影データを描画し、最終的なシーン合成はOBSが担います。
 
-Broadcast Applyが成功するまでDraftは放送に反映されません。Apply開始時点でDraftとSnapshotの独立した値を取得します。Active状態はActive用RaceTime Sessionの読み込み後に確定されます。その後のSpreadsheet保存は別のキュー処理であり、Active更新の成功を取り消しません。
+RaceTime entrantはPlayer Manager Protocolで解決します。Draftは内部Person参照とPlayer Managerのcanonical IDを分けて保持し、Apply時には参加者とCommentatorのPlayer SnapshotをActiveへ固定します。GraphicsはActive Snapshotだけを参照します。Broadcast Applyが成功するまでDraftは放送に反映されません。RaceHistory保存は別キューで行い、Active更新の成功を取り消しません。
 
 ## 開発
 

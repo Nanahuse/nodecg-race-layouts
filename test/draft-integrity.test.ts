@@ -2,17 +2,17 @@ import { describe, expect, it } from "vitest";
 
 import type { DraftConfig } from "../src/domain";
 import { validateDraftIntegrity } from "../src/extension/application/race-draft-service";
-import { makeDraftPlayer, makeParticipantDraft } from "./support/draft-fakes";
+import { makeDraftPerson, makeParticipantDraft } from "./support/draft-fakes";
 
 function draftWithSlots(): DraftConfig {
-  const players = Object.fromEntries(
-    [1, 2, 3, 4].map((index) => [`p${index}`, makeDraftPlayer(`p${index}`)]),
+  const persons = Object.fromEntries(
+    [1, 2, 3, 4].map((index) => [`p${index}`, makeDraftPerson(`p${index}`, `rt-p${index}`)]),
   );
   const draft = makeParticipantDraft({
-    players,
+    persons,
     participants: [1, 2, 3, 4].map((index) => ({
       racetimeUserId: `rt-p${index}`,
-      playerId: `p${index}`,
+      personRef: `p${index}`,
     })),
   });
   draft.raceScreenSlots = { 1: "rt-p1", 2: "rt-p2", 3: "rt-p3", 4: "rt-p4" };
@@ -53,6 +53,7 @@ describe("validateDraftIntegrity", () => {
 
     const unknown = draftWithSlots();
     unknown.commentatorPlayerIds = ["ghost"];
+    unknown.commentators = {};
     expect(codes(unknown)).toContain("commentator_player_missing");
   });
 });

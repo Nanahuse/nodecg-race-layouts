@@ -59,11 +59,10 @@ describe("bootstrapExtension", () => {
     expect(listened).toContain("speedrun.user.get");
     expect(listened).toContain("speedrun.snapshot.refresh");
     expect(listened).toContain("participant.set-player");
-    expect(listened).toContain("participant.set-speedruncom");
-    expect(listened).toContain("participant.set-speedruncom-none");
-    expect(listened).toContain("participant.set-twitch");
-    expect(listened).toContain("participant.set-twitch-none");
-    expect(listened).toContain("participant.set-display-name");
+    expect(listened).toContain("participant.registration.start");
+    expect(listened).toContain("player-manager.list");
+    expect(listened).toContain("player-manager.v1.registrationCompleted");
+    expect(listened).toContain("player-manager.v1.registrationCancelled");
     expect(listened).toContain("race-screen.set-slots");
     expect(listened).toContain("commentators.set");
     expect(listened).toContain("broadcast.apply");

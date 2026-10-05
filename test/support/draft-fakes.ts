@@ -1,14 +1,14 @@
 import type {
   DraftConfig,
-  DraftPlayer,
+  DraftPerson,
   DraftRaceParticipant,
+  PlayerSnapshot,
   RaceSession,
   RaceSessionRace,
   RaceTimeEntrant,
 } from "../../src/domain";
 import { createDefaultDraftConfig } from "../../src/replicants/defaults";
 import { makeSelection } from "./category-fakes";
-
 export function makeEntrant(overrides: Partial<RaceTimeEntrant> = {}): RaceTimeEntrant {
   return {
     userId: "user-1",
@@ -18,7 +18,6 @@ export function makeEntrant(overrides: Partial<RaceTimeEntrant> = {}): RaceTimeE
     ...overrides,
   };
 }
-
 export function makeSessionRace(overrides: Partial<RaceSessionRace> = {}): RaceSessionRace {
   return {
     raceId: "ootr/race-a",
@@ -31,7 +30,6 @@ export function makeSessionRace(overrides: Partial<RaceSessionRace> = {}): RaceS
     ...overrides,
   };
 }
-
 export function makeSession(overrides: Partial<RaceSession> = {}): RaceSession {
   return {
     revision: 1,
@@ -41,36 +39,34 @@ export function makeSession(overrides: Partial<RaceSession> = {}): RaceSession {
     ...overrides,
   };
 }
-
-export function makeDraftPlayer(
-  playerId: string,
-  overrides: Partial<DraftPlayer> = {},
-): DraftPlayer {
+export function makeSnapshot(playerId: string): PlayerSnapshot {
   return {
     playerId,
-    manualDisplayName: null,
-    racetime: {
-      state: "linked",
-      value: { userId: `rt-${playerId}`, name: "One", twitchLogin: null },
-      source: "racetime",
-    },
-    speedrunCom: { state: "unresolved" },
-    twitch: { state: "unresolved" },
-    ...overrides,
+    displayName: `Player ${playerId}`,
+    racetime: { userId: `rt-${playerId}`, name: `Runner ${playerId}` },
+    speedrunCom: { userId: `src-${playerId}`, name: `SRC ${playerId}` },
+    twitch: null,
+    youtube: null,
   };
 }
-
+export function makeDraftPerson(
+  ref: string,
+  racetimeUserId = `rt-${ref}`,
+  resolution: DraftPerson["resolution"] = "matched",
+): DraftPerson {
+  return {
+    ref,
+    playerId: resolution === "matched" ? ref : null,
+    identity: { racetimeUserId, twitchLogin: null, speedrunComUserId: null },
+    player: resolution === "matched" ? makeSnapshot(ref) : null,
+    resolution,
+  };
+}
 export function makeParticipantDraft(options: {
-  players: Record<string, DraftPlayer>;
+  persons: Record<string, DraftPerson>;
   participants?: DraftRaceParticipant[];
   revision?: number;
 }): DraftConfig {
-  const participants =
-    options.participants ??
-    Object.keys(options.players).map((playerId) => ({
-      racetimeUserId: `rt-${playerId}`,
-      playerId,
-    }));
   return {
     ...createDefaultDraftConfig(),
     revision: options.revision ?? 10,
@@ -81,8 +77,13 @@ export function makeParticipantDraft(options: {
       categoryName: "OOTR",
       goal: "Defeat Ganon",
     },
-    participants,
-    players: options.players,
+    participants:
+      options.participants ??
+      Object.values(options.persons).map((person) => ({
+        racetimeUserId: person.identity.racetimeUserId ?? "",
+        personRef: person.ref,
+      })),
+    persons: options.persons,
     categorySelection: { selection: makeSelection(), source: "manual", savedMappingState: "none" },
   };
 }

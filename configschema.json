@@ -15,18 +15,12 @@
     },
     "spreadsheet": {
       "type": "object",
-      "description": "Google Spreadsheet that stores the Players, CategoryMappings and CategoryPresentation sheets.",
+      "description": "Google Spreadsheet that stores CategoryMappings, CategoryPresentation and RaceHistory.",
       "properties": {
         "spreadsheetId": {
           "type": "string",
           "minLength": 1,
           "description": "The id of the spreadsheet (from its URL)."
-        },
-        "playersSheet": {
-          "type": "string",
-          "minLength": 1,
-          "default": "Players",
-          "description": "Name of the sheet that holds the player mappings."
         },
         "categoryMappingsSheet": {
           "type": "string",

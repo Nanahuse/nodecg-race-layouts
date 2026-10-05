@@ -4,12 +4,10 @@ import type {
   DraftConfig,
   DraftSpeedrunSnapshot,
   IntegrationStatus,
-  PlayerDirectory,
   RaceSession,
 } from "../domain";
 import { declareReplicants } from "../replicants";
 import type { NodeCG } from "../types/nodecg";
-import { AutomaticIdentityResolutionService } from "./application/automatic-identity-resolution-service";
 import { BroadcastApplyService } from "./application/broadcast-apply-service";
 import { CategoryDraftService } from "./application/category-draft-service";
 import {
@@ -17,7 +15,6 @@ import {
   type CategoryPresetProvider,
 } from "./application/category-preset-provider";
 import { ParticipantDraftService } from "./application/participant-draft-service";
-import { PlayerDirectoryService } from "./application/player-directory-service";
 import { RaceDraftService } from "./application/race-draft-service";
 import { RacePresentationDraftService } from "./application/race-presentation-draft-service";
 import { RaceSessionService } from "./application/race-session-service";
@@ -43,7 +40,6 @@ import {
   type CategoryPresentationRepository,
 } from "./integrations/spreadsheet/category-presentation-repository";
 import { GoogleSheetsClient } from "./integrations/spreadsheet/google-sheets-client";
-import { SpreadsheetPlayersRepository } from "./integrations/spreadsheet/players-repository";
 import { registerBroadcastMessages } from "./messages/broadcast-messages";
 import { registerCategoryMessages } from "./messages/category-messages";
 import { registerParticipantMessages } from "./messages/participant-messages";
@@ -55,12 +51,10 @@ import { registerPersistenceMessages } from "./messages/persistence-messages";
 import { PostApplyPersistenceService } from "./application/post-apply-persistence-service";
 import { SpreadsheetRaceHistoryRepository } from "./integrations/spreadsheet/race-history-repository";
 import { SpreadsheetOperationStatusCoordinator } from "./application/spreadsheet-status-coordinator";
-import { PlayerMappingManagementService } from "./application/player-mapping-management-service";
-import { registerPlayerDirectoryMessages } from "./messages/player-directory-messages";
 import { setupPlayerManagerIntegration } from "./integrations/player-manager/client";
+import type { PlayerManagerGateway } from "./integrations/player-manager/types";
 
 export type SpreadsheetIntegration = {
-  playerDirectoryService: PlayerDirectoryService;
   categoryMappingsRepository: CategoryMappingsRepository;
   categoryPresentationRepository: CategoryPresentationRepository;
   raceHistoryRepository: SpreadsheetRaceHistoryRepository;
@@ -97,13 +91,8 @@ export function setupSpreadsheetIntegration(nodecg: NodeCG): SpreadsheetIntegrat
     return null;
   }
 
-  const {
-    spreadsheetId,
-    playersSheet,
-    categoryMappingsSheet,
-    categoryPresentationSheet,
-    raceHistorySheet,
-  } = parsed.config.spreadsheet;
+  const { spreadsheetId, categoryMappingsSheet, categoryPresentationSheet, raceHistorySheet } =
+    parsed.config.spreadsheet;
 
   const client = GoogleSheetsClient.create({ spreadsheetId });
   const status = new SpreadsheetOperationStatusCoordinator(
@@ -111,18 +100,7 @@ export function setupSpreadsheetIntegration(nodecg: NodeCG): SpreadsheetIntegrat
     nodecg.log,
   );
 
-  const playerDirectoryService = new PlayerDirectoryService({
-    repository: new SpreadsheetPlayersRepository(client, { sheetName: playersSheet }),
-    playerDirectory: nodecg.Replicant<PlayerDirectory>("player-directory"),
-    integrationStatus: nodecg.Replicant<IntegrationStatus>("integration-status"),
-    log: nodecg.log,
-    sheetName: playersSheet,
-    statusCoordinator: status,
-  });
-  void playerDirectoryService.reloadFromSpreadsheet();
-
   return {
-    playerDirectoryService,
     categoryMappingsRepository: new SpreadsheetCategoryMappingsRepository(client, {
       sheetName: categoryMappingsSheet,
     }),
@@ -184,7 +162,7 @@ export type RaceTimeIntegration = {
 export function setupRaceTimeIntegration(
   nodecg: NodeCG,
   spreadsheet: SpreadsheetIntegration | null,
-  speedrunLookup: SpeedrunIntegration["discovery"],
+  playerManager: PlayerManagerGateway,
 ): RaceTimeIntegration {
   const raceSessions = new RaceSessionService({
     client: new HttpRaceTimeClient(),
@@ -203,21 +181,15 @@ export function setupRaceTimeIntegration(
   const draftRaceSession = nodecg.Replicant<RaceSession>("draft-race-session");
   const integrationStatus = nodecg.Replicant<IntegrationStatus>("integration-status");
 
-  const automaticIdentityResolver = new AutomaticIdentityResolutionService({
-    lookup: speedrunLookup,
-    log: nodecg.log,
-  });
-
   const raceDraft = new RaceDraftService({
     raceSessions,
     draftRaceSession,
-    playerDirectory: nodecg.Replicant<PlayerDirectory>("player-directory"),
+    playerManager,
     draftConfig,
     draftSpeedrunSnapshot,
     integrationStatus,
     log: nodecg.log,
     categoryPresets: categoryPresetProviderFor(spreadsheet),
-    automaticIdentityResolver,
   });
 
   const categoryDraft = new CategoryDraftService({
@@ -275,23 +247,25 @@ export function setupSpeedrunIntegration(nodecg: NodeCG): SpeedrunIntegration {
 
 export function setupParticipantDraftService(
   nodecg: NodeCG,
-  speedrunLookup: SpeedrunIntegration["discovery"],
+  playerManager: PlayerManagerGateway,
 ): ParticipantDraftService {
   return new ParticipantDraftService({
     draftConfig: nodecg.Replicant<DraftConfig>("draft-config"),
     draftSpeedrunSnapshot: nodecg.Replicant<DraftSpeedrunSnapshot>("draft-speedrun-snapshot"),
-    playerDirectory: nodecg.Replicant<PlayerDirectory>("player-directory"),
+    playerManager,
     integrationStatus: nodecg.Replicant<IntegrationStatus>("integration-status"),
-    lookup: speedrunLookup,
     log: nodecg.log,
   });
 }
 
-export function setupRacePresentationDraftService(nodecg: NodeCG): RacePresentationDraftService {
+export function setupRacePresentationDraftService(
+  nodecg: NodeCG,
+  playerManager: PlayerManagerGateway,
+): RacePresentationDraftService {
   return new RacePresentationDraftService({
     draftConfig: nodecg.Replicant<DraftConfig>("draft-config"),
     draftSpeedrunSnapshot: nodecg.Replicant<DraftSpeedrunSnapshot>("draft-speedrun-snapshot"),
-    playerDirectory: nodecg.Replicant<PlayerDirectory>("player-directory"),
+    playerManager,
     integrationStatus: nodecg.Replicant<IntegrationStatus>("integration-status"),
     log: nodecg.log,
   });
@@ -327,21 +301,23 @@ export function bootstrapExtension(nodecg: NodeCG): {
   graphicsProjection: GraphicsProjectionService | null;
 } {
   declareReplicants(nodecg);
-  setupPlayerManagerIntegration(nodecg, nodecg.Replicant<IntegrationStatus>("integration-status"));
+  const playerManager = setupPlayerManagerIntegration(
+    nodecg,
+    nodecg.Replicant<IntegrationStatus>("integration-status"),
+  );
   const spreadsheet = setupSpreadsheetIntegration(nodecg);
   const { discovery: speedrunDiscovery, snapshot: speedrunSnapshot } =
     setupSpeedrunIntegration(nodecg);
   const { raceSessions, raceDraft, categoryDraft } = setupRaceTimeIntegration(
     nodecg,
     spreadsheet,
-    speedrunDiscovery,
+    playerManager,
   );
-  const participantDraft = setupParticipantDraftService(nodecg, speedrunDiscovery);
-  const racePresentationDraft = setupRacePresentationDraftService(nodecg);
+  const participantDraft = setupParticipantDraftService(nodecg, playerManager);
+  const racePresentationDraft = setupRacePresentationDraftService(nodecg, playerManager);
   const postApplyPersistence = spreadsheet
     ? new PostApplyPersistenceService(
         nodecg.Replicant("post-apply-persistence"),
-        spreadsheet.playerDirectoryService,
         spreadsheet.raceHistoryRepository,
         nodecg.log,
         () => new Date(),
@@ -353,17 +329,6 @@ export function bootstrapExtension(nodecg: NodeCG): {
     raceSessions,
     postApplyPersistence,
   );
-  const playerMappingManagement = spreadsheet
-    ? new PlayerMappingManagementService({
-        directoryService: spreadsheet.playerDirectoryService,
-        playerDirectory: nodecg.Replicant<PlayerDirectory>("player-directory"),
-        draftConfig: nodecg.Replicant<DraftConfig>("draft-config"),
-        activeConfig: nodecg.Replicant<ActiveConfig | null>("active-config"),
-        persistence: nodecg.Replicant("post-apply-persistence"),
-        speedrun: speedrunDiscovery,
-        log: nodecg.log,
-      })
-    : null;
   registerPersistenceMessages(nodecg, postApplyPersistence);
   postApplyPersistence?.resume();
   const graphicsProjection = setupGraphicsProjection(nodecg);
@@ -374,7 +339,6 @@ export function bootstrapExtension(nodecg: NodeCG): {
   registerParticipantMessages(nodecg, participantDraft);
   registerRacePresentationMessages(nodecg, racePresentationDraft);
   registerBroadcastMessages(nodecg, broadcastApplyWithPersistence);
-  registerPlayerDirectoryMessages(nodecg, playerMappingManagement);
   return {
     raceDraft,
     categoryDraft,

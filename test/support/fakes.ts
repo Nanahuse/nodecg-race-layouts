@@ -1,15 +1,7 @@
-import type { PlayerDirectory, PlayerId, PlayerMapping } from "../../src/domain";
 import type {
   SpreadsheetClient,
   SpreadsheetValues,
 } from "../../src/extension/integrations/spreadsheet/client";
-import type { PlayersRepository } from "../../src/extension/integrations/spreadsheet/players-repository";
-import {
-  emptyPlayerSheetRow,
-  PLAYER_SHEET_COLUMNS,
-  playerSheetRowToValues,
-  type PlayerSheetRow,
-} from "../../src/extension/integrations/spreadsheet/players-row";
 import type { NodeCGLogger, Replicant, ReplicantChangeListener } from "../../src/types/nodecg";
 
 export class FakeSpreadsheetClient implements SpreadsheetClient {
@@ -43,64 +35,11 @@ export class FakeSpreadsheetClient implements SpreadsheetClient {
   }
 }
 
-export function makePlayerSheetRow(overrides: Partial<PlayerSheetRow> = {}): PlayerSheetRow {
-  return {
-    ...emptyPlayerSheetRow(),
-    player_id: "player-1",
-    racetime_state: "none",
-    speedruncom_state: "none",
-    twitch_state: "none",
-    ...overrides,
-  };
-}
-
-export function sheetValuesFromRows(rows: readonly PlayerSheetRow[]): SpreadsheetValues {
-  return [[...PLAYER_SHEET_COLUMNS], ...rows.map((row) => playerSheetRowToValues(row))];
-}
-
 export function sheetValuesWithHeader(
   header: readonly string[],
   rows: readonly (readonly string[])[],
 ): SpreadsheetValues {
   return [[...header], ...rows.map((row) => [...row])];
-}
-
-export class FakePlayersRepository implements PlayersRepository {
-  readonly events: string[];
-  loadAllResult: PlayerDirectory = {};
-  loadAllError: Error | null = null;
-  upsertError: Error | null = null;
-  deleteError: Error | null = null;
-  upserted: PlayerMapping[][] = [];
-  deleted: PlayerId[] = [];
-
-  constructor(events: string[] = []) {
-    this.events = events;
-  }
-
-  async loadAll(): Promise<PlayerDirectory> {
-    this.events.push("repository.loadAll");
-    if (this.loadAllError) {
-      throw this.loadAllError;
-    }
-    return this.loadAllResult;
-  }
-
-  async upsert(players: readonly PlayerMapping[]): Promise<void> {
-    this.events.push("repository.upsert");
-    if (this.upsertError) {
-      throw this.upsertError;
-    }
-    this.upserted.push([...players]);
-  }
-
-  async delete(playerId: PlayerId): Promise<void> {
-    this.events.push("repository.delete");
-    if (this.deleteError) {
-      throw this.deleteError;
-    }
-    this.deleted.push(playerId);
-  }
 }
 
 export class TrackingReplicant<T> implements Replicant<T> {

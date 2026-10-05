@@ -1,5 +1,4 @@
 import type { ActiveConfig } from "./config";
-import type { PlayerMapping } from "./player";
 import type { RaceTimeUserId } from "./ids";
 
 function cloneReplicantValue<T>(value: T): T {
@@ -23,7 +22,6 @@ export type RaceHistoryPayload = {
 export type PostApplyPersistenceItem = {
   activeRevision: number;
   appliedAt: string;
-  players: PlayerMapping[];
   raceHistory: RaceHistoryPayload;
   attempts: number;
   lastError: string | null;
@@ -41,7 +39,6 @@ export function persistenceItemFromConfig(
   return {
     activeRevision: config.revision,
     appliedAt,
-    players: cloneReplicantValue(Object.values(config.players)),
     raceHistory: {
       racetimeUrl: config.race.canonicalUrl,
       raceId: config.race.raceId,

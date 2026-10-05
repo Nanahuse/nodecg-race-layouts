@@ -5,7 +5,7 @@ import type {
 } from "./category";
 import type { PlayerId } from "./ids";
 import type { ActiveRaceParticipant, DraftRaceParticipant } from "./participant";
-import type { DraftPlayer, PlayerMapping } from "./player";
+import type { DraftPerson, PlayerSnapshot } from "./draft-person";
 import type { RaceReference } from "./race";
 import type { ActiveRaceScreenSlots, DraftRaceScreenSlots } from "./race-screen";
 
@@ -20,11 +20,12 @@ export type DraftConfig = {
 
   participants: DraftRaceParticipant[];
 
-  players: Record<PlayerId, DraftPlayer>;
+  persons: Record<string, DraftPerson>;
 
   raceScreenSlots: DraftRaceScreenSlots;
 
   commentatorPlayerIds: PlayerId[];
+  commentators: Record<PlayerId, PlayerSnapshot>;
 
   categorySelection: CategorySelectionState;
 
@@ -43,7 +44,7 @@ export type ActiveConfig = {
 
   participants: ActiveRaceParticipant[];
 
-  players: Record<PlayerId, PlayerMapping>;
+  players: Record<PlayerId, PlayerSnapshot>;
 
   raceScreenSlots: ActiveRaceScreenSlots;
 

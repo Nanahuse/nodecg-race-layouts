@@ -41,18 +41,14 @@ function draftWithUnresolvedPlayer(): DraftConfig {
   const base = makeDraftConfig();
   return {
     ...base,
-    participants: [{ racetimeUserId: "rt-1", playerId: "p1" }],
-    players: {
-      p1: {
-        playerId: "p1",
-        manualDisplayName: null,
-        racetime: {
-          state: "linked",
-          value: { userId: "rt-1", name: "One", twitchLogin: null },
-          source: "racetime",
-        },
-        speedrunCom: { state: "unresolved" },
-        twitch: { state: "unresolved" },
+    participants: [{ racetimeUserId: "rt-1", personRef: "person-1" }],
+    persons: {
+      "person-1": {
+        ref: "person-1",
+        playerId: null,
+        identity: { racetimeUserId: "rt-1", twitchLogin: null, speedrunComUserId: null },
+        player: null,
+        resolution: "unresolved",
       },
     },
   };

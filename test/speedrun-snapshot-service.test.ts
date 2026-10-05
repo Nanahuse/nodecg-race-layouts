@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type {
   DraftConfig,
-  DraftPlayer,
+  DraftPerson,
   DraftSpeedrunSnapshot,
   IntegrationStatus,
 } from "../src/domain";
@@ -35,22 +35,21 @@ import {
 function makeDraftPlayer(
   playerId: string,
   userId: string,
-  overrides: Partial<DraftPlayer> = {},
-): DraftPlayer {
+  overrides: Partial<DraftPerson> = {},
+): DraftPerson {
   return {
+    ref: playerId,
     playerId,
-    manualDisplayName: null,
-    racetime: {
-      state: "linked",
-      value: { userId: `rt-${playerId}`, name: "One", twitchLogin: null },
-      source: "racetime",
+    identity: { racetimeUserId: `rt-${playerId}`, twitchLogin: "one", speedrunComUserId: userId },
+    resolution: "matched",
+    player: {
+      playerId,
+      displayName: "Runner One",
+      racetime: { userId: `rt-${playerId}`, name: "One" },
+      speedrunCom: { userId, name: "Runner One" },
+      twitch: { userId: null, login: "one", displayName: null },
+      youtube: null,
     },
-    speedrunCom: {
-      state: "linked",
-      value: { userId, name: "Runner One", twitchLogin: null },
-      source: "spreadsheet",
-    },
-    twitch: { state: "linked", value: { userId: null, login: "one" }, source: "spreadsheet" },
     ...overrides,
   };
 }
@@ -67,8 +66,8 @@ function makeDraft(overrides: Partial<DraftConfig> = {}): DraftConfig {
       categoryName: "OOTR",
       goal: "Defeat Ganon",
     },
-    participants: [{ racetimeUserId: "rt-p1", playerId: "p1" }],
-    players: { p1: makeDraftPlayer("p1", "user-1") },
+    participants: [{ racetimeUserId: "rt-p1", personRef: "p1" }],
+    persons: { p1: makeDraftPlayer("p1", "user-1") },
     categorySelection: { selection: makeSelection(), source: "manual", savedMappingState: "none" },
     ...overrides,
   };
@@ -184,7 +183,14 @@ describe("SpeedrunSnapshotService.refresh validation", () => {
   it("rejects unresolved players", async () => {
     const { service } = setup({
       draft: makeDraft({
-        players: { p1: makeDraftPlayer("p1", "user-1", { speedrunCom: { state: "unresolved" } }) },
+        persons: {
+          p1: {
+            ...makeDraftPlayer("p1", "user-1"),
+            resolution: "unresolved",
+            playerId: null,
+            player: null,
+          },
+        },
       }),
     });
     const result = await service.refresh(10);
@@ -496,10 +502,10 @@ describe("SpeedrunSnapshotService failure handling", () => {
   it("stops fetching personal bests after a 429", async () => {
     const draft = makeDraft({
       participants: [
-        { racetimeUserId: "rt-p1", playerId: "p1" },
-        { racetimeUserId: "rt-p2", playerId: "p2" },
+        { racetimeUserId: "rt-p1", personRef: "p1" },
+        { racetimeUserId: "rt-p2", personRef: "p2" },
       ],
-      players: {
+      persons: {
         p1: makeDraftPlayer("p1", "user-1"),
         p2: makeDraftPlayer("p2", "user-2"),
       },
@@ -530,9 +536,9 @@ describe("SpeedrunSnapshotService concurrency and revision race", () => {
     const draft = makeDraft({
       participants: [1, 2, 3, 4].map((index) => ({
         racetimeUserId: `rt-p${index}`,
-        playerId: `p${index}`,
+        personRef: `p${index}`,
       })),
-      players: Object.fromEntries(
+      persons: Object.fromEntries(
         [1, 2, 3, 4].map((index) => [`p${index}`, makeDraftPlayer(`p${index}`, `user-${index}`)]),
       ),
     });

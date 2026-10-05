@@ -16,9 +16,10 @@ export function createDefaultDraftConfig(): DraftConfig {
     revision: 0,
     race: null,
     participants: [],
-    players: {},
+    persons: {},
     raceScreenSlots: { 1: null, 2: null, 3: null, 4: null },
     commentatorPlayerIds: [],
+    commentators: {},
     categorySelection: { selection: null, source: null, savedMappingState: "none" },
     categoryPresentation: null,
   };
@@ -74,29 +75,24 @@ export const REPLICANT_DEFINITIONS: readonly ReplicantDefinition[] = [
     persistent: true,
   },
   {
-    name: "player-directory",
-    defaultValue: {},
-    persistent: true,
-  },
-  {
     name: "draft-config",
     defaultValue: createDefaultDraftConfig(),
-    persistent: true,
+    persistent: false,
   },
   {
     name: "active-config",
     defaultValue: null,
-    persistent: true,
+    persistent: false,
   },
   {
     name: "draft-speedrun-snapshot",
     defaultValue: createDefaultDraftSpeedrunSnapshot(),
-    persistent: true,
+    persistent: false,
   },
   {
     name: "active-speedrun-snapshot",
     defaultValue: null,
-    persistent: true,
+    persistent: false,
   },
   {
     name: "race-overlay-data",

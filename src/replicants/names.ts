@@ -6,7 +6,6 @@
 export const REPLICANT_NAMES = [
   "draft-race-session",
   "active-race-session",
-  "player-directory",
   "draft-config",
   "active-config",
   "draft-speedrun-snapshot",

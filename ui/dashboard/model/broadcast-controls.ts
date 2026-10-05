@@ -1,29 +1,18 @@
-import type {
-  DraftConfig,
-  DraftSpeedrunSnapshot,
-  PlayerDirectory,
-  RaceSession,
-} from "../../../src/domain";
-import { resolveDisplayName } from "../../../src/domain";
+import type { DraftConfig, DraftSpeedrunSnapshot, RaceSession } from "../../../src/domain";
 export const canApply = (state: string, pending: boolean) => state === "ready" && !pending;
 export const canRetryPersistence = (state: string, queueLength: number, pending: boolean) =>
   state === "error" && queueLength > 0 && !pending;
 export function buildBroadcastApplySummary(
   draft: DraftConfig,
   snapshot: DraftSpeedrunSnapshot,
-  session: RaceSession,
+  _session: RaceSession,
   activeRevision: number | null,
-  directory: PlayerDirectory,
 ) {
   const display = (id: string | null) => {
     if (!id) return "Unassigned";
     const participant = draft.participants.find((item) => item.racetimeUserId === id);
-    const player = participant?.playerId ? draft.players[participant.playerId] : undefined;
-    return (
-      (player ? resolveDisplayName(player) : null) ??
-      session.race?.entrants.find((item) => item.userId === id)?.name ??
-      id
-    );
+    const person = participant ? draft.persons[participant.personRef] : undefined;
+    return person?.player?.displayName ?? person?.resolution ?? id;
   };
   return {
     raceId: draft.race?.raceId ?? "—",
@@ -34,10 +23,7 @@ export function buildBroadcastApplySummary(
     snapshotState: snapshot.state,
     snapshotFetchedAt: snapshot.snapshot?.fetchedAt ?? null,
     slots: ([1, 2, 3, 4] as const).map((slot) => display(draft.raceScreenSlots[slot])),
-    commentators: draft.commentatorPlayerIds.map((id) => {
-      const player = draft.players[id] ?? directory[id];
-      return (player ? resolveDisplayName(player) : null) ?? id;
-    }),
+    commentators: draft.commentatorPlayerIds.map((id) => draft.commentators[id]?.displayName ?? id),
     activeRevision,
   };
 }

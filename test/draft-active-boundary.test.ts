@@ -1,113 +1,53 @@
 import { describe, expect, it } from "vitest";
+import type { DraftPerson } from "../src/domain";
+import { buildActiveConfig } from "../src/extension/application/active-config-builder";
+import { makeActiveConfig, makeDraftConfig } from "./factories";
+import { makeDraftPerson } from "./support/draft-fakes";
 
-import {
-  ACTIVE_CONFIG_ISSUE_CODES,
-  hasValidationIssue,
-  validateActiveConfig,
-  type ActivePlayer,
-  type DraftPlayer,
-  type PlayerMapping,
-  type RaceReference,
-} from "../src/domain";
-import { isValid } from "./helpers";
-import { makeActiveConfig, makeActivePlayer, makeDraftConfig, makeDraftPlayer } from "./factories";
-
-describe("draft / active type boundary", () => {
-  it("allows unresolved links on a draft player", () => {
-    const draftPlayer: DraftPlayer = {
-      ...makeDraftPlayer("p1"),
-      racetime: { state: "unresolved" },
+describe("Player Manager snapshot boundary", () => {
+  it("keeps canonical Player Manager ids separate from Race Layouts person refs", () => {
+    const person: DraftPerson = {
+      ...makeDraftPerson("draft-ref", "race-user"),
+      playerId: "canonical-player",
+      player: { ...makeDraftPerson("draft-ref").player!, playerId: "canonical-player" },
     };
-    expect(draftPlayer.racetime.state).toBe("unresolved");
-  });
-
-  it("does not allow unresolved links on an active player", () => {
-    const activePlayer: ActivePlayer = {
-      ...makeActivePlayer("p1"),
-      // @ts-expect-error Active players cannot carry unresolved account links
-      racetime: { state: "unresolved" },
+    const draft = {
+      ...makeDraftConfig(),
+      race: makeActiveConfig().race,
+      participants: [{ racetimeUserId: "race-user", personRef: "draft-ref" }],
+      persons: { "draft-ref": person },
+      categorySelection: {
+        selection: makeActiveConfig().categorySelection,
+        source: "manual" as const,
+        savedMappingState: "none" as const,
+      },
     };
-    expect(activePlayer.playerId).toBe("p1");
+    const built = buildActiveConfig(draft, 1);
+    expect(built.ok).toBe(true);
+    if (built.ok) {
+      expect(built.config.participants[0]?.playerId).toBe("canonical-player");
+      expect(built.config.players["canonical-player"]?.playerId).toBe("canonical-player");
+    }
   });
-});
-
-describe("draft schema allows unresolved", () => {
-  it("accepts a draft config with unresolved identities", () => {
-    const draftConfig = makeDraftConfig({
-      players: {
-        "player-1": makeDraftPlayer("player-1", {
-          twitch: { state: "unresolved" },
-          speedrunCom: { state: "unresolved" },
-          racetime: { state: "unresolved" },
-        }),
-      },
-    });
-    expect(isValid("draft-config", draftConfig)).toBe(true);
-  });
-});
-
-describe("active schema rejects unresolved", () => {
-  it("rejects an active config with an unresolved identity", () => {
-    const base = makeActiveConfig();
-    const activeConfig = makeActiveConfig({
-      players: {
-        ...base.players,
-        "player-1": {
-          ...base.players["player-1"],
-          twitch: { state: "unresolved" },
-        } as unknown as PlayerMapping,
-      },
-    });
-
-    expect(isValid("active-config", activeConfig)).toBe(false);
-    expect(
-      hasValidationIssue(
-        validateActiveConfig(activeConfig),
-        ACTIVE_CONFIG_ISSUE_CODES.playerIdentityUnresolved,
-      ),
-    ).toBe(true);
-  });
-
-  it("rejects an active participant without a player", () => {
-    const base = makeActiveConfig();
-    const activeConfig = makeActiveConfig({
-      participants: base.participants.map((participant, index) =>
-        index === 0 ? { ...participant, playerId: null } : participant,
-      ) as unknown as typeof base.participants,
-    });
-
-    expect(isValid("active-config", activeConfig)).toBe(false);
-    expect(
-      hasValidationIssue(
-        validateActiveConfig(activeConfig),
-        ACTIVE_CONFIG_ISSUE_CODES.participantPlayerUnresolved,
-      ),
-    ).toBe(true);
-  });
-});
-
-describe("active config completeness", () => {
-  it("rejects an active config without a race", () => {
-    const activeConfig = makeActiveConfig({ race: null as unknown as RaceReference });
-    expect(hasValidationIssue(validateActiveConfig(activeConfig), "race_missing")).toBe(true);
-  });
-
-  it("rejects an active player that cannot resolve a display name", () => {
-    const base = makeActiveConfig();
-    const activeConfig = makeActiveConfig({
-      players: {
-        ...base.players,
-        "player-1": {
-          playerId: "player-1",
-          manualDisplayName: null,
-          racetime: { state: "none" },
-          speedrunCom: { state: "none" },
-          twitch: { state: "none" },
+  it("does not accept unresolved DraftPerson values", () => {
+    const draft = {
+      ...makeDraftConfig(),
+      race: makeActiveConfig().race,
+      participants: [{ racetimeUserId: "race-user", personRef: "p" }],
+      persons: {
+        p: {
+          ...makeDraftPerson("p", "race-user"),
+          playerId: null,
+          player: null,
+          resolution: "ambiguous" as const,
         },
       },
-    });
-
-    const issues = validateActiveConfig(activeConfig);
-    expect(hasValidationIssue(issues, ACTIVE_CONFIG_ISSUE_CODES.displayNameUnresolved)).toBe(true);
+      categorySelection: {
+        selection: makeActiveConfig().categorySelection,
+        source: "manual" as const,
+        savedMappingState: "none" as const,
+      },
+    };
+    expect(buildActiveConfig(draft, 1).ok).toBe(false);
   });
 });

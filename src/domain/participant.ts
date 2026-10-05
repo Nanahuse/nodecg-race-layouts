@@ -1,13 +1,12 @@
 import type { PlayerId, RaceTimeUserId } from "./ids";
 
 /**
- * Race participants and player mappings are separate concepts. A participant is
- * a RaceTime.gg entrant for one specific race; a player mapping is a reusable
- * person master record.
+ * A participant is a RaceTime.gg entrant for one specific race. The draft
+ * associates that entrant with a Player Manager person reference.
  */
 export type DraftRaceParticipant = {
   racetimeUserId: RaceTimeUserId;
-  playerId: PlayerId | null;
+  personRef: string;
 };
 
 export type ActiveRaceParticipant = {

@@ -1,11 +1,9 @@
-export const DEFAULT_PLAYERS_SHEET = "Players";
 export const DEFAULT_CATEGORY_MAPPINGS_SHEET = "CategoryMappings";
 export const DEFAULT_CATEGORY_PRESENTATION_SHEET = "CategoryPresentation";
 export const DEFAULT_RACE_HISTORY_SHEET = "RaceHistory";
 
 export type SpreadsheetConfig = {
   spreadsheetId: string;
-  playersSheet: string;
   categoryMappingsSheet: string;
   categoryPresentationSheet: string;
   raceHistorySheet: string;
@@ -81,12 +79,6 @@ export function parseBundleConfig(raw: unknown): BundleConfigParseResult {
     issues.push('"spreadsheet.spreadsheetId" is required and must be a non-empty string.');
   }
 
-  const playersSheet = parseSheetName(
-    spreadsheet.playersSheet,
-    "playersSheet",
-    DEFAULT_PLAYERS_SHEET,
-    issues,
-  );
   const categoryMappingsSheet = parseSheetName(
     spreadsheet.categoryMappingsSheet,
     "categoryMappingsSheet",
@@ -115,7 +107,6 @@ export function parseBundleConfig(raw: unknown): BundleConfigParseResult {
     config: {
       spreadsheet: {
         spreadsheetId,
-        playersSheet,
         categoryMappingsSheet,
         categoryPresentationSheet,
         raceHistorySheet,

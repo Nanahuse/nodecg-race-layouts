@@ -6,7 +6,6 @@ import type {
   IntegrationStatus,
   LeaderboardPageData,
   ParticipantListData,
-  PlayerDirectory,
   RaceOverlayData,
   RaceResultPageData,
   RaceSession,
@@ -25,7 +24,6 @@ import type { ReplicantName } from "./names";
  */
 export type DraftRaceSessionValue = RaceSession;
 export type ActiveRaceSessionValue = RaceSession;
-export type PlayerDirectoryValue = PlayerDirectory;
 export type DraftConfigValue = DraftConfig;
 export type ActiveConfigValue = ActiveConfig | null;
 export type DraftSpeedrunSnapshotValue = DraftSpeedrunSnapshot;
@@ -41,7 +39,6 @@ export type IntegrationStatusValue = IntegrationStatus;
 export type ReplicantValueMap = {
   "draft-race-session": DraftRaceSessionValue;
   "active-race-session": ActiveRaceSessionValue;
-  "player-directory": PlayerDirectoryValue;
   "draft-config": DraftConfigValue;
   "active-config": ActiveConfigValue;
   "draft-speedrun-snapshot": DraftSpeedrunSnapshotValue;

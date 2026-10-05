@@ -9,7 +9,6 @@ import type {
 } from "../../domain";
 import type { EventConfig } from "../config";
 import { RACE_SCREEN_SLOT_NUMBERS } from "../../domain/race-screen";
-import { resolveDisplayName } from "../../domain/display-name";
 
 export type BuildResult<T> = { ok: true; value: T } | { ok: false; issues: string[] };
 const sourceLabel = "Speedrun.com";
@@ -24,7 +23,7 @@ function player(config: ActiveConfig, id: string) {
 }
 function name(config: ActiveConfig, id: string): string | null {
   const p = player(config, id);
-  return p ? resolveDisplayName(p) : null;
+  return p?.displayName ?? null;
 }
 function pb(
   config: ActiveConfig,
@@ -33,10 +32,7 @@ function pb(
   limitRank = false,
 ): PlayerPersonalBestView {
   const p = player(config, id);
-  const src =
-    p?.speedrunCom.state === "linked"
-      ? snapshot.snapshot.personalBests[p.speedrunCom.value.userId]
-      : null;
+  const src = p?.speedrunCom ? snapshot.snapshot.personalBests[p.speedrunCom.userId] : null;
   return {
     time: src?.formattedTime ?? null,
     rank: src && (!limitRank || src.rank === null || src.rank <= 20) ? src.rank : null,
@@ -52,7 +48,7 @@ function commentators(config: ActiveConfig): BuildResult<CommentatorView[]> {
     return {
       playerId: id,
       displayName: displayName ?? "",
-      twitchLogin: p?.twitch.state === "linked" ? p.twitch.value.login : null,
+      twitchLogin: p?.twitch?.login ?? null,
     };
   });
   return issues.length ? { ok: false, issues } : { ok: true, value };
@@ -83,7 +79,7 @@ export function buildRaceOverlayData(
     return {
       slot,
       displayName: displayName ?? "",
-      twitchLogin: p?.twitch.state === "linked" ? p.twitch.value.login : null,
+      twitchLogin: p?.twitch?.login ?? null,
       personalBest: part ? pb(config, snapshot, part.playerId, true) : { time: null, rank: null },
     };
   });
@@ -123,7 +119,7 @@ export function buildParticipantListData(
     entries.push({
       racetimeUserId: part.racetimeUserId,
       displayName,
-      speedrunComName: p.speedrunCom.state === "linked" ? p.speedrunCom.value.name : null,
+      speedrunComName: p.speedrunCom?.name ?? null,
       personalBest: pb(config, snapshot, part.playerId),
     });
   }
@@ -152,8 +148,8 @@ export function buildLeaderboardPageData(
   for (const p of config.participants) {
     const playerValue = player(config, p.playerId);
     if (!playerValue) return { ok: false, issues: [`Participant player missing: ${p.playerId}`] };
-    if (playerValue.speedrunCom.state === "linked") {
-      const id = playerValue.speedrunCom.value.userId;
+    if (playerValue.speedrunCom) {
+      const id = playerValue.speedrunCom.userId;
       if (map.has(id)) return { ok: false, issues: [`Duplicate SRC user mapping: ${id}`] };
       const n = name(config, p.playerId);
       if (!n) return { ok: false, issues: [`Display name unresolved: ${p.playerId}`] };
