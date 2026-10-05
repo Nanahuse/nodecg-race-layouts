@@ -117,7 +117,7 @@ function main(): void {
 
   if (checkOnly) {
     if (hasDrift) {
-      console.error("Schemas are out of date. Run `npm run schema:generate`.");
+      console.error("Schemas are out of date. Run `pnpm run schema:generate`.");
       process.exit(1);
     }
     console.log(`Schemas are up to date (${schemas.size} files).`);

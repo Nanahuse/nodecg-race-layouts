@@ -27,6 +27,9 @@
   },
   "nodecg": {
     "compatibleRange": "^2.0.0",
+    "bundleDependencies": {
+      "player-manager": "^1.0.0"
+    },
     "dashboardPanels": [
       {
         "name": "race-control",
@@ -64,9 +67,6 @@
       }
     ]
   },
-  "bundleDependencies": [
-    "@nanahuse/player-manager-protocol"
-  ],
   "devDependencies": {
     "@types/node": "^24.13.6",
     "@types/react": "^19.3.0",

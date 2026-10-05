@@ -1,2 +1,2 @@
 allowBuilds:
-  '@nanahuse/player-manager-protocol@https://codeload.github.com/Nanahuse/player-manager/tar.gz/cc90e1bb7c292216d27e11c533588b09df706ca5#path:/packages/player-manager-protocol': true
+  '@nanahuse/player-manager-protocol@git+https://github.com/Nanahuse/player-manager.git': true
