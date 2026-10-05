@@ -9,8 +9,8 @@
 このバンドルは、別途用意したNodeCG 2.xホスト上で動作します。バンドルのディレクトリで依存関係をインストールし、Extension、Dashboard、Graphicsをビルドしてください。
 
 ```sh
-npm ci
-npm run build
+pnpm install --frozen-lockfile
+pnpm run build
 ```
 
 `config.example.json`をNodeCGホストの`cfg/nodecg-race-layouts.json`へコピーします。空でないイベント名とGoogle Spreadsheet IDを設定してください。シート名は変更できます。省略時の既定値は`Players`、`CategoryMappings`、`CategoryPresentation`、`RaceHistory`です。
@@ -132,7 +132,7 @@ OBSの推奨レイヤー順（下から上）は次のとおりです。
 
 | 症状                               | 確認事項                                                                                                                                                                                                   |
 | ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| DashboardまたはGraphicsが空白      | バンドルが`package.json`とともにNodeCGの`bundles`ディレクトリに配置されているか確認します。バンドル内で`npm ci`と`npm run build`を実行し、NodeCGを再起動してログを確認します。                             |
+| DashboardまたはGraphicsが空白      | バンドルが`package.json`とともにNodeCGの`bundles`ディレクトリに配置されているか確認します。バンドル内で`pnpm install --frozen-lockfile`と`pnpm run build`を実行し、NodeCGを再起動してログを確認します。    |
 | Spreadsheetステータスが`error`     | Spreadsheet ID、設定したタブ名、ヘッダー行、Google APIのアクセス権、NodeCGプロセスからADCを利用できるかを確認します。原因を修正した後、Reload from Spreadsheetを実行します。                               |
 | Playersシートを読み込めない        | Playersのヘッダーに上記の必須列がすべてあること、linked状態の行に有効な状態・ID情報があることを確認します。データが空のシートにもヘッダー行が必要です。                                                    |
 | Applyできない                      | BroadcastとSnapshotの状態を確認します。Category選択、必須Variable、参加者ID、Race Reconcileの要否、Snapshotのrevision・取得条件、検証メッセージを確認してください。Race Screenの空Slotは許可されています。 |

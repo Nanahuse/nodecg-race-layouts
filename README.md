@@ -24,22 +24,31 @@ test/             単体・統合フロー・Schemaテスト
 ## 必要環境
 
 - Node.js 24以降（`.node-version` / `.nvmrc`を参照）
-- npm
-- NodeCG 2.xホスト（このリポジトリはバンドルであり、NodeCGサーバー本体は含みません）
+- pnpm
+- NodeCG 2.8.0以降のホスト（このリポジトリはバンドルであり、NodeCGサーバー本体は含みません）
+- Player Manager 1.0.1以降（必須bundle。`nodecg.bundleDependencies`で宣言しています）
 - Player、Category、RaceHistoryのスプレッドシート連携を使う場合は、Google SpreadsheetとGoogle Application Default Credentials
 
 ## クイックスタート
 
-1. NodeCG 2.xホストを別途インストールまたは用意します。
-2. このリポジトリをNodeCGのバンドルとして配置します。例: `nodecg/bundles/nodecg-race-layouts`
-3. バンドルのディレクトリで依存関係をインストールし、すべての成果物をビルドします。
+1. NodeCG 2.8.0以降のホストを別途インストールまたは用意します。
+2. このリポジトリと必須bundleのPlayer Managerを、同一NodeCGホストの`bundles/`配下へ配置します。
 
-   ```sh
-   npm ci
-   npm run build
+   ```text
+   nodecg/bundles/nodecg-race-layouts
+   nodecg/bundles/player-manager
    ```
 
-   `npm run build`はExtensionを`dist/`へ出力し、Dashboardパネルと4種類のGraphicsを生成します。生成物はGit管理対象外です。
+   `nodecg-race-layouts`の`package.json`は`nodecg.bundleDependencies`で`player-manager@^1.0.1`を宣言しています。`nodecg install`によるbundle依存の自動解決を使わず手動で配置する場合は、両方のbundleを配置してください。
+
+3. `nodecg-race-layouts`のディレクトリで依存関係をインストールし、すべての成果物をビルドします。
+
+   ```sh
+   pnpm install --frozen-lockfile
+   pnpm run build
+   ```
+
+   `pnpm run build`はExtensionを`dist/`へ出力し、Dashboardパネルと4種類のGraphicsを生成します。生成物はGit管理対象外です。
 
 4. `config.example.json`をNodeCGホストの`cfg/nodecg-race-layouts.json`へコピーし、イベント情報とSpreadsheet IDを設定します。シート名が既定値と異なる場合はそれも指定します。
 5. NodeCGを起動するプロセスからGoogle ADCを利用できるようにします。サービスアカウントの鍵ファイルを使う場合は、そのプロセスの環境変数`GOOGLE_APPLICATION_CREDENTIALS`に設定し、該当アカウントにSpreadsheetへのアクセス権を付与します。認証情報をバンドル設定やリポジトリへ保存しないでください。
@@ -95,19 +104,19 @@ Broadcast Applyが成功するまでDraftは放送に反映されません。App
 
 ## 開発
 
-`npm ci`で依存関係をインストールし、次のコマンドを実行します。
+`pnpm install --frozen-lockfile`で依存関係をインストールし、次のコマンドを実行します。
 
 ```sh
-npm run typecheck       # Extension、Dashboard、Graphics、テストの型チェック
-npm run lint            # oxlint
-npm run schema:check    # 管理対象Schemaとの一致を確認
-npm run test            # Vitestテストスイート
-npm run build           # Extension、Dashboard、Graphicsのビルド
-npm run format:check    # Prettierチェック
-npm run verify          # typecheck、lint、schema:check、test
+pnpm run typecheck       # Extension、Dashboard、Graphics、テストの型チェック
+pnpm run lint            # oxlint
+pnpm run schema:check    # 管理対象Schemaとの一致を確認
+pnpm run test            # Vitestテストスイート
+pnpm run build           # Extension、Dashboard、Graphicsのビルド
+pnpm run format:check    # Prettierチェック
+pnpm run verify          # typecheck、lint、schema:check、test
 ```
 
-Replicant Schemaを意図的に更新する場合のみ`npm run schema:generate`を実行します。`schemas/`内の生成ファイルはリポジトリで管理しており、手作業で編集しないでください。NodeCGホストはこのリポジトリとは別に起動します。
+Replicant Schemaを意図的に更新する場合のみ`pnpm run schema:generate`を実行します。`schemas/`内の生成ファイルはリポジトリで管理しており、手作業で編集しないでください。NodeCGホストはこのリポジトリとは別に起動します。
 
 ## オペレーターガイド
 

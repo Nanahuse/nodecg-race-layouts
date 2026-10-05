@@ -41,6 +41,11 @@ export type BroadcastStatus = {
 };
 
 export type IntegrationStatus = {
+  playerManager: {
+    state: "ready" | "unavailable" | "error";
+    message: string | null;
+  };
+
   racetime: ServiceStatus;
 
   speedrunCom: SpeedrunComStatus;

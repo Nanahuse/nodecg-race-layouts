@@ -1,0 +1,2 @@
+allowBuilds:
+  '@nanahuse/player-manager-protocol@git+https://github.com/Nanahuse/player-manager.git': true

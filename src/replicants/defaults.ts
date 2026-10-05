@@ -35,6 +35,7 @@ export function createDefaultDraftSpeedrunSnapshot(): DraftSpeedrunSnapshot {
 
 export function createDefaultIntegrationStatus(): IntegrationStatus {
   return {
+    playerManager: { state: "unavailable", message: null },
     racetime: { state: "disconnected", message: null },
     speedrunCom: { state: "idle", message: null },
     spreadsheet: { state: "idle", message: null },
@@ -120,7 +121,7 @@ export const REPLICANT_DEFINITIONS: readonly ReplicantDefinition[] = [
   {
     name: "integration-status",
     defaultValue: createDefaultIntegrationStatus(),
-    persistent: true,
+    persistent: false,
   },
   {
     name: "post-apply-persistence",

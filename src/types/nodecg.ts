@@ -49,4 +49,6 @@ export interface NodeCG {
   bundleConfig: unknown;
   /** The version (from package.json) of the bundle. */
   bundleVersion: string;
+  /** Extension APIs supplied by other bundles in the same NodeCG process. */
+  extensions?: Record<string, unknown>;
 }

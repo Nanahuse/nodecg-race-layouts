@@ -56,6 +56,30 @@
         "broadcast": {
           "$ref": "#/definitions/BroadcastStatus"
         },
+        "playerManager": {
+          "additionalProperties": false,
+          "properties": {
+            "message": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "state": {
+              "enum": [
+                "ready",
+                "unavailable",
+                "error"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "state",
+            "message"
+          ],
+          "type": "object"
+        },
         "racetime": {
           "$ref": "#/definitions/ServiceStatus"
         },
@@ -67,6 +91,7 @@
         }
       },
       "required": [
+        "playerManager",
         "racetime",
         "speedrunCom",
         "spreadsheet",
