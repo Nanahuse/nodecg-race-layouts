@@ -25,14 +25,23 @@ test/             単体・統合フロー・Schemaテスト
 
 - Node.js 24以降（`.node-version` / `.nvmrc`を参照）
 - pnpm
-- NodeCG 2.xホスト（このリポジトリはバンドルであり、NodeCGサーバー本体は含みません）
+- NodeCG 2.8.0以降のホスト（このリポジトリはバンドルであり、NodeCGサーバー本体は含みません）
+- Player Manager 1.0.1以降（必須bundle。`nodecg.bundleDependencies`で宣言しています）
 - Player、Category、RaceHistoryのスプレッドシート連携を使う場合は、Google SpreadsheetとGoogle Application Default Credentials
 
 ## クイックスタート
 
-1. NodeCG 2.xホストを別途インストールまたは用意します。
-2. このリポジトリをNodeCGのバンドルとして配置します。例: `nodecg/bundles/nodecg-race-layouts`
-3. バンドルのディレクトリで依存関係をインストールし、すべての成果物をビルドします。
+1. NodeCG 2.8.0以降のホストを別途インストールまたは用意します。
+2. このリポジトリと必須bundleのPlayer Managerを、同一NodeCGホストの`bundles/`配下へ配置します。
+
+   ```text
+   nodecg/bundles/nodecg-race-layouts
+   nodecg/bundles/player-manager
+   ```
+
+   `nodecg-race-layouts`の`package.json`は`nodecg.bundleDependencies`で`player-manager@^1.0.1`を宣言しています。`nodecg install`によるbundle依存の自動解決を使わず手動で配置する場合は、両方のbundleを配置してください。
+
+3. `nodecg-race-layouts`のディレクトリで依存関係をインストールし、すべての成果物をビルドします。
 
    ```sh
    pnpm install --frozen-lockfile

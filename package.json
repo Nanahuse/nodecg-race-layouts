@@ -26,7 +26,7 @@
     "verify": "pnpm run typecheck && pnpm run lint && pnpm run schema:check && pnpm run test"
   },
   "nodecg": {
-    "compatibleRange": "^2.0.0",
+    "compatibleRange": "^2.8.0",
     "bundleDependencies": {
       "player-manager": "^1.0.1"
     },
