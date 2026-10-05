@@ -1,4 +1,10 @@
-import type { DraftConfig, DraftSpeedrunSnapshot, IntegrationStatus, RaceSession } from "../domain";
+import type {
+  DraftConfig,
+  DraftSpeedrunSnapshot,
+  IntegrationStatus,
+  RaceSession,
+  SpreadsheetSettings,
+} from "../domain";
 import type { ReplicantName } from "./names";
 import type { ReplicantValueMap } from "./value-types";
 
@@ -31,6 +37,15 @@ export function createDefaultDraftSpeedrunSnapshot(): DraftSpeedrunSnapshot {
     state: "empty",
     snapshot: null,
     message: null,
+  };
+}
+
+export function createDefaultSpreadsheetSettings(): SpreadsheetSettings {
+  return {
+    spreadsheetId: "",
+    categoryMappingsSheet: "CategoryMappings",
+    categoryPresentationSheet: "CategoryPresentation",
+    raceHistorySheet: "RaceHistory",
   };
 }
 
@@ -122,6 +137,11 @@ export const REPLICANT_DEFINITIONS: readonly ReplicantDefinition[] = [
   {
     name: "post-apply-persistence",
     defaultValue: { state: "idle", queue: [], lastSavedActiveRevision: null, message: null },
+    persistent: true,
+  },
+  {
+    name: "spreadsheet-settings",
+    defaultValue: createDefaultSpreadsheetSettings(),
     persistent: true,
   },
 ];

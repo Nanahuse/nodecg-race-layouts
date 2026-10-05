@@ -5,15 +5,13 @@ import type {
   DraftSpeedrunSnapshot,
   IntegrationStatus,
   RaceSession,
+  SpreadsheetSettings,
 } from "../domain";
 import { declareReplicants } from "../replicants";
 import type { NodeCG } from "../types/nodecg";
 import { BroadcastApplyService } from "./application/broadcast-apply-service";
 import { CategoryDraftService } from "./application/category-draft-service";
-import {
-  nullCategoryPresetProvider,
-  type CategoryPresetProvider,
-} from "./application/category-preset-provider";
+import { type CategoryPresetProvider } from "./application/category-preset-provider";
 import { ParticipantDraftService } from "./application/participant-draft-service";
 import { RaceDraftService } from "./application/race-draft-service";
 import { RacePresentationDraftService } from "./application/race-presentation-draft-service";
@@ -40,6 +38,7 @@ import {
   type CategoryPresentationRepository,
 } from "./integrations/spreadsheet/category-presentation-repository";
 import { GoogleSheetsClient } from "./integrations/spreadsheet/google-sheets-client";
+import type { SpreadsheetClient } from "./integrations/spreadsheet/client";
 import { registerBroadcastMessages } from "./messages/broadcast-messages";
 import { registerCategoryMessages } from "./messages/category-messages";
 import { registerParticipantMessages } from "./messages/participant-messages";
@@ -50,7 +49,10 @@ import { registerSpeedrunSnapshotMessages } from "./messages/speedrun-snapshot-m
 import { registerPersistenceMessages } from "./messages/persistence-messages";
 import { registerSpreadsheetSetupMessages } from "./messages/spreadsheet-setup-messages";
 import { PostApplyPersistenceService } from "./application/post-apply-persistence-service";
-import { SpreadsheetRaceHistoryRepository } from "./integrations/spreadsheet/race-history-repository";
+import {
+  SpreadsheetRaceHistoryRepository,
+  type RaceHistoryRepository,
+} from "./integrations/spreadsheet/race-history-repository";
 import { SpreadsheetOperationStatusCoordinator } from "./application/spreadsheet-status-coordinator";
 import { setupPlayerManagerIntegration } from "./integrations/player-manager/client";
 import type { PlayerManagerGateway } from "./integrations/player-manager/types";
@@ -58,8 +60,9 @@ import type { PlayerManagerGateway } from "./integrations/player-manager/types";
 export type SpreadsheetIntegration = {
   categoryMappingsRepository: CategoryMappingsRepository;
   categoryPresentationRepository: CategoryPresentationRepository;
-  raceHistoryRepository: SpreadsheetRaceHistoryRepository;
+  raceHistoryRepository: RaceHistoryRepository;
   status: SpreadsheetOperationStatusCoordinator;
+  configure(settings: SpreadsheetSettings): void;
 };
 
 export const defaultScheduler: RaceWatcherScheduler = {
@@ -85,37 +88,100 @@ export function createDefaultWebSocketFactory(): WebSocketFactory {
  * Set up the spreadsheet integration. A missing or invalid spreadsheet config
  * only disables the spreadsheet integration; it never stops the extension.
  */
-export function setupSpreadsheetIntegration(nodecg: NodeCG): SpreadsheetIntegration | null {
-  const parsed = parseBundleConfig(nodecg.bundleConfig);
-  if (!parsed.ok) {
-    nodecg.log.warn(`[spreadsheet.config.invalid] ${parsed.issues.join("; ")}`);
-    return null;
-  }
-
-  const {
-    spreadsheetId,
-    googleCredentialsFile,
-    categoryMappingsSheet,
-    categoryPresentationSheet,
-    raceHistorySheet,
-  } = parsed.config.spreadsheet;
-
-  const client = GoogleSheetsClient.create({ spreadsheetId, googleCredentialsFile });
+export function setupSpreadsheetIntegration(
+  nodecg: NodeCG,
+  createClient: (options: {
+    spreadsheetId: string;
+    googleCredentialsFile?: string;
+  }) => SpreadsheetClient = (options) => GoogleSheetsClient.create(options),
+): SpreadsheetIntegration {
+  const settingsReplicant = nodecg.Replicant<SpreadsheetSettings>("spreadsheet-settings");
   const status = new SpreadsheetOperationStatusCoordinator(
     nodecg.Replicant("integration-status"),
     nodecg.log,
   );
-
-  return {
-    categoryMappingsRepository: new SpreadsheetCategoryMappingsRepository(client, {
-      sheetName: categoryMappingsSheet,
-    }),
-    categoryPresentationRepository: new SpreadsheetCategoryPresentationRepository(client, {
-      sheetName: categoryPresentationSheet,
-    }),
-    raceHistoryRepository: new SpreadsheetRaceHistoryRepository(client, raceHistorySheet),
-    status,
+  let active: Omit<SpreadsheetIntegration, "configure"> | null = null;
+  const requireActive = () => {
+    if (!active) throw new Error("Spreadsheet integration is not configured.");
+    return active;
   };
+  const integration: SpreadsheetIntegration = {
+    categoryMappingsRepository: {
+      find: (categorySlug, goal) =>
+        requireActive().categoryMappingsRepository.find(categorySlug, goal),
+      upsert: (mapping) => requireActive().categoryMappingsRepository.upsert(mapping),
+    },
+    categoryPresentationRepository: {
+      find: (categorySlug, goal) =>
+        requireActive().categoryPresentationRepository.find(categorySlug, goal),
+      upsert: (categorySlug, goal, presentation) =>
+        requireActive().categoryPresentationRepository.upsert(categorySlug, goal, presentation),
+    },
+    raceHistoryRepository: {
+      upsert: (history, activeRevision, appliedAt) =>
+        requireActive().raceHistoryRepository.upsert(history, activeRevision, appliedAt),
+    },
+    status,
+    configure: (settings) => {
+      const spreadsheetId = settings.spreadsheetId.trim();
+      if (!spreadsheetId) {
+        active = null;
+        return;
+      }
+      const client = createClient({
+        spreadsheetId,
+        googleCredentialsFile: googleCredentialsFileFromConfig(nodecg.bundleConfig),
+      });
+      active = {
+        categoryMappingsRepository: new SpreadsheetCategoryMappingsRepository(client, {
+          sheetName: settings.categoryMappingsSheet,
+        }),
+        categoryPresentationRepository: new SpreadsheetCategoryPresentationRepository(client, {
+          sheetName: settings.categoryPresentationSheet,
+        }),
+        raceHistoryRepository: new SpreadsheetRaceHistoryRepository(
+          client,
+          settings.raceHistorySheet,
+        ),
+        status,
+      };
+    },
+  };
+
+  const legacy = parseBundleConfig(nodecg.bundleConfig);
+  const current = settingsReplicant.value;
+  if (!current.spreadsheetId.trim() && legacy.ok) {
+    const oldSettings = legacy.config.spreadsheet;
+    settingsReplicant.value = {
+      spreadsheetId: oldSettings.spreadsheetId,
+      categoryMappingsSheet: oldSettings.categoryMappingsSheet,
+      categoryPresentationSheet: oldSettings.categoryPresentationSheet,
+      raceHistorySheet: oldSettings.raceHistorySheet,
+    };
+  }
+  integration.configure(settingsReplicant.value);
+  settingsReplicant.on("change", (settings) => integration.configure(settings));
+  return integration;
+}
+
+function googleCredentialsFileFromConfig(raw: unknown): string | undefined {
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return undefined;
+  const config = raw as Record<string, unknown>;
+  if (typeof config.googleCredentialsFile === "string" && config.googleCredentialsFile.trim()) {
+    return config.googleCredentialsFile.trim();
+  }
+  const spreadsheet = config.spreadsheet;
+  if (
+    typeof spreadsheet === "object" &&
+    spreadsheet !== null &&
+    !Array.isArray(spreadsheet) &&
+    typeof (spreadsheet as Record<string, unknown>).googleCredentialsFile === "string"
+  ) {
+    return (
+      ((spreadsheet as Record<string, string>).googleCredentialsFile ?? "").trim() || undefined
+    );
+  }
+  return undefined;
 }
 
 export function setupGraphicsProjection(nodecg: NodeCG): GraphicsProjectionService | null {
@@ -145,12 +211,7 @@ export function setupGraphicsProjection(nodecg: NodeCG): GraphicsProjectionServi
   return service;
 }
 
-function categoryPresetProviderFor(
-  spreadsheet: SpreadsheetIntegration | null,
-): CategoryPresetProvider {
-  if (!spreadsheet) {
-    return nullCategoryPresetProvider;
-  }
+function categoryPresetProviderFor(spreadsheet: SpreadsheetIntegration): CategoryPresetProvider {
   return {
     findMapping: (categorySlug, goal) =>
       spreadsheet.categoryMappingsRepository.find(categorySlug, goal),
@@ -167,7 +228,7 @@ export type RaceTimeIntegration = {
 
 export function setupRaceTimeIntegration(
   nodecg: NodeCG,
-  spreadsheet: SpreadsheetIntegration | null,
+  spreadsheet: SpreadsheetIntegration,
   playerManager: PlayerManagerGateway,
 ): RaceTimeIntegration {
   const raceSessions = new RaceSessionService({
@@ -321,21 +382,22 @@ export function bootstrapExtension(nodecg: NodeCG): {
   );
   const participantDraft = setupParticipantDraftService(nodecg, playerManager);
   const racePresentationDraft = setupRacePresentationDraftService(nodecg, playerManager);
-  const postApplyPersistence = spreadsheet
-    ? new PostApplyPersistenceService(
-        nodecg.Replicant("post-apply-persistence"),
-        spreadsheet.raceHistoryRepository,
-        nodecg.log,
-        () => new Date(),
-        spreadsheet.status,
-      )
-    : null;
+  const postApplyPersistence = new PostApplyPersistenceService(
+    nodecg.Replicant("post-apply-persistence"),
+    spreadsheet.raceHistoryRepository,
+    nodecg.log,
+    () => new Date(),
+    spreadsheet.status,
+  );
   const broadcastApplyWithPersistence = setupBroadcastApplyService(
     nodecg,
     raceSessions,
     postApplyPersistence,
   );
   registerPersistenceMessages(nodecg, postApplyPersistence);
+  nodecg.Replicant<SpreadsheetSettings>("spreadsheet-settings").on("change", () => {
+    postApplyPersistence.resume();
+  });
   registerSpreadsheetSetupMessages(nodecg);
   postApplyPersistence?.resume();
   const graphicsProjection = setupGraphicsProjection(nodecg);

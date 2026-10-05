@@ -20,6 +20,7 @@ import {
   createDefaultDraftSpeedrunSnapshot,
   createDefaultIntegrationStatus,
   createDefaultRaceSession,
+  createDefaultSpreadsheetSettings,
 } from "../src/replicants/defaults";
 
 const defaultsByName = Object.fromEntries(
@@ -89,6 +90,7 @@ const validFixtures: Record<ReplicantName, unknown> = {
     lastSavedActiveRevision: null,
     message: null,
   },
+  "spreadsheet-settings": createDefaultSpreadsheetSettings(),
 };
 
 const invalidFixtures: Record<ReplicantName, unknown> = {
@@ -104,6 +106,7 @@ const invalidFixtures: Record<ReplicantName, unknown> = {
   "race-result-page-data": {},
   "integration-status": {},
   "post-apply-persistence": {},
+  "spreadsheet-settings": {},
 };
 
 describe.each(REPLICANT_NAMES)("replicant schema: %s", (name) => {

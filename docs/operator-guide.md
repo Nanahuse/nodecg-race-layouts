@@ -13,11 +13,11 @@ pnpm install --frozen-lockfile
 pnpm run build
 ```
 
-`config.example.json`をNodeCGホストの`cfg/nodecg-race-layouts.json`へコピーします。空でないイベント名とGoogle Spreadsheet IDを設定してください。シート名は変更できます。省略時の既定値は`CategoryMappings`、`CategoryPresentation`、`RaceHistory`です。Player情報はPlayer Managerで管理します。
+`config.example.json`をNodeCGホストの`cfg/nodecg-race-layouts.json`へコピーします。空でないイベント名と必要に応じてGoogle認証JSONのパスを設定してください。Player情報はPlayer Managerで管理します。
 
-Spreadsheet設定の作成・変更はRace Control Dashboardの**Spreadsheet Setup**から行えます。NodeCGが`cfg/nodecg-race-layouts.json`から読み込んだ現在の設定を自動で表示します。Spreadsheet URLまたはIDと認証JSONファイルのパスを入力して接続すると、接続先のタブ一覧からCategoryMappings、CategoryPresentation、RaceHistoryに使うタブを選択できます。`googleCredentialsFile`はNodeCGホスト上の認証JSONファイルのパスです。省略時はApplication Default Credentials（ADC）を使います。設定ファイルをダウンロードしたら`cfg/nodecg-race-layouts.json`へ置き換えてNodeCGを再起動してください。最初の起動でSpreadsheet設定を省略している場合も、Dashboardから設定ファイルを作成できます。
+Spreadsheet設定はRace Control Dashboardの**Spreadsheet Setup**から入力します。Spreadsheet URLまたはIDで接続すると、接続先のタブ一覧からCategoryMappings、CategoryPresentation、RaceHistoryに使うタブを選べます。**Save settings**を押すと、Spreadsheet IDとタブ選択はNodeCG DBのpersistent Replicantへ保存され、実行中の連携にも反映されます。CategoryMappings対応表とCategoryPresentationデータは引き続きGoogle Sheetsへ保存されます。Google認証ファイルのパスは`cfg/nodecg-race-layouts.json`のトップレベル`googleCredentialsFile`へ設定してください。省略時はApplication Default Credentials（ADC）を使います。
 
-`googleCredentialsFile`を指定した場合は、その認証JSONのアカウントへSpreadsheetを共有してください。指定しない場合はNodeCGプロセスからADCを利用できるようにします。認証ファイルそのものや秘密情報をリポジトリへ保存しないでください。設定を変更したらNodeCGを再起動してください。
+認証JSONのアカウントへSpreadsheetを共有してください。認証ファイルそのものや秘密情報をリポジトリへ保存しないでください。既存cfgに旧`spreadsheet`設定が残っている場合は、最初の起動時にNodeCG DBへ一度だけ移行されます。
 
 ### スプレッドシートの準備
 

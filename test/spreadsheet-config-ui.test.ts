@@ -12,8 +12,8 @@ describe("spreadsheet setup config helpers", () => {
     expect(spreadsheetIdFromInput("  sheet-id  ")).toBe("sheet-id");
   });
 
-  it("uses default tab names when loading a config with only the spreadsheet ID", () => {
-    expect(spreadsheetSettingsFromConfig({ spreadsheet: { spreadsheetId: "sheet-id" } })).toEqual({
+  it("uses default tab names when loading stored settings with only the spreadsheet ID", () => {
+    expect(spreadsheetSettingsFromConfig({ spreadsheetId: "sheet-id" })).toEqual({
       spreadsheetId: "sheet-id",
       categoryMappingsSheet: "CategoryMappings",
       categoryPresentationSheet: "CategoryPresentation",

@@ -7,6 +7,7 @@ import { registerCategoryMessages } from "../src/extension/messages/category-mes
 import { registerRaceMessages } from "../src/extension/messages/race-messages";
 import { registerSpeedrunMessages } from "../src/extension/messages/speedrun-messages";
 import { bootstrapExtension } from "../src/extension/setup";
+import { REPLICANT_DEFINITIONS } from "../src/replicants/defaults";
 import type { MessageHandler, NodeCG } from "../src/types/nodecg";
 import { createFakeLogger, TrackingReplicant } from "./support/fakes";
 
@@ -20,7 +21,10 @@ function makeFakeNodeCG(bundleConfig: unknown) {
     Replicant: (name: string) => {
       let replicant = replicants.get(name);
       if (!replicant) {
-        replicant = new TrackingReplicant<unknown>(name, undefined);
+        replicant = new TrackingReplicant<unknown>(
+          name,
+          REPLICANT_DEFINITIONS.find((definition) => definition.name === name)?.defaultValue,
+        );
         replicants.set(name, replicant);
       }
       return replicant;

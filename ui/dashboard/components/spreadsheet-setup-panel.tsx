@@ -19,14 +19,9 @@ export function SpreadsheetSetupPanel() {
     void spreadsheetSetupApi
       .getConfig()
       .then((response) => {
-        if (!response.ok) return;
-        const loadedConfig =
-          typeof response.config === "object" && response.config !== null
-            ? (response.config as Record<string, unknown>)
-            : {};
-        setSettings(spreadsheetSettingsFromConfig(loadedConfig));
+        if (response.ok) setSettings(spreadsheetSettingsFromConfig(response.settings));
       })
-      .catch(() => setError("Could not load the current bundle settings from NodeCG."));
+      .catch(() => setError("Could not load spreadsheet settings from the NodeCG database."));
   }, []);
 
   const valid = spreadsheetIdFromInput(settings.spreadsheetId).length > 0;
@@ -35,8 +30,9 @@ export function SpreadsheetSetupPanel() {
     if (key === "spreadsheetId") {
       setConnected(false);
       setSheetNames([]);
-      setNotice(null);
     }
+    setNotice(null);
+    setError(null);
   };
 
   const connect = async () => {
@@ -50,24 +46,27 @@ export function SpreadsheetSetupPanel() {
         setError(response.message);
         return;
       }
-      const names = response.sheetNames;
-      if (names.length === 0) {
+      if (response.sheetNames.length === 0) {
         setError("Connected, but this spreadsheet does not contain any tabs.");
         return;
       }
-      setSheetNames(names);
+      setSheetNames(response.sheetNames);
       setConnected(true);
       setSettings((current) => ({
         ...current,
-        categoryMappingsSheet: chooseTab(names, current.categoryMappingsSheet, "CategoryMappings"),
+        categoryMappingsSheet: chooseTab(
+          response.sheetNames,
+          current.categoryMappingsSheet,
+          "CategoryMappings",
+        ),
         categoryPresentationSheet: chooseTab(
-          names,
+          response.sheetNames,
           current.categoryPresentationSheet,
           "CategoryPresentation",
         ),
-        raceHistorySheet: chooseTab(names, current.raceHistorySheet, "RaceHistory"),
+        raceHistorySheet: chooseTab(response.sheetNames, current.raceHistorySheet, "RaceHistory"),
       }));
-      setNotice(`Connected. Found ${names.length} tabs.`);
+      setNotice(`Connected. Found ${response.sheetNames.length} tabs.`);
     } catch {
       setError("Could not connect to NodeCG. Check that the bundle is running.");
     } finally {
@@ -75,43 +74,27 @@ export function SpreadsheetSetupPanel() {
     }
   };
 
-  const generateConfig = async () => {
-    const response = await spreadsheetSetupApi.save({
-      spreadsheetUrl: settings.spreadsheetId,
-      categoryMappingsSheet: settings.categoryMappingsSheet,
-      categoryPresentationSheet: settings.categoryPresentationSheet,
-      raceHistorySheet: settings.raceHistorySheet,
-    });
-    if (!response.ok) {
-      setError(response.message);
-      return null;
-    }
-    return response.configJson;
-  };
-
-  const downloadConfig = async () => {
-    const content = await generateConfig();
-    if (content === null) return;
-    const blobUrl = URL.createObjectURL(new Blob([content], { type: "application/json" }));
-    const link = document.createElement("a");
-    link.href = blobUrl;
-    link.download = "nodecg-race-layouts.json";
-    link.click();
-    URL.revokeObjectURL(blobUrl);
-    setNotice("Configuration downloaded. Place it in NodeCG's cfg folder, then restart NodeCG.");
-  };
-
-  const copyConfig = async () => {
+  const save = async () => {
+    setPending(true);
+    setError(null);
+    setNotice(null);
     try {
-      const content = await generateConfig();
-      if (content === null) return;
-      await navigator.clipboard.writeText(content);
-      setNotice(
-        "Configuration copied. Save it as cfg/nodecg-race-layouts.json, then restart NodeCG.",
-      );
-      setError(null);
+      const response = await spreadsheetSetupApi.save({
+        spreadsheetUrl: settings.spreadsheetId,
+        categoryMappingsSheet: settings.categoryMappingsSheet,
+        categoryPresentationSheet: settings.categoryPresentationSheet,
+        raceHistorySheet: settings.raceHistorySheet,
+      });
+      if (!response.ok) {
+        setError(response.message);
+        return;
+      }
+      setSettings(response.settings);
+      setNotice("Spreadsheet settings saved to the NodeCG database and applied.");
     } catch {
-      setError("Clipboard access is unavailable. Use Download configuration instead.");
+      setError("Could not save spreadsheet settings to the NodeCG database.");
+    } finally {
+      setPending(false);
     }
   };
 
@@ -164,19 +147,13 @@ export function SpreadsheetSetupPanel() {
         ))}
       </div>
       <div className="button-row">
-        <button disabled={!connected} onClick={downloadConfig}>
-          Download configuration
-        </button>
-        <button disabled={!connected} onClick={() => void copyConfig()}>
-          Copy configuration
+        <button disabled={!connected || pending} onClick={() => void save()}>
+          {pending ? "Saving…" : "Save settings"}
         </button>
       </div>
       <p className="muted">
-        The selected tabs will be written to <code>spreadsheet</code> in the bundle config.
-        Authentication remains configured in NodeCG and is not shown or changed here. Place the
-        downloaded file at
-        <code>cfg/nodecg-race-layouts.json</code> and restart NodeCG to apply it. Make sure the
-        Google account has access to the spreadsheet.
+        Spreadsheet URL and tab selections are stored in the NodeCG database. CategoryMappings and
+        category presentation data remain stored in the selected Google Sheets tabs.
       </p>
       {notice && (
         <p className="callout success" role="status">

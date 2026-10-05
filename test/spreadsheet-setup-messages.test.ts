@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { NodeCG, MessageHandler } from "../src/types/nodecg";
+import { createDefaultSpreadsheetSettings } from "../src/replicants/defaults";
 import {
   SPREADSHEET_SETUP_CONFIG_MESSAGE,
   SPREADSHEET_SETUP_CONNECT_MESSAGE,
@@ -9,27 +10,31 @@ import { registerSpreadsheetSetupMessages } from "../src/extension/messages/spre
 
 function setup(config: unknown) {
   const handlers = new Map<string, MessageHandler>();
+  const settingsReplicant = { value: createDefaultSpreadsheetSettings(), on: vi.fn() };
   const nodecg = {
     bundleConfig: config,
     listenFor: (name: string, handler: MessageHandler) => handlers.set(name, handler),
+    Replicant: vi.fn(() => settingsReplicant),
   } as unknown as NodeCG;
   const createClient = vi.fn(() => ({ listSheets: async () => ["Mappings", "History"] }));
   registerSpreadsheetSetupMessages(nodecg, createClient);
-  return { handlers, createClient };
+  return { handlers, createClient, settingsReplicant };
 }
 
 describe("Spreadsheet setup messages", () => {
   it("returns the config loaded by NodeCG from cfg", async () => {
-    const config = {
-      event: { name: "Final" },
-      spreadsheet: { spreadsheetId: "sheet-id", googleCredentialsFile: "C:/private/google.json" },
+    const { handlers, settingsReplicant } = setup({});
+    settingsReplicant.value = {
+      spreadsheetId: "sheet-id",
+      categoryMappingsSheet: "Mappings",
+      categoryPresentationSheet: "Presentation",
+      raceHistorySheet: "History",
     };
-    const { handlers } = setup(config);
     const ack = vi.fn();
     await handlers.get(SPREADSHEET_SETUP_CONFIG_MESSAGE)?.(undefined, ack);
     expect(ack).toHaveBeenCalledWith(null, {
       ok: true,
-      config: { event: { name: "Final" }, spreadsheet: { spreadsheetId: "sheet-id" } },
+      settings: settingsReplicant.value,
     });
   });
 
@@ -62,12 +67,10 @@ describe("Spreadsheet setup messages", () => {
     });
   });
 
-  it("generates config while retaining the credentials path from cfg", async () => {
-    const config = {
-      event: { name: "Final" },
-      spreadsheet: { googleCredentialsFile: "C:/private/google.json", playersSheet: "Players" },
-    };
-    const { handlers } = setup(config);
+  it("saves connection and tab selections to the persistent settings Replicant", async () => {
+    const { handlers, settingsReplicant } = setup({
+      googleCredentialsFile: "C:/private/google.json",
+    });
     const ack = vi.fn();
     await handlers.get(SPREADSHEET_SETUP_SAVE_MESSAGE)?.(
       {
@@ -78,16 +81,12 @@ describe("Spreadsheet setup messages", () => {
       },
       ack,
     );
-    const response = ack.mock.calls[0]?.[1] as { configJson: string };
-    expect(JSON.parse(response.configJson)).toEqual({
-      event: { name: "Final" },
-      spreadsheet: {
-        spreadsheetId: "sheet-id",
-        googleCredentialsFile: "C:/private/google.json",
-        categoryMappingsSheet: "Mappings",
-        categoryPresentationSheet: "Presentation",
-        raceHistorySheet: "History",
-      },
+    expect(settingsReplicant.value).toEqual({
+      spreadsheetId: "sheet-id",
+      categoryMappingsSheet: "Mappings",
+      categoryPresentationSheet: "Presentation",
+      raceHistorySheet: "History",
     });
+    expect(ack).toHaveBeenCalledWith(null, { ok: true, settings: settingsReplicant.value });
   });
 });

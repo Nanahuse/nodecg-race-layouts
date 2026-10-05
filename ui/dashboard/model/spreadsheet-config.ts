@@ -21,11 +21,11 @@ export function spreadsheetSettingsFromConfig(raw: unknown): SpreadsheetSettings
   if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
     return defaultSpreadsheetSettings();
   }
-  const spreadsheet = (raw as Record<string, unknown>).spreadsheet;
-  if (typeof spreadsheet !== "object" || spreadsheet === null || Array.isArray(spreadsheet)) {
+  const candidate = (raw as Record<string, unknown>).settings ?? raw;
+  if (typeof candidate !== "object" || candidate === null || Array.isArray(candidate)) {
     return defaultSpreadsheetSettings();
   }
-  const value = spreadsheet as Record<string, unknown>;
+  const value = candidate as Record<string, unknown>;
   return {
     spreadsheetId: typeof value.spreadsheetId === "string" ? value.spreadsheetId : "",
     categoryMappingsSheet:

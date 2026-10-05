@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import { declareReplicants } from "../src/replicants";
+import {
+  REPLICANT_DEFINITIONS,
+  createDefaultSpreadsheetSettings,
+} from "../src/replicants/defaults";
 import { REPLICANT_NAMES } from "../src/replicants/names";
 import { REPLICANT_SCHEMA_TYPES } from "../src/replicants/schema-types";
 import type { NodeCG } from "../src/types/nodecg";
@@ -35,5 +39,15 @@ describe("declareReplicants", () => {
     for (const name of REPLICANT_NAMES) {
       expect(typeof REPLICANT_SCHEMA_TYPES[name]).toBe("string");
     }
+  });
+
+  it("stores spreadsheet connection settings persistently in NodeCG's database", () => {
+    const settings = REPLICANT_DEFINITIONS.find(
+      (definition) => definition.name === "spreadsheet-settings",
+    );
+    expect(settings).toMatchObject({
+      defaultValue: createDefaultSpreadsheetSettings(),
+      persistent: true,
+    });
   });
 });

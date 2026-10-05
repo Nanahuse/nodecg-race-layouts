@@ -1,4 +1,5 @@
 import type { NodeCG } from "../../types/nodecg";
+import type { SpreadsheetSettings } from "../../domain";
 import {
   SPREADSHEET_SETUP_CONFIG_MESSAGE,
   SPREADSHEET_SETUP_CONNECT_MESSAGE,
@@ -25,22 +26,15 @@ export function registerSpreadsheetSetupMessages(
   ) => GoogleSheetsClient.create(options),
 ): void {
   nodecg.listenFor(SPREADSHEET_SETUP_CONFIG_MESSAGE, (_data, ack) => {
-    const config = isRecord(nodecg.bundleConfig) ? nodecg.bundleConfig : {};
-    const currentSpreadsheet = isRecord(config.spreadsheet) ? config.spreadsheet : {};
-    const { googleCredentialsFile: _hiddenPath, ...spreadsheet } = currentSpreadsheet;
-    if (ack && !ack.handled) ack(null, { ok: true, config: { ...config, spreadsheet } });
+    const settings = nodecg.Replicant<SpreadsheetSettings>("spreadsheet-settings").value;
+    if (ack && !ack.handled) ack(null, { ok: true, settings });
   });
 
   nodecg.listenFor(SPREADSHEET_SETUP_CONNECT_MESSAGE, async (data, ack) => {
     const request = (isRecord(data) ? data : {}) as Partial<SpreadsheetSetupConnectRequest>;
     const id =
       typeof request.spreadsheetUrl === "string" ? spreadsheetId(request.spreadsheetUrl) : "";
-    const currentConfig = isRecord(nodecg.bundleConfig) ? nodecg.bundleConfig : {};
-    const currentSpreadsheet = isRecord(currentConfig.spreadsheet) ? currentConfig.spreadsheet : {};
-    const credentialsFile =
-      typeof currentSpreadsheet.googleCredentialsFile === "string"
-        ? currentSpreadsheet.googleCredentialsFile.trim()
-        : "";
+    const credentialsFile = googleCredentialsFileFromConfig(nodecg.bundleConfig);
     if (!id) {
       if (ack && !ack.handled) ack(null, { ok: false, message: "Enter a spreadsheet URL or ID." });
       return;
@@ -83,20 +77,23 @@ export function registerSpreadsheetSetupMessages(
       }
       return;
     }
-    const config = isRecord(nodecg.bundleConfig) ? nodecg.bundleConfig : {};
-    const currentSpreadsheet = isRecord(config.spreadsheet) ? config.spreadsheet : {};
-    const spreadsheet = {
+    const settings: SpreadsheetSettings = {
       spreadsheetId: id,
-      ...(typeof currentSpreadsheet.googleCredentialsFile === "string" &&
-      currentSpreadsheet.googleCredentialsFile.trim()
-        ? { googleCredentialsFile: currentSpreadsheet.googleCredentialsFile.trim() }
-        : {}),
       categoryMappingsSheet: request.categoryMappingsSheet!.trim(),
       categoryPresentationSheet: request.categoryPresentationSheet!.trim(),
       raceHistorySheet: request.raceHistorySheet!.trim(),
     };
-    const { spreadsheet: _oldSpreadsheet, ...otherConfig } = config;
-    const configJson = `${JSON.stringify({ ...otherConfig, spreadsheet }, null, 2)}\n`;
-    if (ack && !ack.handled) ack(null, { ok: true, configJson });
+    nodecg.Replicant<SpreadsheetSettings>("spreadsheet-settings").value = settings;
+    if (ack && !ack.handled) ack(null, { ok: true, settings });
   });
+}
+
+function googleCredentialsFileFromConfig(raw: unknown): string | undefined {
+  if (!isRecord(raw)) return undefined;
+  if (typeof raw.googleCredentialsFile === "string" && raw.googleCredentialsFile.trim()) {
+    return raw.googleCredentialsFile.trim();
+  }
+  if (!isRecord(raw.spreadsheet)) return undefined;
+  const legacyPath = raw.spreadsheet.googleCredentialsFile;
+  return typeof legacyPath === "string" && legacyPath.trim() ? legacyPath.trim() : undefined;
 }

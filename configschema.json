@@ -3,6 +3,10 @@
   "title": "nodecg-race-layouts bundle config",
   "type": "object",
   "properties": {
+    "googleCredentialsFile": {
+      "type": "string",
+      "description": "Optional path to a Google service account credentials JSON file, relative to the NodeCG process working directory or absolute."
+    },
     "event": {
       "type": "object",
       "properties": {
@@ -15,7 +19,7 @@
     },
     "spreadsheet": {
       "type": "object",
-      "description": "Google Spreadsheet that stores CategoryMappings, CategoryPresentation and RaceHistory.",
+      "description": "Legacy settings migrated to the persistent spreadsheet-settings Replicant. Kept for one-time migration.",
       "properties": {
         "spreadsheetId": {
           "type": "string",
@@ -24,7 +28,8 @@
         },
         "googleCredentialsFile": {
           "type": "string",
-          "description": "Optional path to a Google service account credentials JSON file, relative to the NodeCG process working directory or absolute."
+          "deprecated": true,
+          "description": "Legacy credentials path. Prefer the top-level googleCredentialsFile setting."
         },
         "playersSheet": {
           "type": "string",

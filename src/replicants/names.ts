@@ -16,6 +16,7 @@ export const REPLICANT_NAMES = [
   "race-result-page-data",
   "integration-status",
   "post-apply-persistence",
+  "spreadsheet-settings",
 ] as const;
 
 export type ReplicantName = (typeof REPLICANT_NAMES)[number];

@@ -14,5 +14,6 @@ export * from "./race";
 export * from "./race-screen";
 export * from "./race-session";
 export * from "./speedrun-snapshot";
+export * from "./spreadsheet-settings";
 export * from "./validation";
 export * from "./view-model";

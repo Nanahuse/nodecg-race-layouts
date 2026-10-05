@@ -1,9 +1,11 @@
+import type { SpreadsheetSettings } from "../domain";
+
 export const SPREADSHEET_SETUP_CONFIG_MESSAGE = "spreadsheet.setup.config";
 export const SPREADSHEET_SETUP_CONNECT_MESSAGE = "spreadsheet.setup.connect";
 
 export type SpreadsheetSetupConfigResponse = {
   ok: true;
-  config: unknown;
+  settings: SpreadsheetSettings;
 };
 
 export type SpreadsheetSetupConnectRequest = {
@@ -23,4 +25,4 @@ export type SpreadsheetSetupSaveRequest = {
 };
 
 export type SpreadsheetSetupSaveResponse =
-  { ok: true; configJson: string } | { ok: false; message: string };
+  { ok: true; settings: SpreadsheetSettings } | { ok: false; message: string };
