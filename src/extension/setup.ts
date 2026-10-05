@@ -230,6 +230,7 @@ export function setupRaceTimeIntegration(
   nodecg: NodeCG,
   spreadsheet: SpreadsheetIntegration,
   playerManager: PlayerManagerGateway,
+  speedrunSnapshot: SpeedrunSnapshotService,
 ): RaceTimeIntegration {
   const raceSessions = new RaceSessionService({
     client: new HttpRaceTimeClient(),
@@ -268,6 +269,7 @@ export function setupRaceTimeIntegration(
     presentationRepository: spreadsheet?.categoryPresentationRepository ?? null,
     spreadsheetStatus: spreadsheet?.status ?? null,
     log: nodecg.log,
+    refreshSnapshot: (draftRevision) => speedrunSnapshot.refresh(draftRevision),
   });
 
   raceSessions.setSessionChangeListener((role, session) => {
@@ -379,6 +381,7 @@ export function bootstrapExtension(nodecg: NodeCG): {
     nodecg,
     spreadsheet,
     playerManager,
+    speedrunSnapshot,
   );
   const participantDraft = setupParticipantDraftService(nodecg, playerManager);
   const racePresentationDraft = setupRacePresentationDraftService(nodecg, playerManager);

@@ -84,6 +84,7 @@ function setup(
     events,
   );
   const fakeLogger = createFakeLogger();
+  const snapshotRefreshes: number[] = [];
 
   const mappings = options.mappings ?? new FakeCategoryMappingsRepository();
   const presentation = options.presentation ?? new FakeCategoryPresentationRepository();
@@ -96,6 +97,10 @@ function setup(
     mappingsRepository: options.disableSpreadsheet ? null : mappings,
     presentationRepository: options.disableSpreadsheet ? null : presentation,
     log: fakeLogger.logger,
+    refreshSnapshot: async (draftRevision) => {
+      snapshotRefreshes.push(draftRevision);
+      return { ok: true };
+    },
   });
 
   return {
@@ -106,6 +111,7 @@ function setup(
     fakeLogger,
     mappings,
     presentation,
+    snapshotRefreshes,
   };
 }
 
@@ -295,7 +301,7 @@ describe("CategoryDraftService mapping operations", () => {
         savedMappingState: "none",
       },
     });
-    const { service, mappings, draftConfig } = setup({ draft });
+    const { service, mappings, draftConfig, snapshotRefreshes } = setup({ draft });
 
     const result = await service.registerMapping(1);
 
@@ -305,6 +311,7 @@ describe("CategoryDraftService mapping operations", () => {
     }
     expect(mappings.upserts).toHaveLength(1);
     expect(draftConfig.value.categorySelection.savedMappingState).toBe("matches");
+    expect(snapshotRefreshes).toEqual([2]);
   });
 
   it("rejects register when a mapping already exists", async () => {
@@ -349,7 +356,7 @@ describe("CategoryDraftService mapping operations", () => {
         savedMappingState: "overridden",
       },
     });
-    const { service, mappings, draftConfig } = setup({ draft });
+    const { service, mappings, draftConfig, snapshotRefreshes } = setup({ draft });
     mappings.mapping = makeCategoryMapping();
 
     const result = await service.updateMapping(1);
@@ -357,6 +364,7 @@ describe("CategoryDraftService mapping operations", () => {
     expect(result.ok).toBe(true);
     expect(mappings.upserts[0]?.speedrunCom.gameId).toBe("new");
     expect(draftConfig.value.categorySelection.savedMappingState).toBe("matches");
+    expect(snapshotRefreshes).toEqual([2]);
   });
 
   it("keeps the draft unchanged when saving fails", async () => {

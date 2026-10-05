@@ -67,6 +67,7 @@ export type CategoryDraftServiceOptions = {
   presentationRepository: CategoryPresentationRepository | null;
   log: NodeCGLogger;
   spreadsheetStatus?: SpreadsheetOperationStatusCoordinator | null;
+  refreshSnapshot?: (draftRevision: number) => Promise<{ ok: boolean; message?: string }>;
 };
 
 type RaceKey = {
@@ -116,6 +117,7 @@ export class CategoryDraftService {
   private readonly presentationRepository: CategoryPresentationRepository | null;
   private readonly log: NodeCGLogger;
   private readonly spreadsheetStatus: SpreadsheetOperationStatusCoordinator | null;
+  private readonly refreshSnapshot?: CategoryDraftServiceOptions["refreshSnapshot"];
 
   constructor(options: CategoryDraftServiceOptions) {
     this.draftConfig = options.draftConfig;
@@ -126,6 +128,7 @@ export class CategoryDraftService {
     this.presentationRepository = options.presentationRepository;
     this.log = options.log;
     this.spreadsheetStatus = options.spreadsheetStatus ?? null;
+    this.refreshSnapshot = options.refreshSnapshot;
   }
 
   async select(
@@ -223,7 +226,9 @@ export class CategoryDraftService {
     if (this.currentDraft().revision !== expectedDraftRevision)
       return fail("draft_changed", "Draft changed while saving the mapping.");
 
-    return this.applySavedMappingState(draft);
+    const outcome = this.applySavedMappingState(draft);
+    await this.refreshSnapshotAfterMapping(outcome);
+    return outcome;
   }
 
   async updateMapping(expectedDraftRevision: number): Promise<CategoryMutationOutcome> {
@@ -261,7 +266,9 @@ export class CategoryDraftService {
     if (this.currentDraft().revision !== expectedDraftRevision)
       return fail("draft_changed", "Draft changed while saving the mapping.");
 
-    return this.applySavedMappingState(draft);
+    const outcome = this.applySavedMappingState(draft);
+    await this.refreshSnapshotAfterMapping(outcome);
+    return outcome;
   }
 
   async revertMapping(expectedDraftRevision: number): Promise<CategoryMutationOutcome> {
@@ -434,6 +441,22 @@ export class CategoryDraftService {
     };
     this.commit(next, false);
     return { ok: true, changed: true, draftRevision: next.revision };
+  }
+
+  private async refreshSnapshotAfterMapping(outcome: CategoryMutationOutcome): Promise<void> {
+    if (!outcome.ok || !this.refreshSnapshot) return;
+    try {
+      const result = await this.refreshSnapshot(outcome.draftRevision);
+      if (!result.ok) {
+        this.logEvent(
+          "category.mapping.snapshot_refresh_failed",
+          { message: result.message ?? "Snapshot refresh failed." },
+          "warn",
+        );
+      }
+    } catch (error) {
+      this.logEvent("category.mapping.snapshot_refresh_failed", { error }, "warn");
+    }
   }
 
   private buildMapping(
