@@ -26,8 +26,6 @@ export type ParticipantFailureReason =
   | "draft_changed"
   | "no_race_loaded"
   | "participant_not_found"
-  | "player_not_found"
-  | "player_in_use"
   | "operation_failed";
 export type ParticipantMutationOutcome =
   | { ok: true; changed: boolean; draftRevision: number; unresolvedPlayerCount: number }
@@ -46,43 +44,6 @@ export class ParticipantDraftService {
 
   async listPlayers(): Promise<PlayerSnapshot[]> {
     return (await this.options.playerManager.list()).map(playerToSnapshot);
-  }
-
-  async setPlayer(
-    expectedDraftRevision: number,
-    racetimeUserId: string,
-    playerId: string,
-  ): Promise<ParticipantMutationOutcome> {
-    const draft = this.current();
-    const guard = this.guard(draft, expectedDraftRevision, racetimeUserId);
-    if (guard) return this.fail(guard.reason, guard.message);
-    const participant = draft.participants.find(
-      (entry) => entry.racetimeUserId === racetimeUserId,
-    )!;
-    const person = draft.persons[participant.personRef]!;
-    const used = draft.participants.some(
-      (entry) =>
-        entry.racetimeUserId !== racetimeUserId &&
-        draft.persons[entry.personRef]?.playerId === playerId,
-    );
-    if (used)
-      return this.fail(
-        "player_in_use",
-        `Player "${playerId}" is already assigned to another participant.`,
-      );
-    const player = await this.options.playerManager.get(playerId);
-    if (!player) return this.fail("player_not_found", `Player "${playerId}" was not found.`);
-    const latest = this.current();
-    if (latest.revision !== draft.revision)
-      return this.fail(
-        "draft_changed",
-        `Draft revision is ${latest.revision}, expected ${draft.revision}.`,
-      );
-    const candidate = {
-      ...latest,
-      persons: { ...latest.persons, [person.ref]: bindPlayerToDraftPerson(person, player) },
-    };
-    return this.finish(latest, candidate, "participant.player.updated");
   }
 
   async beginRegistration(

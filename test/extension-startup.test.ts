@@ -62,7 +62,7 @@ describe("bootstrapExtension", () => {
     expect(listened).toContain("speedrun.users.search");
     expect(listened).toContain("speedrun.user.get");
     expect(listened).toContain("speedrun.snapshot.refresh");
-    expect(listened).toContain("participant.set-player");
+    expect(listened).not.toContain("participant.set-player");
     expect(listened).toContain("participant.registration.start");
     expect(listened).toContain("player-manager.list");
     expect(listened).toContain("player-manager.v1.registrationCompleted");

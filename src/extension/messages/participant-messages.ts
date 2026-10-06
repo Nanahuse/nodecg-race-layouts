@@ -4,7 +4,6 @@ import type { Player } from "../integrations/player-manager/types";
 import type { ParticipantDraftService } from "../application/participant-draft-service";
 import {
   PARTICIPANT_REGISTRATION_START_MESSAGE,
-  PARTICIPANT_SET_PLAYER_MESSAGE,
   PLAYER_MANAGER_LIST_MESSAGE,
 } from "../../protocol/participant";
 export * from "../../protocol/participant";
@@ -24,24 +23,6 @@ export function registerParticipantMessages(
   nodecg: NodeCG,
   service: ParticipantDraftService,
 ): void {
-  nodecg.listenFor(PARTICIPANT_SET_PLAYER_MESSAGE, async (data, ack) => {
-    try {
-      ack(
-        null,
-        await service.setPlayer(
-          revision(data),
-          stringValue(data, "racetimeUserId"),
-          stringValue(data, "playerId"),
-        ),
-      );
-    } catch (error) {
-      ack(null, {
-        ok: false,
-        reason: "operation_failed",
-        message: error instanceof Error ? error.message : String(error),
-      });
-    }
-  });
   nodecg.listenFor(PARTICIPANT_REGISTRATION_START_MESSAGE, async (data, ack) => {
     try {
       ack(
