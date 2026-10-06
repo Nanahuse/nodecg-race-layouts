@@ -13,6 +13,7 @@ import { createParticipantApi } from "./api/participant-api";
 import { createRacePresentationApi } from "./api/race-presentation-api";
 import { useReplicant } from "./hooks/use-replicant";
 import { statusTone } from "./model/status";
+import { groupParticipants, participantAction } from "./model/participants";
 import { CategoryEditor } from "./components/category-editor";
 import { CategoryPresentationEditor } from "./components/category-presentation-editor";
 import { SpeedrunSnapshotPanel } from "./components/speedrun-snapshot-panel";
@@ -64,9 +65,14 @@ function ParticipantCard({
     }
   };
   const status = person?.resolution ?? "conflict";
+  const action = participantAction(person);
+  const resolved = action.style === "secondary";
+  const conflict = status === "conflict";
   const display = person?.player?.displayName ?? entrantName;
   return (
-    <article className="participant-card">
+    <article
+      className={`participant-card ${resolved ? "resolved" : "needs-attention"} ${conflict ? "conflict" : ""}`}
+    >
       <header>
         <div>
           <h4>{entrantName}</h4>
@@ -74,9 +80,16 @@ function ParticipantCard({
         </div>
         <strong>{display}</strong>
       </header>
-      <p>
-        Player Manager: <strong>{status}</strong>
-        {person?.playerId ? ` · ${person.playerId}` : ""}
+      <p className="participant-resolution">
+        {!resolved && (
+          <strong className={`attention-label ${conflict ? "error" : "warning"}`}>
+            {conflict ? "⚠ Conflict — needs attention" : "⚠ Needs attention"}
+          </strong>
+        )}
+        <span>
+          Player Manager resolution: <strong>{status}</strong>
+        </span>
+        <span>Player ID: {person?.playerId ?? "—"}</span>
       </p>
       <p>Display name: {person?.player?.displayName ?? "—"}</p>
       <p>
@@ -87,11 +100,13 @@ function ParticipantCard({
         Twitch: {person?.player?.twitch?.login ?? "—"}
         {person?.player?.twitch?.userId ? ` (${person.player.twitch.userId})` : ""}
       </p>
-      {status !== "matched" && (
-        <button disabled={pending} onClick={() => void register()}>
-          {pending ? "Starting…" : "Register / resolve in Player Manager"}
-        </button>
-      )}
+      <button
+        className={`player-manager-${action.style}`}
+        disabled={pending}
+        onClick={() => void register()}
+      >
+        {pending ? "Opening…" : action.label}
+      </button>
       {error && (
         <p className="callout error" role="alert">
           {error}
@@ -298,8 +313,9 @@ export function App() {
             Entrants: {s.race?.entrants.length ?? 0} · Revision: {s.revision}
           </p>
           <h3>Participants</h3>
-          <div className="participants">
-            {d.participants.map((participant) => (
+          {(() => {
+            const { needsAttention, resolved } = groupParticipants(d);
+            const renderParticipant = (participant: DraftConfig["participants"][number]) => (
               <ParticipantCard
                 key={participant.racetimeUserId}
                 draft={d}
@@ -309,8 +325,24 @@ export function App() {
                     ?.name ?? participant.racetimeUserId
                 }
               />
-            ))}
-          </div>
+            );
+            return (
+              <>
+                {needsAttention.length > 0 && (
+                  <section className="participant-group needs-attention-group">
+                    <h4>Needs attention ({needsAttention.length})</h4>
+                    <div className="participants">{needsAttention.map(renderParticipant)}</div>
+                  </section>
+                )}
+                {resolved.length > 0 && (
+                  <section className="participant-group resolved-group">
+                    <h4>Resolved ({resolved.length})</h4>
+                    <div className="participants">{resolved.map(renderParticipant)}</div>
+                  </section>
+                )}
+              </>
+            );
+          })()}
           <PresentationEditor draft={d} session={s} players={players} />
           <CategoryEditor draft={d} />
           <CategoryPresentationEditor draft={d} />
