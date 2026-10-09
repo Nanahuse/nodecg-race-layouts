@@ -187,6 +187,35 @@ dd {
   background: var(--surface-muted);
   min-width: 0;
 }
+.participant-group > h4 {
+  margin: 16px 0 10px;
+}
+.participant-card.needs-attention {
+  border-left: 4px solid var(--warning);
+}
+.participant-card.conflict {
+  border-color: var(--error);
+  background: #24191d;
+}
+.participant-card .participant-resolution {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem 1rem;
+}
+.attention-label.warning {
+  color: var(--warning);
+}
+.attention-label.error {
+  color: var(--error);
+}
+.player-manager-primary {
+  background: #7f1d1d;
+  border-color: var(--error);
+  font-weight: 700;
+}
+.player-manager-secondary {
+  color: var(--muted);
+}
 .participant-card header {
   display: flex;
   justify-content: space-between;

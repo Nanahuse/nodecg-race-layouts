@@ -14,7 +14,6 @@ import type {
 } from "../../domain";
 import {
   MAX_COMMENTATORS,
-  applyResolutionToDraftPerson,
   categorySelectionFromMapping,
   createDraftPersonFromEntrant,
   retagDraftSpeedrunSnapshot,
@@ -26,8 +25,11 @@ import {
 } from "../../replicants/defaults";
 import type { NodeCGLogger, Replicant } from "../../types/nodecg";
 import { jsonEquals } from "../integrations/racetime/equality";
-import { bindPlayerToDraftPerson } from "../integrations/player-manager/mapper";
-import type { PlayerManagerGateway } from "../integrations/player-manager/types";
+import {
+  bindDraftPersonFromDirectory,
+  createRaceTimePlayerIndex,
+} from "../integrations/player-manager/mapper";
+import type { Player, PlayerManagerGateway } from "../integrations/player-manager/types";
 import { computeDraftBroadcastState } from "./broadcast-status";
 import {
   nullCategoryPresetProvider,
@@ -68,28 +70,18 @@ export type BuildInitialDraftOptions = {
   categoryPreset?: CategoryPreset;
 };
 
-async function resolveEntrant(
+function bindEntrantFromDirectory(
   entrant: RaceTimeEntrant,
-  playerManager: PlayerManagerGateway,
+  playersByRaceTimeId: ReadonlyMap<string, Player>,
   ref: DraftPersonRef,
-): Promise<DraftPerson> {
+): DraftPerson {
   const person = createDraftPersonFromEntrant({
     racetimeUserId: entrant.userId,
     racetimeName: entrant.name,
     twitchLogin: entrant.twitchLogin,
     ref,
   });
-  const resolution = await playerManager.resolve({
-    racetime: { userId: entrant.userId, name: entrant.name },
-    twitch: entrant.twitchLogin ? { login: entrant.twitchLogin } : null,
-    speedrunCom: null,
-  });
-  const resolved = applyResolutionToDraftPerson(person, resolution);
-  if (resolved.resolution !== "matched" || !resolved.playerId) return resolved;
-  const player = await playerManager.get(resolved.playerId);
-  return player
-    ? bindPlayerToDraftPerson(resolved, player)
-    : { ...resolved, playerId: null, player: null, resolution: "unresolved" };
+  return bindDraftPersonFromDirectory(person, entrant.userId, playersByRaceTimeId);
 }
 
 export async function buildInitialDraft(
@@ -99,8 +91,9 @@ export async function buildInitialDraft(
   const canonicalUrl = options.session.canonicalUrl;
   if (!race || !canonicalUrl) throw new Error("Cannot build a draft without a loaded race.");
   const makeRef = options.personRefFactory ?? randomUUID;
-  const resolved = await Promise.all(
-    race.entrants.map((entrant) => resolveEntrant(entrant, options.playerManager, makeRef())),
+  const playersByRaceTimeId = createRaceTimePlayerIndex(await options.playerManager.list());
+  const resolved = race.entrants.map((entrant) =>
+    bindEntrantFromDirectory(entrant, playersByRaceTimeId, makeRef()),
   );
   const persons = Object.fromEntries(resolved.map((person) => [person.ref, person]));
   const participants = race.entrants.map((entrant, index) => ({
@@ -332,61 +325,87 @@ export class RaceDraftService {
     const session = this.draftRaceSession.value;
     if (!session?.race || !session.canonicalUrl)
       return { ok: false, reason: "no_race_loaded", message: "No race is loaded." };
-    const draft = this.draftConfig.value ?? createDefaultDraftConfig();
-    if (typeof expectedDraftRevision !== "number" || draft.revision !== expectedDraftRevision)
+    const draftAtStart = this.draftConfig.value ?? createDefaultDraftConfig();
+    if (
+      typeof expectedDraftRevision !== "number" ||
+      draftAtStart.revision !== expectedDraftRevision
+    )
       return {
         ok: false,
         reason: "draft_changed",
-        message: `Draft revision is ${draft.revision}, expected ${expectedDraftRevision}.`,
+        message: `Draft revision is ${draftAtStart.revision}, expected ${expectedDraftRevision}.`,
       };
-    this.logEvent("race.reconcile.started", { draftRevision: draft.revision });
+    const startingSessionRevision = session.revision;
+    this.logEvent("race.reconcile.started", { draftRevision: draftAtStart.revision });
     try {
       const categoryChanged =
-        draft.race?.categorySlug !== session.race.categorySlug ||
-        draft.race?.goal !== session.race.goal;
+        draftAtStart.race?.categorySlug !== session.race.categorySlug ||
+        draftAtStart.race?.goal !== session.race.goal;
       const categoryPreset = categoryChanged
         ? await this.loadCategoryPreset(session.race.categorySlug, session.race.goal)
         : undefined;
+      const playersByRaceTimeId = createRaceTimePlayerIndex(await this.playerManager.list());
+
+      const latestDraft = this.draftConfig.value ?? createDefaultDraftConfig();
+      if (latestDraft.revision !== expectedDraftRevision)
+        return {
+          ok: false,
+          reason: "draft_changed",
+          message: `Draft revision is ${latestDraft.revision}, expected ${expectedDraftRevision}.`,
+        };
+      const latestSession = this.draftRaceSession.value;
+      if (latestSession.revision !== startingSessionRevision) {
+        const message = "RaceTime session changed during reconciliation. Retry reconciliation.";
+        this.logEvent("race.reconcile.failed", { message }, "warn");
+        return { ok: false, reason: "reconcile_failed", message };
+      }
+
       const existing = new Map(
-        draft.participants.map((participant) => [
+        latestDraft.participants.map((participant) => [
           participant.racetimeUserId,
-          draft.persons[participant.personRef],
+          latestDraft.persons[participant.personRef],
         ]),
       );
       const newPersons = new Map<string, DraftPerson>();
       const updatedPersons = new Map<string, DraftPerson>();
-      await Promise.all(
-        session.race.entrants.map(async (entrant) => {
-          const person = existing.get(entrant.userId);
-          if (person) {
-            if (
-              person.resolution === "matched" ||
-              person.identity.twitchLogin === entrant.twitchLogin
-            )
-              return;
-            updatedPersons.set(
-              entrant.userId,
-              await resolveEntrant(entrant, this.playerManager, person.ref),
-            );
-            return;
-          }
-          newPersons.set(
-            entrant.userId,
-            await resolveEntrant(entrant, this.playerManager, this.personRefFactory()),
-          );
-        }),
-      );
-      const sourceIdsBefore = participantSpeedrunUserIds(draft);
+      for (const entrant of session.race.entrants) {
+        const existingPerson = existing.get(entrant.userId);
+        const person = existingPerson
+          ? {
+              ...existingPerson,
+              identity: {
+                ...existingPerson.identity,
+                racetimeUserId: entrant.userId,
+                twitchLogin: entrant.twitchLogin,
+              },
+            }
+          : createDraftPersonFromEntrant({
+              racetimeUserId: entrant.userId,
+              racetimeName: entrant.name,
+              twitchLogin: entrant.twitchLogin,
+              ref: this.personRefFactory(),
+            });
+        const boundPerson = bindDraftPersonFromDirectory(
+          person,
+          entrant.userId,
+          playersByRaceTimeId,
+        );
+        if (existingPerson) updatedPersons.set(entrant.userId, boundPerson);
+        else newPersons.set(entrant.userId, boundPerson);
+      }
+      const sourceIdsBefore = participantSpeedrunUserIds(latestDraft);
       const outcome = reconcileDraft({
-        draft,
+        draft: latestDraft,
         session,
         resolvedNewPersons: newPersons,
         resolvedExistingPersons: updatedPersons,
         categoryPreset,
       });
-      const candidate = { ...outcome.draft, revision: draft.revision };
-      const changed = !jsonEquals(candidate, draft);
-      const finalDraft = changed ? { ...outcome.draft, revision: draft.revision + 1 } : draft;
+      const candidate = { ...outcome.draft, revision: latestDraft.revision };
+      const changed = !jsonEquals(candidate, latestDraft);
+      const finalDraft = changed
+        ? { ...outcome.draft, revision: latestDraft.revision + 1 }
+        : latestDraft;
       if (changed) {
         this.draftConfig.value = finalDraft;
         const srcSetChanged = !speedrunUserIdSetsEqual(

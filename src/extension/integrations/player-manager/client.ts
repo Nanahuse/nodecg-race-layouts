@@ -1,10 +1,9 @@
 import type {
-  IdentityResolutionInput,
+  MatchingInput,
   Operations,
   Player,
   PlayerManagerAPI,
-  RegistrationSession,
-  Resolution,
+  RequiredAccount,
 } from "@nanahuse/player-manager-protocol";
 import { API_VERSION } from "@nanahuse/player-manager-protocol";
 
@@ -80,22 +79,11 @@ class ApiPlayerManagerGateway implements PlayerManagerGateway {
     return directory.players;
   }
 
-  get(playerId: string): Promise<Player | null> {
-    return this.request("get", { playerId });
-  }
-
-  resolve(input: IdentityResolutionInput): Promise<Resolution> {
-    return this.request("resolve", { input });
-  }
-
   beginRegistration(
-    input: IdentityResolutionInput,
+    input: MatchingInput,
+    requiredAccounts?: RequiredAccount[],
   ): Promise<{ registrationId: string; url: string }> {
-    return this.request("beginRegistration", { input });
-  }
-
-  getRegistration(registrationId: string): Promise<RegistrationSession | null> {
-    return this.request("getRegistration", { registrationId });
+    return this.request("beginRegistration", { input, requiredAccounts });
   }
 }
 
@@ -114,18 +102,10 @@ class UnavailablePlayerManagerGateway implements PlayerManagerGateway {
   list(): Promise<Player[]> {
     return this.fail();
   }
-  get(_playerId: string): Promise<Player | null> {
-    return this.fail();
-  }
-  resolve(_input: IdentityResolutionInput): Promise<Resolution> {
-    return this.fail();
-  }
   beginRegistration(
-    _input: IdentityResolutionInput,
+    _input: MatchingInput,
+    _requiredAccounts?: RequiredAccount[],
   ): Promise<{ registrationId: string; url: string }> {
-    return this.fail();
-  }
-  getRegistration(_registrationId: string): Promise<RegistrationSession | null> {
     return this.fail();
   }
 }

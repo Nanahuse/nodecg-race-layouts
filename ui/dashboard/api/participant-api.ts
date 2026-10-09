@@ -1,6 +1,5 @@
 import {
   PARTICIPANT_REGISTRATION_START_MESSAGE,
-  PARTICIPANT_SET_PLAYER_MESSAGE,
   PLAYER_MANAGER_LIST_MESSAGE,
 } from "../../../src/protocol/participant";
 import { nodecg } from "./nodecg-client";
@@ -11,8 +10,6 @@ export function createParticipantApi(getRevision: () => number) {
     racetimeUserId,
   });
   return {
-    setPlayer: (racetimeUserId: string, playerId: string) =>
-      nodecg.sendMessage(PARTICIPANT_SET_PLAYER_MESSAGE, { ...request(racetimeUserId), playerId }),
     beginRegistration: (racetimeUserId: string) =>
       nodecg.sendMessage<{ ok: boolean; url?: string; message?: string }>(
         PARTICIPANT_REGISTRATION_START_MESSAGE,

@@ -1,10 +1,8 @@
 import { eventMessageName } from "@nanahuse/player-manager-protocol";
 import type { NodeCG } from "../../types/nodecg";
-import type { Player } from "../integrations/player-manager/types";
 import type { ParticipantDraftService } from "../application/participant-draft-service";
 import {
   PARTICIPANT_REGISTRATION_START_MESSAGE,
-  PARTICIPANT_SET_PLAYER_MESSAGE,
   PLAYER_MANAGER_LIST_MESSAGE,
 } from "../../protocol/participant";
 export * from "../../protocol/participant";
@@ -24,24 +22,6 @@ export function registerParticipantMessages(
   nodecg: NodeCG,
   service: ParticipantDraftService,
 ): void {
-  nodecg.listenFor(PARTICIPANT_SET_PLAYER_MESSAGE, async (data, ack) => {
-    try {
-      ack(
-        null,
-        await service.setPlayer(
-          revision(data),
-          stringValue(data, "racetimeUserId"),
-          stringValue(data, "playerId"),
-        ),
-      );
-    } catch (error) {
-      ack(null, {
-        ok: false,
-        reason: "operation_failed",
-        message: error instanceof Error ? error.message : String(error),
-      });
-    }
-  });
   nodecg.listenFor(PARTICIPANT_REGISTRATION_START_MESSAGE, async (data, ack) => {
     try {
       ack(
@@ -63,12 +43,17 @@ export function registerParticipantMessages(
       ack(null, { ok: false, message: error instanceof Error ? error.message : String(error) });
     }
   });
-  nodecg.listenFor(eventMessageName("registrationCompleted"), async (data) => {
-    if (!isRecord(data) || typeof data.registrationId !== "string" || !isRecord(data.player))
-      return;
-    await service.registrationCompleted(data as { registrationId: string; player: Player });
-  });
-  nodecg.listenFor(eventMessageName("registrationCancelled"), (data) => {
-    service.registrationCancelled(stringValue(data, "registrationId"));
+  nodecg.listenFor(eventMessageName("registrationCompleted"), async () => {
+    try {
+      const outcome = await service.refreshPlayerBindings();
+      if (!outcome.ok && outcome.reason !== "no_race_loaded")
+        nodecg.log.warn(
+          `[participant.directory.refresh_failed] reason=${outcome.reason} message=${outcome.message}`,
+        );
+    } catch (error) {
+      nodecg.log.error(
+        `[participant.directory.refresh_failed] ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
   });
 }

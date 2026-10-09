@@ -25,7 +25,7 @@ describe("RaceDraftService automatic snapshot", () => {
         loadRace: async () => ({ ok: true as const, session }),
       } as unknown as RaceSessionService,
       draftRaceSession: new TrackingReplicant("draft-race-session", createDefaultRaceSession()),
-      playerManager: {} as PlayerManagerGateway,
+      playerManager: { list: async () => [] } as unknown as PlayerManagerGateway,
       draftConfig,
       draftSpeedrunSnapshot: new TrackingReplicant(
         "draft-speedrun-snapshot",

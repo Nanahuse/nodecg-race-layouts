@@ -109,16 +109,22 @@ export class RacePresentationDraftService {
     if (new Set(ids).size !== ids.length)
       return this.fail("duplicate_commentator", "Commentators must be unique.");
     const listed = await this.options.playerManager.list();
+    const latestDraft = this.current();
+    if (latestDraft.revision !== revision)
+      return this.fail(
+        "draft_changed",
+        `Draft revision is ${latestDraft.revision}, expected ${revision}.`,
+      );
     const byId = new Map(listed.map((player) => [player.playerId, player]));
     const commentators: Record<string, PlayerSnapshot> = {};
     for (const id of ids) {
-      const player = byId.get(id) ?? (await this.options.playerManager.get(id));
+      const player = byId.get(id);
       if (!player) return this.fail("player_not_found", `Player "${id}" was not found.`);
       commentators[id] = playerToSnapshot(player);
     }
     return this.finish(
-      draft,
-      { ...draft, commentatorPlayerIds: [...ids], commentators },
+      latestDraft,
+      { ...latestDraft, commentatorPlayerIds: [...ids], commentators },
       "commentators.updated",
     );
   }
