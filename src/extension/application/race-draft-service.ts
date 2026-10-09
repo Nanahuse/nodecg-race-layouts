@@ -14,7 +14,6 @@ import type {
 } from "../../domain";
 import {
   MAX_COMMENTATORS,
-  applyResolutionToDraftPerson,
   categorySelectionFromMapping,
   createDraftPersonFromEntrant,
   retagDraftSpeedrunSnapshot,
@@ -26,8 +25,11 @@ import {
 } from "../../replicants/defaults";
 import type { NodeCGLogger, Replicant } from "../../types/nodecg";
 import { jsonEquals } from "../integrations/racetime/equality";
-import { bindPlayerToDraftPerson } from "../integrations/player-manager/mapper";
-import type { PlayerManagerGateway } from "../integrations/player-manager/types";
+import {
+  bindDraftPersonFromDirectory,
+  createRaceTimePlayerIndex,
+} from "../integrations/player-manager/mapper";
+import type { Player, PlayerManagerGateway } from "../integrations/player-manager/types";
 import { computeDraftBroadcastState } from "./broadcast-status";
 import {
   nullCategoryPresetProvider,
@@ -68,28 +70,18 @@ export type BuildInitialDraftOptions = {
   categoryPreset?: CategoryPreset;
 };
 
-async function resolveEntrant(
+function bindEntrantFromDirectory(
   entrant: RaceTimeEntrant,
-  playerManager: PlayerManagerGateway,
+  playersByRaceTimeId: ReadonlyMap<string, Player>,
   ref: DraftPersonRef,
-): Promise<DraftPerson> {
+): DraftPerson {
   const person = createDraftPersonFromEntrant({
     racetimeUserId: entrant.userId,
     racetimeName: entrant.name,
     twitchLogin: entrant.twitchLogin,
     ref,
   });
-  const resolution = await playerManager.resolve({
-    racetime: { userId: entrant.userId, name: entrant.name },
-    twitch: entrant.twitchLogin ? { login: entrant.twitchLogin } : null,
-    speedrunCom: null,
-  });
-  const resolved = applyResolutionToDraftPerson(person, resolution);
-  if (resolved.resolution !== "matched" || !resolved.playerId) return resolved;
-  const player = await playerManager.get(resolved.playerId);
-  return player
-    ? bindPlayerToDraftPerson(resolved, player)
-    : { ...resolved, playerId: null, player: null, resolution: "unresolved" };
+  return bindDraftPersonFromDirectory(person, entrant.userId, playersByRaceTimeId);
 }
 
 export async function buildInitialDraft(
@@ -99,8 +91,9 @@ export async function buildInitialDraft(
   const canonicalUrl = options.session.canonicalUrl;
   if (!race || !canonicalUrl) throw new Error("Cannot build a draft without a loaded race.");
   const makeRef = options.personRefFactory ?? randomUUID;
-  const resolved = await Promise.all(
-    race.entrants.map((entrant) => resolveEntrant(entrant, options.playerManager, makeRef())),
+  const playersByRaceTimeId = createRaceTimePlayerIndex(await options.playerManager.list());
+  const resolved = race.entrants.map((entrant) =>
+    bindEntrantFromDirectory(entrant, playersByRaceTimeId, makeRef()),
   );
   const persons = Object.fromEntries(resolved.map((person) => [person.ref, person]));
   const participants = race.entrants.map((entrant, index) => ({
@@ -353,29 +346,34 @@ export class RaceDraftService {
           draft.persons[participant.personRef],
         ]),
       );
+      const playersByRaceTimeId = createRaceTimePlayerIndex(await this.playerManager.list());
       const newPersons = new Map<string, DraftPerson>();
       const updatedPersons = new Map<string, DraftPerson>();
-      await Promise.all(
-        session.race.entrants.map(async (entrant) => {
-          const person = existing.get(entrant.userId);
-          if (person) {
-            if (
-              person.resolution === "matched" ||
-              person.identity.twitchLogin === entrant.twitchLogin
-            )
-              return;
-            updatedPersons.set(
-              entrant.userId,
-              await resolveEntrant(entrant, this.playerManager, person.ref),
-            );
-            return;
-          }
-          newPersons.set(
-            entrant.userId,
-            await resolveEntrant(entrant, this.playerManager, this.personRefFactory()),
-          );
-        }),
-      );
+      for (const entrant of session.race.entrants) {
+        const existingPerson = existing.get(entrant.userId);
+        const person = existingPerson
+          ? {
+              ...existingPerson,
+              identity: {
+                ...existingPerson.identity,
+                racetimeUserId: entrant.userId,
+                twitchLogin: entrant.twitchLogin,
+              },
+            }
+          : createDraftPersonFromEntrant({
+              racetimeUserId: entrant.userId,
+              racetimeName: entrant.name,
+              twitchLogin: entrant.twitchLogin,
+              ref: this.personRefFactory(),
+            });
+        const boundPerson = bindDraftPersonFromDirectory(
+          person,
+          entrant.userId,
+          playersByRaceTimeId,
+        );
+        if (existingPerson) updatedPersons.set(entrant.userId, boundPerson);
+        else newPersons.set(entrant.userId, boundPerson);
+      }
       const sourceIdsBefore = participantSpeedrunUserIds(draft);
       const outcome = reconcileDraft({
         draft,

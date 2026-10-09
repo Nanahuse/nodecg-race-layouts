@@ -4,7 +4,7 @@ import type {
   IntegrationStatus,
   PlayerSnapshot,
 } from "../../domain";
-import { draftPersonResolutionInput, retagDraftSpeedrunSnapshot } from "../../domain";
+import { retagDraftSpeedrunSnapshot } from "../../domain";
 import {
   createDefaultDraftConfig,
   createDefaultDraftSpeedrunSnapshot,
@@ -12,8 +12,12 @@ import {
 } from "../../replicants/defaults";
 import type { NodeCGLogger, Replicant } from "../../types/nodecg";
 import { jsonEquals } from "../integrations/racetime/equality";
-import { bindPlayerToDraftPerson, playerToSnapshot } from "../integrations/player-manager/mapper";
-import type { PlayerManagerGateway, Player } from "../integrations/player-manager/types";
+import {
+  bindDraftPersonFromDirectory,
+  createRaceTimePlayerIndex,
+  playerToSnapshot,
+} from "../integrations/player-manager/mapper";
+import type { PlayerManagerGateway } from "../integrations/player-manager/types";
 import { computeDraftBroadcastState } from "./broadcast-status";
 import {
   countUnresolvedPeople,
@@ -23,10 +27,7 @@ import {
 import { validateDraftIntegrity } from "./race-draft-service";
 
 export type ParticipantFailureReason =
-  | "draft_changed"
-  | "no_race_loaded"
-  | "participant_not_found"
-  | "operation_failed";
+  "draft_changed" | "no_race_loaded" | "participant_not_found" | "operation_failed";
 export type ParticipantMutationOutcome =
   | { ok: true; changed: boolean; draftRevision: number; unresolvedPlayerCount: number }
   | { ok: false; reason: ParticipantFailureReason; message: string };
@@ -39,7 +40,6 @@ export type ParticipantDraftServiceOptions = {
 };
 
 export class ParticipantDraftService {
-  private readonly registrations = new Map<string, string>();
   constructor(private readonly options: ParticipantDraftServiceOptions) {}
 
   async listPlayers(): Promise<PlayerSnapshot[]> {
@@ -56,36 +56,32 @@ export class ParticipantDraftService {
     const participant = draft.participants.find(
       (entry) => entry.racetimeUserId === racetimeUserId,
     )!;
-    const person = draft.persons[participant.personRef]!;
     const registration = await this.options.playerManager.beginRegistration(
-      draftPersonResolutionInput(person),
+      { racetime: participant.racetimeUserId },
+      [{ service: "racetime", value: participant.racetimeUserId }],
     );
-    this.registrations.set(registration.registrationId, person.ref);
     return { ok: true, ...registration };
   }
 
-  async registrationCompleted(result: { registrationId: string; player: Player }): Promise<void> {
-    const ref = this.registrations.get(result.registrationId);
-    if (!ref) return;
-    this.registrations.delete(result.registrationId);
+  async refreshPlayerBindings(): Promise<ParticipantMutationOutcome> {
     const draft = this.current();
-    const person = draft.persons[ref];
-    if (!person) return;
+    if (!draft.race) return this.fail("no_race_loaded", "No race is loaded.");
+    const playersByRaceTimeId = createRaceTimePlayerIndex(await this.options.playerManager.list());
+    const persons = { ...draft.persons };
+    for (const participant of draft.participants) {
+      const person = draft.persons[participant.personRef];
+      if (!person) continue;
+      persons[person.ref] = bindDraftPersonFromDirectory(
+        person,
+        participant.racetimeUserId,
+        playersByRaceTimeId,
+      );
+    }
     const candidate = {
       ...draft,
-      persons: {
-        ...draft.persons,
-        [ref]: bindPlayerToDraftPerson(
-          { ...person, playerId: result.player.playerId, resolution: "matched" },
-          result.player,
-        ),
-      },
+      persons,
     };
-    this.finish(draft, candidate, "participant.registration.completed");
-  }
-
-  registrationCancelled(registrationId: string): void {
-    this.registrations.delete(registrationId);
+    return this.finish(draft, candidate, "participant.directory.refreshed");
   }
 
   private guard(

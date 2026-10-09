@@ -1,6 +1,5 @@
 import { eventMessageName } from "@nanahuse/player-manager-protocol";
 import type { NodeCG } from "../../types/nodecg";
-import type { Player } from "../integrations/player-manager/types";
 import type { ParticipantDraftService } from "../application/participant-draft-service";
 import {
   PARTICIPANT_REGISTRATION_START_MESSAGE,
@@ -44,12 +43,7 @@ export function registerParticipantMessages(
       ack(null, { ok: false, message: error instanceof Error ? error.message : String(error) });
     }
   });
-  nodecg.listenFor(eventMessageName("registrationCompleted"), async (data) => {
-    if (!isRecord(data) || typeof data.registrationId !== "string" || !isRecord(data.player))
-      return;
-    await service.registrationCompleted(data as { registrationId: string; player: Player });
-  });
-  nodecg.listenFor(eventMessageName("registrationCancelled"), (data) => {
-    service.registrationCancelled(stringValue(data, "registrationId"));
+  nodecg.listenFor(eventMessageName("registrationCompleted"), async () => {
+    await service.refreshPlayerBindings();
   });
 }

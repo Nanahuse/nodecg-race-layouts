@@ -7,6 +7,8 @@ import { registerCategoryMessages } from "../src/extension/messages/category-mes
 import { registerRaceMessages } from "../src/extension/messages/race-messages";
 import { registerSpeedrunMessages } from "../src/extension/messages/speedrun-messages";
 import { bootstrapExtension } from "../src/extension/setup";
+import { registerParticipantMessages } from "../src/extension/messages/participant-messages";
+import type { ParticipantDraftService } from "../src/extension/application/participant-draft-service";
 import { REPLICANT_DEFINITIONS } from "../src/replicants/defaults";
 import type { MessageHandler, NodeCG } from "../src/types/nodecg";
 import { createFakeLogger, TrackingReplicant } from "./support/fakes";
@@ -65,8 +67,8 @@ describe("bootstrapExtension", () => {
     expect(listened).not.toContain("participant.set-player");
     expect(listened).toContain("participant.registration.start");
     expect(listened).toContain("player-manager.list");
-    expect(listened).toContain("player-manager.v1.registrationCompleted");
-    expect(listened).toContain("player-manager.v1.registrationCancelled");
+    expect(listened).toContain("player-manager.v2.registrationCompleted");
+    expect(listened).not.toContain("player-manager.v2.registrationCancelled");
     expect(listened).toContain("race-screen.set-slots");
     expect(listened).toContain("commentators.set");
     expect(listened).toContain("broadcast.apply");
@@ -134,6 +136,33 @@ describe("registerRaceMessages", () => {
     });
 
     expect(results[0]).toMatchObject({ ok: true, changed: false, draftRevision: 1 });
+  });
+});
+
+describe("Player Manager v2 registration completion", () => {
+  it("triggers a fresh Directory sync and ignores the event players payload", async () => {
+    const { nodecg, handlers } = makeFakeNodeCG(undefined);
+    const refreshArguments: unknown[][] = [];
+    const service = {
+      listPlayers: async () => [],
+      beginRegistration: async () => ({ ok: true }),
+      refreshPlayerBindings: async (...args: unknown[]) => {
+        refreshArguments.push(args);
+        return { ok: true, changed: false, draftRevision: 1, unresolvedPlayerCount: 0 };
+      },
+    } as unknown as ParticipantDraftService;
+
+    registerParticipantMessages(nodecg, service);
+    await handlers.get("player-manager.v2.registrationCompleted")?.(
+      {
+        registrationId: "reg-1",
+        directoryRevision: 2,
+        players: [{ playerId: "untrusted-payload" }],
+      },
+      () => {},
+    );
+
+    expect(refreshArguments).toEqual([[]]);
   });
 });
 

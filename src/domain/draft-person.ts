@@ -1,5 +1,3 @@
-import type { IdentityResolutionInput, Resolution } from "@nanahuse/player-manager-protocol";
-
 export type PlayerSnapshot = {
   playerId: string;
   displayName: string;
@@ -50,35 +48,5 @@ export function createDraftPersonFromEntrant(input: {
     },
     player: null,
     resolution: "unresolved",
-  };
-}
-
-export function applyResolutionToDraftPerson(
-  person: DraftPerson,
-  resolution: Resolution,
-): DraftPerson {
-  if (resolution.status === "matched") {
-    if (resolution.playerId) {
-      return { ...person, playerId: resolution.playerId, player: null, resolution: "matched" };
-    }
-    return { ...person, playerId: null, player: null, resolution: "unresolved" };
-  }
-  if (
-    resolution.status === "unresolved" ||
-    resolution.status === "ambiguous" ||
-    resolution.status === "conflict"
-  ) {
-    return { ...person, playerId: null, player: null, resolution: resolution.status };
-  }
-  return person;
-}
-
-export function draftPersonResolutionInput(person: DraftPerson): IdentityResolutionInput {
-  return {
-    racetime: person.identity.racetimeUserId ? { userId: person.identity.racetimeUserId } : null,
-    twitch: person.identity.twitchLogin ? { login: person.identity.twitchLogin } : null,
-    speedrunCom: person.identity.speedrunComUserId
-      ? { userId: person.identity.speedrunComUserId }
-      : null,
   };
 }

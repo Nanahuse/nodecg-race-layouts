@@ -1,12 +1,11 @@
 import { describe, expect, it } from "vitest";
 
 import type { IntegrationStatus } from "../src/domain";
+import { createDraftPersonFromEntrant } from "../src/domain/draft-person";
 import {
-  applyResolutionToDraftPerson,
-  createDraftPersonFromEntrant,
-} from "../src/domain/draft-person";
-import {
+  bindDraftPersonFromDirectory,
   bindPlayerToDraftPerson,
+  createRaceTimePlayerIndex,
   playerToSnapshot,
 } from "../src/extension/integrations/player-manager/mapper";
 import {
@@ -14,7 +13,12 @@ import {
   PlayerManagerIntegrationError,
   setupPlayerManagerIntegration,
 } from "../src/extension/integrations/player-manager/client";
-import type { Player, PlayerManagerAPI, Resolution } from "@nanahuse/player-manager-protocol";
+import type {
+  MatchingInput,
+  Player,
+  PlayerManagerAPI,
+  RequiredAccount,
+} from "@nanahuse/player-manager-protocol";
 import { createDefaultIntegrationStatus } from "../src/replicants/defaults";
 import type { NodeCG, Replicant } from "../src/types/nodecg";
 
@@ -28,35 +32,23 @@ const player: Player = {
   youtube: "https://youtube.com/@runner",
 };
 
-function makeApi(overrides: Partial<PlayerManagerAPI> = {}): PlayerManagerAPI {
+function makeApi(
+  overrides: Partial<PlayerManagerAPI> = {},
+  requests: Array<{ operation: string; request: unknown }> = [],
+): PlayerManagerAPI {
   return {
-    apiVersion: 1,
+    apiVersion: 2,
     ready: Promise.resolve(),
     request: async (operation, request) => {
+      requests.push({ operation, request });
       const data =
         operation === "list"
           ? { schemaVersion: 1, revision: 4, players: [player] }
           : operation === "get"
             ? player
-            : operation === "resolve"
-              ? ({
-                  status: "matched",
-                  playerId: player.playerId,
-                  input: {
-                    manualDisplayName: null,
-                    youtube: null,
-                    racetime: null,
-                    speedrunCom: null,
-                    twitch: null,
-                  },
-                  candidates: [],
-                  message: "Matched",
-                  warnings: [],
-                } satisfies Resolution)
-              : operation === "beginRegistration"
-                ? { registrationId: "reg-1", url: "https://example.test/reg-1" }
-                : null;
-      void request;
+            : operation === "beginRegistration"
+              ? { registrationId: "reg-1", url: "https://example.test/reg-1" }
+              : null;
       return { ok: true, data } as never;
     },
     ...overrides,
@@ -79,17 +71,22 @@ function nodecg(api?: unknown): NodeCG {
 }
 
 describe("Player Manager gateway", () => {
-  it("connects to v1 and exposes the supported operations", async () => {
-    const gateway = createPlayerManagerGateway(nodecg(makeApi()));
+  it("connects to v2 and sends MatchingInput with requiredAccounts", async () => {
+    const requests: Array<{ operation: string; request: unknown }> = [];
+    const gateway = createPlayerManagerGateway(nodecg(makeApi({}, requests)));
     await gateway.ready;
     expect(await gateway.list()).toEqual([player]);
     expect(await gateway.get("canonical-1")).toEqual(player);
-    expect((await gateway.resolve({ racetime: { userId: "rt-1" } })).status).toBe("matched");
-    expect(await gateway.beginRegistration({})).toEqual({
+    const input: MatchingInput = { racetime: "rt-1" };
+    const requiredAccounts: RequiredAccount[] = [{ service: "racetime", value: "rt-1" }];
+    expect(await gateway.beginRegistration(input, requiredAccounts)).toEqual({
       registrationId: "reg-1",
       url: "https://example.test/reg-1",
     });
-    expect(await gateway.getRegistration("reg-1")).toBeNull();
+    expect(requests.at(-1)).toEqual({
+      operation: "beginRegistration",
+      request: { input, requiredAccounts },
+    });
   });
 
   it("maps Player Manager response errors to a common integration error", async () => {
@@ -111,7 +108,7 @@ describe("Player Manager gateway", () => {
   it("reports unavailable and version mismatch without throwing during bootstrap", async () => {
     const unavailable = createPlayerManagerGateway(nodecg());
     await expect(unavailable.ready).rejects.toMatchObject({ code: "unavailable" });
-    const wrongVersion = createPlayerManagerGateway(nodecg({ ...makeApi(), apiVersion: 2 }));
+    const wrongVersion = createPlayerManagerGateway(nodecg({ ...makeApi(), apiVersion: 1 }));
     await expect(wrongVersion.ready).rejects.toMatchObject({ code: "version_mismatch" });
     expect(wrongVersion).toBeDefined();
   });
@@ -134,7 +131,7 @@ describe("Player Manager gateway", () => {
 
     const errorStatus = { ...status, value: createDefaultIntegrationStatus() };
     const mismatch = setupPlayerManagerIntegration(
-      nodecg({ ...makeApi(), apiVersion: 2 }),
+      nodecg({ ...makeApi(), apiVersion: 1 }),
       errorStatus,
     );
     await expect(mismatch.ready).rejects.toMatchObject({ code: "version_mismatch" });
@@ -207,35 +204,31 @@ describe("Player Manager mapping and Draft Person", () => {
     });
   });
 
-  it.each(["ambiguous", "conflict"] as const)("clears canonical id for %s resolution", (state) => {
+  it("binds only an exact RaceTime Directory match and clears removed accounts", () => {
     const person = {
       ...createDraftPersonFromEntrant({
-        racetimeUserId: "rt",
+        racetimeUserId: "rt-1",
         racetimeName: "Runner",
-        twitchLogin: null,
+        twitchLogin: "twitch_login",
         ref: "ref",
       }),
       playerId: "old",
       player: playerToSnapshot(player),
+      resolution: "matched" as const,
     };
-    const resolution = {
-      status: state,
-      playerId: null,
-      input: {
-        manualDisplayName: null,
-        youtube: null,
-        racetime: null,
-        speedrunCom: null,
-        twitch: null,
-      },
-      candidates: [],
-      message: "Needs review",
-      warnings: [],
-    } as Resolution;
-    expect(applyResolutionToDraftPerson(person, resolution)).toMatchObject({
+    const twitchOnly: Player = { ...player, playerId: "twitch-only", racetime: null };
+    const index = createRaceTimePlayerIndex([twitchOnly]);
+    expect(bindDraftPersonFromDirectory(person, "rt-1", index)).toMatchObject({
       playerId: null,
       player: null,
-      resolution: state,
+      resolution: "unresolved",
+    });
+    expect(
+      bindDraftPersonFromDirectory(person, "rt-1", createRaceTimePlayerIndex([player])),
+    ).toMatchObject({
+      playerId: "canonical-1",
+      player: { playerId: "canonical-1" },
+      resolution: "matched",
     });
   });
 });

@@ -1,17 +1,10 @@
-import type {
-  IdentityResolutionInput,
-  Player,
-  RegistrationSession,
-  Resolution,
-} from "@nanahuse/player-manager-protocol";
+import type { MatchingInput, Player, RequiredAccount } from "@nanahuse/player-manager-protocol";
 
 import type { PlayerManagerGateway } from "./types";
 
 export type FakePlayerManagerOptions = {
   players?: Player[];
-  resolveResult?: Resolution;
   registrationResult?: { registrationId: string; url: string };
-  registration?: RegistrationSession | null;
   failure?: Error;
   readyFailure?: Error;
 };
@@ -43,41 +36,17 @@ export class FakePlayerManagerGateway implements PlayerManagerGateway {
     );
   }
 
-  resolve(input: IdentityResolutionInput): Promise<Resolution> {
-    return this.call(
-      "resolve",
-      input,
-      this.options.resolveResult ?? {
-        status: "unresolved",
-        playerId: null,
-        input: {
-          manualDisplayName: null,
-          youtube: null,
-          racetime: null,
-          speedrunCom: null,
-          twitch: null,
-        },
-        candidates: [],
-        message: "No matching player.",
-        warnings: [],
-      },
-    );
-  }
-
   beginRegistration(
-    input: IdentityResolutionInput,
+    input: MatchingInput,
+    requiredAccounts?: RequiredAccount[],
   ): Promise<{ registrationId: string; url: string }> {
     return this.call(
       "beginRegistration",
-      input,
+      { input, requiredAccounts },
       this.options.registrationResult ?? {
         registrationId: "registration-1",
         url: "http://localhost/registration/registration-1",
       },
     );
-  }
-
-  getRegistration(registrationId: string): Promise<RegistrationSession | null> {
-    return this.call("getRegistration", registrationId, this.options.registration ?? null);
   }
 }

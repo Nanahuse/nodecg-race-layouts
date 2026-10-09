@@ -28,7 +28,7 @@
   "nodecg": {
     "compatibleRange": "^2.8.0",
     "bundleDependencies": {
-      "player-manager": "^1.0.1"
+      "player-manager": "^2.0.0"
     },
     "dashboardPanels": [
       {
@@ -78,7 +78,7 @@
   "dependencies": {
     "@googleapis/sheets": "^18.0.0",
     "google-auth-library": "^11.1.0",
-    "@nanahuse/player-manager-protocol": "github:Nanahuse/player-manager#v1.0.1&path:/packages/player-manager-protocol",
+    "@nanahuse/player-manager-protocol": "github:Nanahuse/player-manager#v2.0.0&path:/packages/player-manager-protocol",
     "react": "^19.3.0",
     "react-dom": "^19.3.0"
   }

@@ -1,6 +1,7 @@
 import { resolveDisplayName } from "@nanahuse/player-manager-protocol";
 
 import type { DraftPerson, PlayerSnapshot } from "../../../domain/draft-person";
+import type { DraftRaceParticipant } from "../../../domain/participant";
 import type { Player } from "./types";
 
 export function playerToSnapshot(player: Player): PlayerSnapshot {
@@ -31,4 +32,23 @@ export function bindPlayerToDraftPerson(person: DraftPerson, player: Player): Dr
     player: playerToSnapshot(player),
     resolution: "matched",
   };
+}
+
+export function createRaceTimePlayerIndex(players: Player[]): ReadonlyMap<string, Player> {
+  return new Map(
+    players.flatMap((player) =>
+      player.racetime ? [[player.racetime.userId, player] as const] : [],
+    ),
+  );
+}
+
+export function bindDraftPersonFromDirectory(
+  person: DraftPerson,
+  racetimeUserId: DraftRaceParticipant["racetimeUserId"],
+  playersByRaceTimeId: ReadonlyMap<string, Player>,
+): DraftPerson {
+  const player = playersByRaceTimeId.get(racetimeUserId);
+  return player
+    ? bindPlayerToDraftPerson(person, player)
+    : { ...person, playerId: null, player: null, resolution: "unresolved" };
 }
