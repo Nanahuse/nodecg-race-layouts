@@ -28,14 +28,6 @@ export class FakePlayerManagerGateway implements PlayerManagerGateway {
     return this.call("list", undefined, this.options.players ?? []);
   }
 
-  get(playerId: string): Promise<Player | null> {
-    return this.call(
-      "get",
-      playerId,
-      this.options.players?.find((player) => player.playerId === playerId) ?? null,
-    );
-  }
-
   beginRegistration(
     input: MatchingInput,
     requiredAccounts?: RequiredAccount[],

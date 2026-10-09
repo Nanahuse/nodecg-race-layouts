@@ -76,7 +76,6 @@ describe("Player Manager gateway", () => {
     const gateway = createPlayerManagerGateway(nodecg(makeApi({}, requests)));
     await gateway.ready;
     expect(await gateway.list()).toEqual([player]);
-    expect(await gateway.get("canonical-1")).toEqual(player);
     const input: MatchingInput = { racetime: "rt-1" };
     const requiredAccounts: RequiredAccount[] = [{ service: "racetime", value: "rt-1" }];
     expect(await gateway.beginRegistration(input, requiredAccounts)).toEqual({
@@ -98,7 +97,7 @@ describe("Player Manager gateway", () => {
         }) as never,
     });
     const gateway = createPlayerManagerGateway(nodecg(api));
-    await expect(gateway.get("x")).rejects.toMatchObject({
+    await expect(gateway.list()).rejects.toMatchObject({
       name: "PlayerManagerIntegrationError",
       code: "player_manager_error",
       message: "Storage offline",

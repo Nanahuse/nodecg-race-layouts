@@ -79,10 +79,6 @@ class ApiPlayerManagerGateway implements PlayerManagerGateway {
     return directory.players;
   }
 
-  get(playerId: string): Promise<Player | null> {
-    return this.request("get", { playerId });
-  }
-
   beginRegistration(
     input: MatchingInput,
     requiredAccounts?: RequiredAccount[],
@@ -104,9 +100,6 @@ class UnavailablePlayerManagerGateway implements PlayerManagerGateway {
     });
   }
   list(): Promise<Player[]> {
-    return this.fail();
-  }
-  get(_playerId: string): Promise<Player | null> {
     return this.fail();
   }
   beginRegistration(

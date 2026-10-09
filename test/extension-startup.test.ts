@@ -40,7 +40,7 @@ function makeFakeNodeCG(bundleConfig: unknown) {
     bundleVersion: "0.0.0",
   } as unknown as NodeCG;
 
-  return { nodecg, listened, handlers };
+  return { nodecg, listened, handlers, fakeLogger };
 }
 
 describe("bootstrapExtension", () => {
@@ -163,6 +163,52 @@ describe("Player Manager v2 registration completion", () => {
     );
 
     expect(refreshArguments).toEqual([[]]);
+  });
+
+  it("logs returned refresh failures as warnings and thrown failures as errors", async () => {
+    const returnedFailure = makeFakeNodeCG(undefined);
+    registerParticipantMessages(returnedFailure.nodecg, {
+      refreshPlayerBindings: async () => ({
+        ok: false,
+        reason: "operation_failed",
+        message: "Directory unavailable",
+      }),
+    } as unknown as ParticipantDraftService);
+    await returnedFailure.handlers.get("player-manager.v2.registrationCompleted")?.(
+      undefined,
+      () => {},
+    );
+    expect(returnedFailure.fakeLogger.warnMessages.join(" ")).toContain(
+      "[participant.directory.refresh_failed] reason=operation_failed message=Directory unavailable",
+    );
+
+    const thrownFailure = makeFakeNodeCG(undefined);
+    registerParticipantMessages(thrownFailure.nodecg, {
+      refreshPlayerBindings: async () => {
+        throw new Error("Directory read failed");
+      },
+    } as unknown as ParticipantDraftService);
+    await thrownFailure.handlers.get("player-manager.v2.registrationCompleted")?.(
+      undefined,
+      () => {},
+    );
+    expect(thrownFailure.fakeLogger.errorMessages.join(" ")).toContain(
+      "[participant.directory.refresh_failed] Directory read failed",
+    );
+  });
+
+  it("does not report a missing Race as a synchronization error", async () => {
+    const { nodecg, handlers, fakeLogger } = makeFakeNodeCG(undefined);
+    registerParticipantMessages(nodecg, {
+      refreshPlayerBindings: async () => ({
+        ok: false,
+        reason: "no_race_loaded",
+        message: "No race is loaded.",
+      }),
+    } as unknown as ParticipantDraftService);
+    await handlers.get("player-manager.v2.registrationCompleted")?.(undefined, () => {});
+    expect(fakeLogger.warnMessages).toEqual([]);
+    expect(fakeLogger.errorMessages).toEqual([]);
   });
 });
 

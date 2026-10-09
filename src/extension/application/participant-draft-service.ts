@@ -64,9 +64,10 @@ export class ParticipantDraftService {
   }
 
   async refreshPlayerBindings(): Promise<ParticipantMutationOutcome> {
+    if (!this.current().race) return this.fail("no_race_loaded", "No race is loaded.");
+    const playersByRaceTimeId = createRaceTimePlayerIndex(await this.options.playerManager.list());
     const draft = this.current();
     if (!draft.race) return this.fail("no_race_loaded", "No race is loaded.");
-    const playersByRaceTimeId = createRaceTimePlayerIndex(await this.options.playerManager.list());
     const persons = { ...draft.persons };
     for (const participant of draft.participants) {
       const person = draft.persons[participant.personRef];

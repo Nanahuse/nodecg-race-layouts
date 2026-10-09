@@ -44,6 +44,16 @@ export function registerParticipantMessages(
     }
   });
   nodecg.listenFor(eventMessageName("registrationCompleted"), async () => {
-    await service.refreshPlayerBindings();
+    try {
+      const outcome = await service.refreshPlayerBindings();
+      if (!outcome.ok && outcome.reason !== "no_race_loaded")
+        nodecg.log.warn(
+          `[participant.directory.refresh_failed] reason=${outcome.reason} message=${outcome.message}`,
+        );
+    } catch (error) {
+      nodecg.log.error(
+        `[participant.directory.refresh_failed] ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
   });
 }

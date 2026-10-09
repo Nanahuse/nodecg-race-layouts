@@ -11,7 +11,6 @@ export type { MatchingInput, Player, PlayerId, RequiredAccount };
 export interface PlayerManagerGateway {
   readonly ready: Promise<void>;
   list(): Promise<Player[]>;
-  get(playerId: string): Promise<Player | null>;
   beginRegistration(
     input: MatchingInput,
     requiredAccounts?: RequiredAccount[],

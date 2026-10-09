@@ -325,28 +325,47 @@ export class RaceDraftService {
     const session = this.draftRaceSession.value;
     if (!session?.race || !session.canonicalUrl)
       return { ok: false, reason: "no_race_loaded", message: "No race is loaded." };
-    const draft = this.draftConfig.value ?? createDefaultDraftConfig();
-    if (typeof expectedDraftRevision !== "number" || draft.revision !== expectedDraftRevision)
+    const draftAtStart = this.draftConfig.value ?? createDefaultDraftConfig();
+    if (
+      typeof expectedDraftRevision !== "number" ||
+      draftAtStart.revision !== expectedDraftRevision
+    )
       return {
         ok: false,
         reason: "draft_changed",
-        message: `Draft revision is ${draft.revision}, expected ${expectedDraftRevision}.`,
+        message: `Draft revision is ${draftAtStart.revision}, expected ${expectedDraftRevision}.`,
       };
-    this.logEvent("race.reconcile.started", { draftRevision: draft.revision });
+    const startingSessionRevision = session.revision;
+    this.logEvent("race.reconcile.started", { draftRevision: draftAtStart.revision });
     try {
       const categoryChanged =
-        draft.race?.categorySlug !== session.race.categorySlug ||
-        draft.race?.goal !== session.race.goal;
+        draftAtStart.race?.categorySlug !== session.race.categorySlug ||
+        draftAtStart.race?.goal !== session.race.goal;
       const categoryPreset = categoryChanged
         ? await this.loadCategoryPreset(session.race.categorySlug, session.race.goal)
         : undefined;
+      const playersByRaceTimeId = createRaceTimePlayerIndex(await this.playerManager.list());
+
+      const latestDraft = this.draftConfig.value ?? createDefaultDraftConfig();
+      if (latestDraft.revision !== expectedDraftRevision)
+        return {
+          ok: false,
+          reason: "draft_changed",
+          message: `Draft revision is ${latestDraft.revision}, expected ${expectedDraftRevision}.`,
+        };
+      const latestSession = this.draftRaceSession.value;
+      if (latestSession.revision !== startingSessionRevision) {
+        const message = "RaceTime session changed during reconciliation. Retry reconciliation.";
+        this.logEvent("race.reconcile.failed", { message }, "warn");
+        return { ok: false, reason: "reconcile_failed", message };
+      }
+
       const existing = new Map(
-        draft.participants.map((participant) => [
+        latestDraft.participants.map((participant) => [
           participant.racetimeUserId,
-          draft.persons[participant.personRef],
+          latestDraft.persons[participant.personRef],
         ]),
       );
-      const playersByRaceTimeId = createRaceTimePlayerIndex(await this.playerManager.list());
       const newPersons = new Map<string, DraftPerson>();
       const updatedPersons = new Map<string, DraftPerson>();
       for (const entrant of session.race.entrants) {
@@ -374,17 +393,19 @@ export class RaceDraftService {
         if (existingPerson) updatedPersons.set(entrant.userId, boundPerson);
         else newPersons.set(entrant.userId, boundPerson);
       }
-      const sourceIdsBefore = participantSpeedrunUserIds(draft);
+      const sourceIdsBefore = participantSpeedrunUserIds(latestDraft);
       const outcome = reconcileDraft({
-        draft,
+        draft: latestDraft,
         session,
         resolvedNewPersons: newPersons,
         resolvedExistingPersons: updatedPersons,
         categoryPreset,
       });
-      const candidate = { ...outcome.draft, revision: draft.revision };
-      const changed = !jsonEquals(candidate, draft);
-      const finalDraft = changed ? { ...outcome.draft, revision: draft.revision + 1 } : draft;
+      const candidate = { ...outcome.draft, revision: latestDraft.revision };
+      const changed = !jsonEquals(candidate, latestDraft);
+      const finalDraft = changed
+        ? { ...outcome.draft, revision: latestDraft.revision + 1 }
+        : latestDraft;
       if (changed) {
         this.draftConfig.value = finalDraft;
         const srcSetChanged = !speedrunUserIdSetsEqual(
