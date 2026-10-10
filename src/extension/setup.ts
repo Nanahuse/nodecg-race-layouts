@@ -408,7 +408,9 @@ export function bootstrapExtension(nodecg: NodeCG): {
   registerSpreadsheetSetupMessages(nodecg);
   postApplyPersistence?.resume();
   const graphicsProjection = setupGraphicsProjection(nodecg);
-  registerRaceMessages(nodecg, raceDraft);
+  registerRaceMessages(nodecg, raceDraft, () =>
+    requestPlayerManagerDirectorySync(nodecg, participantDraft),
+  );
   registerCategoryMessages(nodecg, categoryDraft);
   registerSpeedrunMessages(nodecg, speedrunDiscovery);
   registerSpeedrunSnapshotMessages(nodecg, speedrunSnapshot);

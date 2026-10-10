@@ -66,30 +66,33 @@ export class ParticipantDraftService {
     return { ok: true, ...registration };
   }
 
-  async refreshPlayerBindings(): Promise<ParticipantMutationOutcome> {
+  refreshPlayerBindings(): Promise<ParticipantMutationOutcome> {
     if (this.refreshPromise) {
       this.refreshAgain = true;
       return this.refreshPromise;
     }
     this.refreshPromise = this.refreshPlayerBindingsLoop();
-    try {
-      return await this.refreshPromise;
-    } finally {
-      this.refreshPromise = null;
-    }
+    return this.refreshPromise;
   }
 
   private async refreshPlayerBindingsLoop(): Promise<ParticipantMutationOutcome> {
-    let outcome: ParticipantMutationOutcome = this.fail("no_race_loaded", "No race is loaded.");
-    do {
+    while (true) {
       this.refreshAgain = false;
+      let outcome: ParticipantMutationOutcome;
       try {
         outcome = await this.refreshPlayerBindingsOnce();
       } catch (error) {
-        if (!this.refreshAgain) throw error;
+        if (this.refreshAgain) continue;
+        this.refreshPromise = null;
+        throw error;
       }
-    } while (this.refreshAgain);
-    return outcome;
+      if (this.refreshAgain) continue;
+      // Clear the single-flight state in the same synchronous turn as the
+      // final pending check, so a request can either join this run or start a
+      // new one; it cannot slip into an unobserved gap.
+      this.refreshPromise = null;
+      return outcome;
+    }
   }
 
   private async refreshPlayerBindingsOnce(): Promise<ParticipantMutationOutcome> {
@@ -100,7 +103,15 @@ export class ParticipantDraftService {
     const playersById = new Map(players.map((player) => [player.playerId, player]));
     const draft = this.current();
     if (!draft.race) return this.fail("no_race_loaded", "No race is loaded.");
-    if (draft.revision !== beforeRequest.revision) this.refreshAgain = true;
+    if (draft.revision !== beforeRequest.revision) {
+      this.refreshAgain = true;
+      return {
+        ok: true,
+        changed: false,
+        draftRevision: draft.revision,
+        unresolvedPlayerCount: countUnresolvedPeople(draft),
+      };
+    }
     const persons = { ...draft.persons };
     for (const participant of draft.participants) {
       const person = draft.persons[participant.personRef];

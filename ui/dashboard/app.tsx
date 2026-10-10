@@ -255,7 +255,7 @@ export function App() {
     return () => {
       active = false;
       playerRequest.current += 1;
-      nodecg.unlisten(eventName, directoryChanged);
+      nodecg.unlisten(eventName, "player-manager", directoryChanged);
     };
   }, [draft.ready, draft.value?.revision]);
   if (![draft, active, session, integration, persistence, snapshot].every((item) => item.ready))

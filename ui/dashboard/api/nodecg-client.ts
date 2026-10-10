@@ -7,6 +7,6 @@ export type DashboardNodeCG = {
   Replicant<T>(name: string): BrowserReplicant<T>;
   sendMessage<T>(name: string, data?: unknown): Promise<T>;
   listenFor(messageName: string, bundleName: string, handler: (data: unknown) => void): void;
-  unlisten(messageName: string, handler: (data: unknown) => void): void;
+  unlisten(messageName: string, bundleName: string, handler: (data: unknown) => void): void;
 };
 export const nodecg = (window as unknown as Window & { nodecg: DashboardNodeCG }).nodecg;

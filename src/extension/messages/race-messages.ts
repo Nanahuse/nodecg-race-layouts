@@ -22,10 +22,35 @@ function isRecord(value: unknown): value is Record<string, unknown> {
  * `RaceDraftService`; these handlers only validate the request shape and
  * acknowledge the structured result.
  */
-export function registerRaceMessages(nodecg: NodeCG, service: RaceDraftService): void {
+export type DirectorySyncRequest = () => void | Promise<void>;
+
+function requestDirectorySync(nodecg: NodeCG, syncDirectory?: DirectorySyncRequest): void {
+  if (!syncDirectory) return;
+  try {
+    const pending = syncDirectory();
+    if (pending && typeof pending.then === "function") {
+      void pending.catch((error: unknown) => {
+        nodecg.log.error(
+          `[race.directory.refresh_failed] ${error instanceof Error ? error.message : String(error)}`,
+        );
+      });
+    }
+  } catch (error) {
+    nodecg.log.error(
+      `[race.directory.refresh_failed] ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
+}
+
+export function registerRaceMessages(
+  nodecg: NodeCG,
+  service: RaceDraftService,
+  syncDirectory?: DirectorySyncRequest,
+): void {
   nodecg.listenFor(RACE_LOAD_MESSAGE, async (data, ack) => {
     const url = isRecord(data) && typeof data.url === "string" ? data.url : "";
     const response = await service.loadRace(url);
+    if (response.ok) requestDirectorySync(nodecg, syncDirectory);
     if (ack && !ack.handled) {
       ack(null, response);
     }
@@ -37,6 +62,7 @@ export function registerRaceMessages(nodecg: NodeCG, service: RaceDraftService):
         ? data.expectedDraftRevision
         : Number.NaN;
     const response = await service.reconcile(expectedDraftRevision);
+    if (response.ok) requestDirectorySync(nodecg, syncDirectory);
     if (ack && !ack.handled) {
       ack(null, response);
     }

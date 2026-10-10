@@ -93,6 +93,85 @@ describe("bootstrapExtension", () => {
 });
 
 describe("registerRaceMessages", () => {
+  it("requests Directory sync only after successful load or reconciliation without awaiting it", async () => {
+    const { nodecg, handlers } = makeFakeNodeCG(undefined);
+    let syncRequests = 0;
+    let releaseSync!: () => void;
+    const syncPending = new Promise<void>((resolve) => {
+      releaseSync = resolve;
+    });
+    const service = {
+      loadRace: async (url: string) =>
+        url
+          ? {
+              ok: true as const,
+              draftRevision: 1,
+              participantCount: 0,
+              unresolvedPlayerCount: 0,
+            }
+          : { ok: false as const, reason: "invalid_url" as const, message: "bad" },
+      reconcile: async (revision: number) =>
+        revision === 1
+          ? {
+              ok: true as const,
+              changed: false,
+              draftRevision: 1,
+              participantCount: 0,
+              unresolvedPlayerCount: 0,
+            }
+          : { ok: false as const, reason: "no_race_loaded" as const, message: "none" },
+    } as unknown as RaceDraftService;
+    registerRaceMessages(nodecg, service, () => {
+      syncRequests += 1;
+      return syncPending;
+    });
+
+    const results: unknown[] = [];
+    await handlers.get("race.load")?.({ url: "https://racetime.gg/ootr/race-a" }, (_e, value) => {
+      results.push(value);
+    });
+    await handlers.get("race.load")?.({ url: "" }, (_e, value) => results.push(value));
+    await handlers.get("race.reconcile")?.({ expectedDraftRevision: 1 }, (_e, value) => {
+      results.push(value);
+    });
+    await handlers.get("race.reconcile")?.({ expectedDraftRevision: 2 }, (_e, value) => {
+      results.push(value);
+    });
+
+    expect(syncRequests).toBe(2);
+    expect(results).toHaveLength(4);
+    releaseSync();
+  });
+
+  it("keeps successful race responses when the requested Directory sync fails", async () => {
+    const { nodecg, handlers, fakeLogger } = makeFakeNodeCG(undefined);
+    const service = {
+      loadRace: async () => ({
+        ok: true as const,
+        draftRevision: 4,
+        participantCount: 1,
+        unresolvedPlayerCount: 0,
+      }),
+      reconcile: async () => ({
+        ok: false as const,
+        reason: "no_race_loaded" as const,
+        message: "none",
+      }),
+    } as unknown as RaceDraftService;
+    registerRaceMessages(nodecg, service, async () => {
+      throw new Error("Directory unavailable");
+    });
+    let response: unknown;
+
+    await handlers.get("race.load")?.({ url: "https://racetime.gg/ootr/race-a" }, (_e, value) => {
+      response = value;
+    });
+    await Promise.resolve();
+
+    expect(response).toMatchObject({ ok: true, draftRevision: 4 });
+    expect(fakeLogger.errorMessages.join(" ")).toContain("Directory unavailable");
+  });
+
   it("acknowledges race.load with the structured result", async () => {
     const { nodecg, handlers } = makeFakeNodeCG(undefined);
     const service = {
