@@ -14,11 +14,7 @@ import { createParticipantApi } from "./api/participant-api";
 import { createRacePresentationApi } from "./api/race-presentation-api";
 import { useReplicant } from "./hooks/use-replicant";
 import { statusTone } from "./model/status";
-import {
-  dispatchParticipantAction,
-  groupParticipants,
-  participantAction,
-} from "./model/participants";
+import { groupParticipants, isResolvedParticipant, participantAction } from "./model/participants";
 import { CategoryEditor } from "./components/category-editor";
 import { CategoryPresentationEditor } from "./components/category-presentation-editor";
 import { SpeedrunSnapshotPanel } from "./components/speedrun-snapshot-panel";
@@ -43,7 +39,7 @@ function Badge({
   );
 }
 
-function ParticipantCard({
+export function ParticipantCard({
   draft,
   participant,
   entrantName,
@@ -108,13 +104,13 @@ function ParticipantCard({
       <button
         className={`player-manager-${action.style}`}
         disabled={pending}
-        onClick={() =>
-          dispatchParticipantAction(
-            person,
-            (playerId) => window.open(playerEditUrl(playerId), "_blank", "noopener,noreferrer"),
-            () => void register(),
-          )
-        }
+        onClick={() => {
+          if (isResolvedParticipant(person)) {
+            window.open(playerEditUrl(person.playerId), "_blank", "noopener,noreferrer");
+          } else {
+            void register();
+          }
+        }}
       >
         {pending ? "Opening…" : action.label}
       </button>

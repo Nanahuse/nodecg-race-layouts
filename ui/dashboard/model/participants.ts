@@ -8,6 +8,7 @@ export function isResolvedParticipant(
   return (
     person?.resolution === "matched" &&
     person.playerId != null &&
+    person.playerId.trim().length > 0 &&
     person.player != null &&
     person.player.playerId === person.playerId
   );
@@ -20,15 +21,6 @@ export function participantAction(person: DraftPerson | undefined): {
   return isResolvedParticipant(person)
     ? { label: "Edit in Player Manager", style: "secondary" }
     : { label: "Resolve in Player Manager", style: "primary" };
-}
-
-export function dispatchParticipantAction(
-  person: DraftPerson | undefined,
-  edit: (playerId: string) => void,
-  resolve: () => void,
-): void {
-  if (isResolvedParticipant(person)) edit(person.playerId);
-  else resolve();
 }
 
 export function groupParticipants(draft: DraftConfig): {

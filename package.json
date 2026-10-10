@@ -67,6 +67,7 @@
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.1",
     "ajv": "^8.17.1",
+    "happy-dom": "^20.14.6",
     "oxlint": "^1.83.0",
     "prettier": "^3.9.8",
     "rimraf": "^6.1.3",
