@@ -5,8 +5,18 @@ import {
   buildRaceOverlayData,
 } from "../src/extension/application/graphics-view-model-builder";
 import { makeActiveConfig, makeSpeedrunSnapshot } from "./factories";
+import type { Player } from "../src/extension/integrations/player-manager/types";
 
 const event = { name: "Event", shortName: null, logoUrl: "/logo.png" };
+const directoryPlayer = (userId: string, manualDisplayName: string | null): Player => ({
+  playerId: `pm-${userId}`,
+  revision: 1,
+  manualDisplayName,
+  racetime: null,
+  speedrunCom: { userId, name: `SRC ${userId}` },
+  twitch: null,
+  youtube: null,
+});
 const snapshot = {
   activeRevision: 1,
   snapshot: makeSpeedrunSnapshot({
@@ -143,17 +153,32 @@ describe("graphics view model builders", () => {
   });
 
   it("keeps all rank-10 ties and supports presentation fallback", () => {
-    const result = buildLeaderboardPageData(makeActiveConfig(), snapshot, event);
+    const result = buildLeaderboardPageData(
+      makeActiveConfig(),
+      snapshot,
+      event,
+      Array.from({ length: 4 }, (_, index) =>
+        directoryPlayer(`src-account-player-${index + 1}`, `Player Manager ${index + 1}`),
+      ),
+    );
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.value.leaderboard.filter((entry) => entry.rank === 10)).toHaveLength(3);
     expect(result.value.leaderboard.map((entry) => entry.rank)).toEqual([10, 10, 8, 9, 10]);
+    expect(result.value.leaderboard.map((entry) => entry.time)).toEqual(Array(5).fill("0:01"));
     expect(result.value.leaderboard.map((entry) => entry.name)).toEqual([
-      "player-1",
-      "player-2",
-      "player-3",
-      "player-4",
+      "Player Manager 1",
+      "Player Manager 2",
+      "Player Manager 3",
+      "Player Manager 4",
       "SRC 5",
+    ]);
+    expect(result.value.leaderboard.map((entry) => entry.secondaryName)).toEqual([
+      null,
+      null,
+      null,
+      null,
+      null,
     ]);
     expect(result.value.presentation).toMatchObject({
       ruleHeading: null,
@@ -161,6 +186,52 @@ describe("graphics view model builders", () => {
       leaderboardHeading: "Leaderboard",
       sourceLabel: "Speedrun.com",
     });
+  });
+
+  it("resolves every registered SRC identity, falls back for unknown and guest runners", () => {
+    const activeSnapshot = {
+      ...snapshot,
+      snapshot: makeSpeedrunSnapshot({
+        leaderboard: [
+          {
+            rank: 1,
+            speedrunComUserId: "src-account-player-5",
+            speedrunComName: "SRC Nonparticipant",
+            timeSeconds: 60,
+            formattedTime: "1:00",
+          },
+          {
+            rank: 2,
+            speedrunComUserId: "src-unregistered",
+            speedrunComName: "SRC Unregistered",
+            timeSeconds: 70,
+            formattedTime: "1:10",
+          },
+          {
+            rank: 3,
+            speedrunComUserId: null,
+            speedrunComName: "SRC Guest",
+            timeSeconds: 80,
+            formattedTime: "1:20",
+          },
+        ],
+      }),
+    };
+
+    const result = buildLeaderboardPageData(makeActiveConfig(), activeSnapshot, event, [
+      directoryPlayer("src-account-player-5", "Resolved Outside Race"),
+    ]);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(
+        result.value.leaderboard.map(({ name, secondaryName }) => [name, secondaryName]),
+      ).toEqual([
+        ["Resolved Outside Race", null],
+        ["SRC Unregistered", null],
+        ["SRC Guest", null],
+      ]);
+    }
   });
 
   it("detaches proxied category rule lines in the leaderboard projection", () => {

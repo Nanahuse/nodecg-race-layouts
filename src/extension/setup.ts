@@ -187,7 +187,10 @@ function googleCredentialsFileFromConfig(raw: unknown): string | undefined {
   return undefined;
 }
 
-export function setupGraphicsProjection(nodecg: NodeCG): GraphicsProjectionService | null {
+export function setupGraphicsProjection(
+  nodecg: NodeCG,
+  playerManager: PlayerManagerGateway,
+): GraphicsProjectionService | null {
   const parsed = parseEventConfig(nodecg.bundleConfig);
   if (!parsed.ok) {
     nodecg.log.warn(`[graphics.config.invalid] ${parsed.issues.join("; ")}`);
@@ -201,6 +204,7 @@ export function setupGraphicsProjection(nodecg: NodeCG): GraphicsProjectionServi
     participants: nodecg.Replicant("participant-list-data"),
     leaderboard: nodecg.Replicant("leaderboard-page-data"),
     result: nodecg.Replicant("race-result-page-data"),
+    playerManager,
     event: parsed.config,
     log: nodecg.log,
   });
@@ -211,6 +215,7 @@ export function setupGraphicsProjection(nodecg: NodeCG): GraphicsProjectionServi
   nodecg.Replicant("active-speedrun-snapshot").on("change", () => service.rebuildStatic());
   nodecg.Replicant("active-race-session").on("change", () => service.rebuildResult());
   service.rebuildAll();
+  void service.refreshPlayerManagerDirectory();
   return service;
 }
 
@@ -407,14 +412,16 @@ export function bootstrapExtension(nodecg: NodeCG): {
   });
   registerSpreadsheetSetupMessages(nodecg);
   postApplyPersistence?.resume();
-  const graphicsProjection = setupGraphicsProjection(nodecg);
+  const graphicsProjection = setupGraphicsProjection(nodecg, playerManager);
   registerRaceMessages(nodecg, raceDraft, () =>
     requestPlayerManagerDirectorySync(nodecg, participantDraft),
   );
   registerCategoryMessages(nodecg, categoryDraft);
   registerSpeedrunMessages(nodecg, speedrunDiscovery);
   registerSpeedrunSnapshotMessages(nodecg, speedrunSnapshot);
-  registerParticipantMessages(nodecg, participantDraft);
+  registerParticipantMessages(nodecg, participantDraft, () => {
+    void graphicsProjection?.refreshPlayerManagerDirectory();
+  });
   void playerManager.ready.then(
     () => requestPlayerManagerDirectorySync(nodecg, participantDraft),
     (error: unknown) =>

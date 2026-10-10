@@ -271,17 +271,25 @@ describe("Player Manager v2 registration completion", () => {
   it("resynchronizes on directoryChanged as well as registrationCompleted", async () => {
     const { nodecg, handlers } = makeFakeNodeCG(undefined);
     let refreshes = 0;
-    registerParticipantMessages(nodecg, {
-      refreshPlayerBindings: async () => {
-        refreshes += 1;
-        return { ok: true, changed: false, draftRevision: 1, unresolvedPlayerCount: 0 };
+    let directoryNotifications = 0;
+    registerParticipantMessages(
+      nodecg,
+      {
+        refreshPlayerBindings: async () => {
+          refreshes += 1;
+          return { ok: true, changed: false, draftRevision: 1, unresolvedPlayerCount: 0 };
+        },
+      } as unknown as ParticipantDraftService,
+      () => {
+        directoryNotifications += 1;
       },
-    } as unknown as ParticipantDraftService);
+    );
 
     await handlers.get("player-manager.v2.directoryChanged")?.(undefined, () => {});
     await handlers.get("player-manager.v2.registrationCompleted")?.(undefined, () => {});
 
     expect(refreshes).toBe(2);
+    expect(directoryNotifications).toBe(2);
   });
 
   it("logs returned refresh failures as warnings and thrown failures as errors", async () => {
