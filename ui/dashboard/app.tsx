@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type {
   ActiveConfig,
   DraftConfig,
@@ -21,6 +21,8 @@ import { SpeedrunSnapshotPanel } from "./components/speedrun-snapshot-panel";
 import { BroadcastApplyPanel } from "./components/broadcast-apply-panel";
 import { PersistencePanel } from "./components/persistence-panel";
 import { SpreadsheetSetupPanel } from "./components/spreadsheet-setup-panel";
+import { eventMessageName } from "@nanahuse/player-manager-protocol";
+import { nodecg } from "./api/nodecg-client";
 
 function Badge({
   label,
@@ -227,19 +229,34 @@ export function App() {
   const persistence = useReplicant<PostApplyPersistenceState>("post-apply-persistence");
   const snapshot = useReplicant<DraftSpeedrunSnapshot>("draft-speedrun-snapshot");
   const [players, setPlayers] = useState<PlayerSnapshot[]>([]);
+  const playerRequest = useRef(0);
   const [url, setUrl] = useState("");
   const [operation, setOperation] = useState<"idle" | "load" | "reconcile">("idle");
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
-    void createParticipantApi(() => draft.value?.revision ?? 0)
-      .listPlayers()
-      .then((result) => {
+    if (!draft.ready) return;
+    let active = true;
+    const updatePlayers = async () => {
+      const requestId = ++playerRequest.current;
+      try {
+        const result = await createParticipantApi(() => draft.value?.revision ?? 0).listPlayers();
+        if (!active || requestId !== playerRequest.current) return;
         if (result.ok) setPlayers(result.players ?? []);
         else setError(result.message ?? "Player Manager is unavailable.");
-      })
-      .catch((cause: unknown) =>
-        setError(cause instanceof Error ? cause.message : "Player Manager is unavailable."),
-      );
+      } catch (cause) {
+        if (active && requestId === playerRequest.current)
+          setError(cause instanceof Error ? cause.message : "Player Manager is unavailable.");
+      }
+    };
+    const directoryChanged = () => void updatePlayers();
+    const eventName = eventMessageName("directoryChanged");
+    nodecg.listenFor(eventName, "player-manager", directoryChanged);
+    void updatePlayers();
+    return () => {
+      active = false;
+      playerRequest.current += 1;
+      nodecg.unlisten(eventName, "player-manager", directoryChanged);
+    };
   }, [draft.ready, draft.value?.revision]);
   if (![draft, active, session, integration, persistence, snapshot].every((item) => item.ready))
     return <main className="loading">Connecting to NodeCG…</main>;

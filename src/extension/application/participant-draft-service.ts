@@ -40,6 +40,9 @@ export type ParticipantDraftServiceOptions = {
 };
 
 export class ParticipantDraftService {
+  private refreshPromise: Promise<ParticipantMutationOutcome> | null = null;
+  private refreshAgain = false;
+
   constructor(private readonly options: ParticipantDraftServiceOptions) {}
 
   async listPlayers(): Promise<PlayerSnapshot[]> {
@@ -63,11 +66,52 @@ export class ParticipantDraftService {
     return { ok: true, ...registration };
   }
 
-  async refreshPlayerBindings(): Promise<ParticipantMutationOutcome> {
-    if (!this.current().race) return this.fail("no_race_loaded", "No race is loaded.");
-    const playersByRaceTimeId = createRaceTimePlayerIndex(await this.options.playerManager.list());
+  refreshPlayerBindings(): Promise<ParticipantMutationOutcome> {
+    if (this.refreshPromise) {
+      this.refreshAgain = true;
+      return this.refreshPromise;
+    }
+    this.refreshPromise = this.refreshPlayerBindingsLoop();
+    return this.refreshPromise;
+  }
+
+  private async refreshPlayerBindingsLoop(): Promise<ParticipantMutationOutcome> {
+    while (true) {
+      this.refreshAgain = false;
+      let outcome: ParticipantMutationOutcome;
+      try {
+        outcome = await this.refreshPlayerBindingsOnce();
+      } catch (error) {
+        if (this.refreshAgain) continue;
+        this.refreshPromise = null;
+        throw error;
+      }
+      if (this.refreshAgain) continue;
+      // Clear the single-flight state in the same synchronous turn as the
+      // final pending check, so a request can either join this run or start a
+      // new one; it cannot slip into an unobserved gap.
+      this.refreshPromise = null;
+      return outcome;
+    }
+  }
+
+  private async refreshPlayerBindingsOnce(): Promise<ParticipantMutationOutcome> {
+    const beforeRequest = this.current();
+    if (!beforeRequest.race) return this.fail("no_race_loaded", "No race is loaded.");
+    const players = await this.options.playerManager.list();
+    const playersByRaceTimeId = createRaceTimePlayerIndex(players);
+    const playersById = new Map(players.map((player) => [player.playerId, player]));
     const draft = this.current();
     if (!draft.race) return this.fail("no_race_loaded", "No race is loaded.");
+    if (draft.revision !== beforeRequest.revision) {
+      this.refreshAgain = true;
+      return {
+        ok: true,
+        changed: false,
+        draftRevision: draft.revision,
+        unresolvedPlayerCount: countUnresolvedPeople(draft),
+      };
+    }
     const persons = { ...draft.persons };
     for (const participant of draft.participants) {
       const person = draft.persons[participant.personRef];
@@ -78,9 +122,15 @@ export class ParticipantDraftService {
         playersByRaceTimeId,
       );
     }
+    const commentatorPlayerIds = draft.commentatorPlayerIds.filter((id) => playersById.has(id));
+    const commentators = Object.fromEntries(
+      commentatorPlayerIds.map((id) => [id, playerToSnapshot(playersById.get(id)!)]),
+    );
     const candidate = {
       ...draft,
       persons,
+      commentatorPlayerIds,
+      commentators,
     };
     return this.finish(draft, candidate, "participant.directory.refreshed");
   }

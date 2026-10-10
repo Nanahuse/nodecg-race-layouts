@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { DraftConfig } from "../src/domain";
+import type { DraftConfig, DraftSpeedrunSnapshot } from "../src/domain";
 import type { Player } from "../src/extension/integrations/player-manager/types";
 import type { PlayerManagerGateway } from "../src/extension/integrations/player-manager/types";
 import {
@@ -8,6 +8,9 @@ import {
 } from "../src/extension/application/race-draft-service";
 import { ParticipantDraftService } from "../src/extension/application/participant-draft-service";
 import { RacePresentationDraftService } from "../src/extension/application/race-presentation-draft-service";
+import { registerRaceMessages } from "../src/extension/messages/race-messages";
+import { createDefaultDraftConfig, createDefaultRaceSession } from "../src/replicants/defaults";
+import type { MessageHandler, NodeCG } from "../src/types/nodecg";
 import { makeSession } from "./support/draft-fakes";
 import {
   createDefaultDraftSpeedrunSnapshot,
@@ -65,6 +68,148 @@ function deferred<T>() {
 }
 
 describe("Player Manager Directory participant binding", () => {
+  it("syncs a race load against the Directory after load-time resolution", async () => {
+    const session = makeSession({
+      race: { ...makeSession().race!, entrants: runnerEntrants.slice(0, 1) },
+    });
+    let currentDirectory: Player[] = [player];
+    let listCalls = 0;
+    const gateway = {
+      ready: Promise.resolve(),
+      list: async () => {
+        listCalls += 1;
+        if (listCalls === 1) {
+          currentDirectory = [{ ...player, manualDisplayName: "Changed during load" }];
+          return [player];
+        }
+        return currentDirectory;
+      },
+      beginRegistration: async () => ({ registrationId: "r", url: "https://example.test" }),
+    };
+    const draft = new TrackingReplicant("draft-config", createDefaultDraftConfig());
+    const speedrun = new TrackingReplicant(
+      "draft-speedrun-snapshot",
+      createDefaultDraftSpeedrunSnapshot(),
+    );
+    const integration = new TrackingReplicant(
+      "integration-status",
+      createDefaultIntegrationStatus(),
+    );
+    const raceDraft = new RaceDraftService({
+      raceSessions: { loadRace: async () => ({ ok: true as const, session }) } as never,
+      draftRaceSession: new TrackingReplicant("draft-race-session", createDefaultRaceSession()),
+      playerManager: gateway,
+      draftConfig: draft,
+      draftSpeedrunSnapshot: speedrun,
+      integrationStatus: integration,
+      log: createFakeLogger().logger,
+    });
+    const participants = new ParticipantDraftService({
+      draftConfig: draft,
+      draftSpeedrunSnapshot: speedrun,
+      integrationStatus: integration,
+      playerManager: gateway,
+      log: createFakeLogger().logger,
+    });
+    const handlers = new Map<string, MessageHandler>();
+    const nodecg = {
+      listenFor: (name: string, handler: MessageHandler) => handlers.set(name, handler),
+      log: createFakeLogger().logger,
+    } as unknown as NodeCG;
+    let syncPromise: Promise<unknown> = Promise.resolve();
+    registerRaceMessages(nodecg, raceDraft, () => {
+      syncPromise = participants.refreshPlayerBindings();
+    });
+    let response: unknown;
+
+    await handlers.get("race.load")?.({ url: session.canonicalUrl }, (_error, result) => {
+      response = result;
+    });
+    await syncPromise;
+
+    expect(response).toMatchObject({ ok: true, draftRevision: 1 });
+    expect(listCalls).toBe(2);
+    expect(draft.value.persons[draft.value.participants[0]!.personRef]?.player?.displayName).toBe(
+      "Changed during load",
+    );
+  });
+
+  it("syncs reconciliation against the Directory after reconciliation resolves", async () => {
+    const session = makeSession({
+      race: { ...makeSession().race!, entrants: runnerEntrants.slice(0, 1) },
+    });
+    const reconcileDirectory = deferred<Player[]>();
+    let currentDirectory: Player[] = [player];
+    let listCalls = 0;
+    const gateway = {
+      ready: Promise.resolve(),
+      list: () => {
+        listCalls += 1;
+        if (listCalls === 1) return Promise.resolve([player]);
+        if (listCalls === 2) return reconcileDirectory.promise;
+        return Promise.resolve(currentDirectory);
+      },
+      beginRegistration: async () => ({ registrationId: "r", url: "https://example.test" }),
+    };
+    const initial = await buildInitialDraft({
+      session,
+      playerManager: gateway,
+      revision: 1,
+      personRefFactory: () => "person-1",
+    });
+    listCalls = 1;
+    const draft = new TrackingReplicant("draft-config", initial.draft);
+    const speedrun = new TrackingReplicant(
+      "draft-speedrun-snapshot",
+      createDefaultDraftSpeedrunSnapshot(),
+    );
+    const integration = new TrackingReplicant(
+      "integration-status",
+      createDefaultIntegrationStatus(),
+    );
+    const raceDraft = new RaceDraftService({
+      raceSessions: {} as never,
+      draftRaceSession: new TrackingReplicant("draft-race-session", session),
+      playerManager: gateway,
+      draftConfig: draft,
+      draftSpeedrunSnapshot: speedrun,
+      integrationStatus: integration,
+      log: createFakeLogger().logger,
+    });
+    const participants = new ParticipantDraftService({
+      draftConfig: draft,
+      draftSpeedrunSnapshot: speedrun,
+      integrationStatus: integration,
+      playerManager: gateway,
+      log: createFakeLogger().logger,
+    });
+    const handlers = new Map<string, MessageHandler>();
+    const nodecg = {
+      listenFor: (name: string, handler: MessageHandler) => handlers.set(name, handler),
+      log: createFakeLogger().logger,
+    } as unknown as NodeCG;
+    let syncPromise: Promise<unknown> = Promise.resolve();
+    registerRaceMessages(nodecg, raceDraft, () => {
+      syncPromise = participants.refreshPlayerBindings();
+    });
+    let response: unknown;
+
+    const request = handlers.get("race.reconcile")?.(
+      { expectedDraftRevision: 1 },
+      (_error, result) => {
+        response = result;
+      },
+    );
+    currentDirectory = [{ ...player, manualDisplayName: "Changed during reconcile" }];
+    reconcileDirectory.resolve([player]);
+    await request;
+    await syncPromise;
+
+    expect(response).toMatchObject({ ok: true, changed: false, draftRevision: 1 });
+    expect(listCalls).toBe(3);
+    expect(draft.value.persons["person-1"]?.player?.displayName).toBe("Changed during reconcile");
+  });
+
   it("loads the Directory once and matches RaceTime IDs exactly", async () => {
     let listCalls = 0;
     const twitchOnly: Player = {
@@ -201,6 +346,142 @@ describe("Player Manager Directory participant binding", () => {
     });
   });
 
+  it("updates participants and commentators together with one Draft revision", async () => {
+    let directory: Player[] = [player, secondPlayer];
+    let listCalls = 0;
+    const gateway = {
+      ready: Promise.resolve(),
+      list: async () => {
+        listCalls += 1;
+        return directory;
+      },
+      beginRegistration: async () => ({ registrationId: "r", url: "https://example.test" }),
+    };
+    const initial = await buildInitialDraft({
+      session: makeSession({ race: { ...makeSession().race!, entrants: runnerEntrants } }),
+      playerManager: gateway,
+      revision: 1,
+      personRefFactory: (() => {
+        let id = 0;
+        return () => `person-${++id}`;
+      })(),
+    });
+    const { draft, participants } = services(initial.draft, gateway);
+    const presentation = new RacePresentationDraftService({
+      draftConfig: draft,
+      draftSpeedrunSnapshot: new TrackingReplicant(
+        "draft-speedrun-snapshot",
+        createDefaultDraftSpeedrunSnapshot(),
+      ),
+      integrationStatus: new TrackingReplicant(
+        "integration-status",
+        createDefaultIntegrationStatus(),
+      ),
+      playerManager: gateway,
+      log: createFakeLogger().logger,
+    });
+    expect(await presentation.setCommentators(1, ["pm-1", "pm-2"])).toMatchObject({
+      ok: true,
+      changed: true,
+    });
+    const beforeSyncRevision = draft.value.revision;
+    listCalls = 0;
+    directory = [{ ...player, manualDisplayName: "New name" }];
+
+    const outcome = await participants.refreshPlayerBindings();
+
+    expect(listCalls).toBe(1);
+    expect(outcome).toMatchObject({
+      ok: true,
+      changed: true,
+      draftRevision: beforeSyncRevision + 1,
+    });
+    expect(draft.value.persons["person-1"]).toMatchObject({
+      playerId: "pm-1",
+      player: { displayName: "New name" },
+    });
+    expect(draft.value.persons["person-2"]).toMatchObject({
+      playerId: null,
+      player: null,
+      resolution: "unresolved",
+    });
+    expect(draft.value.commentatorPlayerIds).toEqual(["pm-1"]);
+    expect(draft.value.commentators).toEqual({
+      "pm-1": expect.objectContaining({ displayName: "New name" }),
+    });
+  });
+
+  it("keeps Draft and revision unchanged when a sync has no differences or the Directory fails", async () => {
+    let fail = false;
+    const gateway = {
+      ready: Promise.resolve(),
+      list: async () => {
+        if (fail) throw new Error("Directory unavailable");
+        return [player];
+      },
+      beginRegistration: async () => ({ registrationId: "r", url: "https://example.test" }),
+    };
+    const initial = await buildInitialDraft({
+      session: makeSession({
+        race: { ...makeSession().race!, entrants: runnerEntrants.slice(0, 1) },
+      }),
+      playerManager: gateway,
+      revision: 1,
+      personRefFactory: () => "person-1",
+    });
+    const { draft, participants } = services(initial.draft, gateway);
+    const original = draft.value;
+
+    await expect(participants.refreshPlayerBindings()).resolves.toMatchObject({
+      ok: true,
+      changed: false,
+      draftRevision: 1,
+    });
+    expect(draft.value).toBe(original);
+    fail = true;
+    await expect(participants.refreshPlayerBindings()).rejects.toThrow("Directory unavailable");
+    expect(draft.value).toBe(original);
+    fail = false;
+    await expect(participants.refreshPlayerBindings()).resolves.toMatchObject({
+      ok: true,
+      changed: false,
+      draftRevision: 1,
+    });
+  });
+
+  it("coalesces overlapping refresh requests and finishes with the newest Directory", async () => {
+    const firstDirectory = deferred<Player[]>();
+    let listCalls = 0;
+    const gateway = {
+      ready: Promise.resolve(),
+      list: () => {
+        listCalls += 1;
+        return listCalls === 2
+          ? firstDirectory.promise
+          : Promise.resolve([{ ...player, manualDisplayName: "Newest name" }]);
+      },
+      beginRegistration: async () => ({ registrationId: "r", url: "https://example.test" }),
+    };
+    const initial = await buildInitialDraft({
+      session: makeSession({
+        race: { ...makeSession().race!, entrants: runnerEntrants.slice(0, 1) },
+      }),
+      playerManager: gateway,
+      revision: 1,
+      personRefFactory: () => "person-1",
+    });
+    const { draft, participants } = services(initial.draft, gateway);
+    const first = participants.refreshPlayerBindings();
+    void participants.refreshPlayerBindings();
+    firstDirectory.resolve([{ ...player, manualDisplayName: "Older name" }]);
+
+    const outcome = await first;
+
+    expect(outcome).toMatchObject({ ok: true, changed: true, draftRevision: 3 });
+    expect(listCalls).toBe(3);
+    expect(draft.value.persons["person-1"]?.player?.displayName).toBe("Newest name");
+  });
+
   it("reconciles new entrants through the same RaceTime Directory index", async () => {
     let listCalls = 0;
     const gateway = {
@@ -253,12 +534,14 @@ describe("Player Manager Directory participant binding", () => {
 
   it("refreshes against the latest Draft after the Directory request completes", async () => {
     const directoryRequest = deferred<Player[]>();
+    let latestDirectory: Player[] = [player];
     let listCalls = 0;
     const gateway = {
       ready: Promise.resolve(),
       list: () => {
         listCalls += 1;
-        return listCalls === 1 ? Promise.resolve([player]) : directoryRequest.promise;
+        if (listCalls === 1) return Promise.resolve([player]);
+        return listCalls === 2 ? directoryRequest.promise : Promise.resolve(latestDirectory);
       },
       beginRegistration: async () => ({ registrationId: "r", url: "https://example.test" }),
     };
@@ -270,7 +553,7 @@ describe("Player Manager Directory participant binding", () => {
       revision: 1,
       personRefFactory: () => "person-1",
     });
-    const { draft, participants } = services(initial.draft, gateway);
+    const { draft, speedrun, participants } = services(initial.draft, gateway);
 
     const refreshing = participants.refreshPlayerBindings();
     await Promise.resolve();
@@ -279,7 +562,20 @@ describe("Player Manager Directory participant binding", () => {
       revision: 2,
       raceScreenSlots: { ...draft.value.raceScreenSlots, 1: null },
     };
-    directoryRequest.resolve([{ ...player, manualDisplayName: "Fresh from Directory" }]);
+    speedrun.value = {
+      draftRevision: 2,
+      state: "ready",
+      snapshot: { snapshotId: "kept" } as never,
+      message: null,
+    } as DraftSpeedrunSnapshot;
+    latestDirectory = [{ ...player, manualDisplayName: "Fresh from Directory" }];
+    directoryRequest.resolve([
+      {
+        ...player,
+        manualDisplayName: "Stale name",
+        speedrunCom: { userId: "src-stale", name: "Stale account" },
+      },
+    ]);
     const outcome = await refreshing;
 
     expect(outcome).toMatchObject({ ok: true, draftRevision: 3 });
@@ -287,6 +583,14 @@ describe("Player Manager Directory participant binding", () => {
     expect(draft.value.persons["person-1"]).toMatchObject({
       player: { displayName: "Fresh from Directory" },
     });
+    expect(listCalls).toBe(3);
+    expect(speedrun.value).toMatchObject({
+      draftRevision: 3,
+      state: "ready",
+      snapshot: { snapshotId: "kept" },
+    });
+    expect(draft.events).toEqual(["set:draft-config", "set:draft-config"]);
+    expect(speedrun.events).toHaveLength(2);
   });
 
   it("rejects reconciliation when the Draft changes during the Directory request", async () => {

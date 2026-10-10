@@ -41,6 +41,7 @@ export type MessageHandler = (data: unknown, ack: MessageAck) => void | Promise<
 export interface NodeCG {
   Replicant<T = unknown>(name: string, opts?: ReplicantOptions<T>): Replicant<T>;
   listenFor(messageName: string, handler: MessageHandler): void;
+  listenFor(messageName: string, bundleName: string, handler: MessageHandler): void;
   log: NodeCGLogger;
   /**
    * Contents of the bundle's config file (validated against

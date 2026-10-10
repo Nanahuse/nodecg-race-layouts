@@ -170,8 +170,8 @@ importers:
         specifier: ^18.0.0
         version: 18.1.0
       '@nanahuse/player-manager-protocol':
-        specifier: github:Nanahuse/player-manager#v2.1.0&path:/packages/player-manager-protocol
-        version: https://codeload.github.com/Nanahuse/player-manager/tar.gz/08efb09ae5abf747d47d1a161f8776f75e3f8d20#path:/packages/player-manager-protocol
+        specifier: github:Nanahuse/player-manager#v2.2.0&path:/packages/player-manager-protocol
+        version: https://codeload.github.com/Nanahuse/player-manager/tar.gz/971bdc54ce8e7bd69aa6f52585de5a194a1b9860#path:/packages/player-manager-protocol
       google-auth-library:
         specifier: ^11.1.0
         version: 11.1.0
@@ -238,9 +238,9 @@ packages:
   '@jridgewell/trace-mapping@0.3.31':
     resolution: {integrity: sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw==}
 
-  '@nanahuse/player-manager-protocol@https://codeload.github.com/Nanahuse/player-manager/tar.gz/08efb09ae5abf747d47d1a161f8776f75e3f8d20#path:/packages/player-manager-protocol':
-    resolution: {gitHosted: true, integrity: sha512-3tQeOhT8DEcyyeMD/MumHculL7BKDZCQTDXWSmIXXNXxn//qVy40n1mSShahjoGQhbOcF6w1/D/CjGAkpn1uIw==, path: /packages/player-manager-protocol, tarball: https://codeload.github.com/Nanahuse/player-manager/tar.gz/08efb09ae5abf747d47d1a161f8776f75e3f8d20}
-    version: 2.1.0
+  '@nanahuse/player-manager-protocol@https://codeload.github.com/Nanahuse/player-manager/tar.gz/971bdc54ce8e7bd69aa6f52585de5a194a1b9860#path:/packages/player-manager-protocol':
+    resolution: {gitHosted: true, integrity: sha512-OmYGUGg4+dA6Z73eydz4GtCtNmOpRwThYO1Lgs2qvjgF8oHGP54nTsKTjL9Y7Aa9kEp6tRGdD3lS/PiGWUB95Q==, path: /packages/player-manager-protocol, tarball: https://codeload.github.com/Nanahuse/player-manager/tar.gz/971bdc54ce8e7bd69aa6f52585de5a194a1b9860}
+    version: 2.2.0
 
   '@oxc-project/types@0.152.0':
     resolution: {integrity: sha512-oM/5rLBm2tPkg0iBgkH/FOeR3PCDpY19GTgAZjMFM8h9WI9VW7cLgzp6nwtarYKmovavIQZ+Fe/RKX/8C8O/Rw==}
@@ -1229,7 +1229,7 @@ snapshots:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.6.0
 
-  '@nanahuse/player-manager-protocol@https://codeload.github.com/Nanahuse/player-manager/tar.gz/08efb09ae5abf747d47d1a161f8776f75e3f8d20#path:/packages/player-manager-protocol': {}
+  '@nanahuse/player-manager-protocol@https://codeload.github.com/Nanahuse/player-manager/tar.gz/971bdc54ce8e7bd69aa6f52585de5a194a1b9860#path:/packages/player-manager-protocol': {}
 
   '@oxc-project/types@0.152.0': {}
 
