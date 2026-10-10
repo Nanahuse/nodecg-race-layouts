@@ -26,7 +26,7 @@ test/             単体・統合フロー・Schemaテスト
 - Node.js 24以降（`.node-version` / `.nvmrc`を参照）
 - pnpm
 - NodeCG 2.8.0以降のホスト（このリポジトリはバンドルであり、NodeCGサーバー本体は含みません）
-- Player Manager 1.0.1以降（必須bundle。`nodecg.bundleDependencies`で宣言しています）
+- Player Manager 2.1.0以降（必須bundle。`nodecg.bundleDependencies`で宣言しています）
 - Category / RaceHistoryのスプレッドシート連携を使う場合は、Google SpreadsheetとGoogle Application Default Credentials
 
 ## クイックスタート
@@ -39,7 +39,7 @@ test/             単体・統合フロー・Schemaテスト
    nodecg/bundles/player-manager
    ```
 
-   `nodecg-race-layouts`の`package.json`は`nodecg.bundleDependencies`で`player-manager@^1.0.1`を宣言しています。`nodecg install`によるbundle依存の自動解決を使わず手動で配置する場合は、両方のbundleを配置してください。
+   `nodecg-race-layouts`の`package.json`は`nodecg.bundleDependencies`で`player-manager@^2.1.0`を宣言しています。`nodecg install`によるbundle依存の自動解決を使わず手動で配置する場合は、両方のbundleを配置してください。
 
 3. `nodecg-race-layouts`のディレクトリで依存関係をインストールし、すべての成果物をビルドします。
 
@@ -50,7 +50,7 @@ test/             単体・統合フロー・Schemaテスト
 
    `pnpm run build`はExtensionを`dist/`へ出力し、Dashboardパネルと4種類のGraphicsを生成します。生成物はGit管理対象外です。
 
-4. `config.example.json`をNodeCGホストの`cfg/nodecg-race-layouts.json`へコピーし、イベント情報と認証JSONファイルのパスを設定します。Player ManagerでPlayerの作成・更新を行い、未解決参加者はRace ControlからPlayer ManagerのRegistration画面へ進めます。
+4. `config.example.json`をNodeCGホストの`cfg/nodecg-race-layouts.json`へコピーし、イベント情報と認証JSONファイルのパスを設定します。Race Controlから、解決済み参加者はPlayer ManagerのPlayer編集画面を開き、未解決参加者はRaceTime IDを必須としてRegistrationを開始できます。
 5. `googleCredentialsFile`を設定した場合は、その認証ファイルのアカウントにSpreadsheetへのアクセス権を付与します。省略する場合はNodeCGを起動するプロセスからGoogle ADCを利用できるようにしてください。認証ファイルそのものをリポジトリへ保存しないでください。
 6. ホスト環境の通常の手順でNodeCGを起動し、Race Controlを開きます。必須bundleのPlayer Managerを先にNodeCG環境へ配置してください。
 

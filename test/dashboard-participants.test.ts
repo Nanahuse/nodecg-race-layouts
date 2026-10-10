@@ -1,5 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
+  dispatchParticipantAction,
   groupParticipants,
   isResolvedParticipant,
   participantAction,
@@ -7,6 +8,38 @@ import {
 import { makeDraftPerson, makeParticipantDraft } from "./support/draft-fakes";
 
 describe("dashboard participant grouping", () => {
+  it("opens the matched Player ID directly without starting Registration", () => {
+    const edit = vi.fn();
+    const resolve = vi.fn();
+
+    dispatchParticipantAction(makeDraftPerson("player-42"), edit, resolve);
+
+    expect(edit).toHaveBeenCalledExactlyOnceWith("player-42");
+    expect(resolve).not.toHaveBeenCalled();
+  });
+
+  it("starts Registration for unresolved or inconsistent participants", () => {
+    const edit = vi.fn();
+    const resolve = vi.fn();
+
+    dispatchParticipantAction(
+      makeDraftPerson("rt-unresolved", "rt-user", "unresolved"),
+      edit,
+      resolve,
+    );
+    dispatchParticipantAction(
+      {
+        ...makeDraftPerson("mismatched"),
+        player: { ...makeDraftPerson("other-player").player!, playerId: "other-player" },
+      },
+      edit,
+      resolve,
+    );
+
+    expect(edit).not.toHaveBeenCalled();
+    expect(resolve).toHaveBeenCalledTimes(2);
+  });
+
   it("places every unresolved state and incomplete matched snapshots under Needs attention", () => {
     const states = ["unresolved", "ambiguous", "conflict"] as const;
     for (const state of states) {
@@ -22,6 +55,12 @@ describe("dashboard participant grouping", () => {
       isResolvedParticipant({
         ...makeDraftPerson("no-snapshot"),
         player: null,
+      }),
+    ).toBe(false);
+    expect(
+      isResolvedParticipant({
+        ...makeDraftPerson("mismatched-snapshot"),
+        player: { ...makeDraftPerson("different-player").player!, playerId: "different-player" },
       }),
     ).toBe(false);
     expect(isResolvedParticipant(makeDraftPerson("complete"))).toBe(true);

@@ -8,12 +8,17 @@ import type {
   RaceSession,
 } from "../../src/domain";
 import type { PlayerSnapshot } from "../../src/domain";
+import { playerEditUrl } from "@nanahuse/player-manager-protocol";
 import { raceApi } from "./api/race-api";
 import { createParticipantApi } from "./api/participant-api";
 import { createRacePresentationApi } from "./api/race-presentation-api";
 import { useReplicant } from "./hooks/use-replicant";
 import { statusTone } from "./model/status";
-import { groupParticipants, participantAction } from "./model/participants";
+import {
+  dispatchParticipantAction,
+  groupParticipants,
+  participantAction,
+} from "./model/participants";
 import { CategoryEditor } from "./components/category-editor";
 import { CategoryPresentationEditor } from "./components/category-presentation-editor";
 import { SpeedrunSnapshotPanel } from "./components/speedrun-snapshot-panel";
@@ -103,7 +108,13 @@ function ParticipantCard({
       <button
         className={`player-manager-${action.style}`}
         disabled={pending}
-        onClick={() => void register()}
+        onClick={() =>
+          dispatchParticipantAction(
+            person,
+            (playerId) => window.open(playerEditUrl(playerId), "_blank", "noopener,noreferrer"),
+            () => void register(),
+          )
+        }
       >
         {pending ? "Opening…" : action.label}
       </button>

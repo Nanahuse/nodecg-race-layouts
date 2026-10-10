@@ -1,9 +1,16 @@
-import type { DraftConfig, DraftPerson } from "../../../src/domain";
+import type { DraftConfig, DraftPerson, PlayerSnapshot } from "../../../src/domain";
 
 type Participant = DraftConfig["participants"][number];
 
-export function isResolvedParticipant(person: DraftPerson | undefined): boolean {
-  return person?.resolution === "matched" && person.playerId != null && person.player != null;
+export function isResolvedParticipant(
+  person: DraftPerson | undefined,
+): person is DraftPerson & { resolution: "matched"; playerId: string; player: PlayerSnapshot } {
+  return (
+    person?.resolution === "matched" &&
+    person.playerId != null &&
+    person.player != null &&
+    person.player.playerId === person.playerId
+  );
 }
 
 export function participantAction(person: DraftPerson | undefined): {
@@ -13,6 +20,15 @@ export function participantAction(person: DraftPerson | undefined): {
   return isResolvedParticipant(person)
     ? { label: "Edit in Player Manager", style: "secondary" }
     : { label: "Resolve in Player Manager", style: "primary" };
+}
+
+export function dispatchParticipantAction(
+  person: DraftPerson | undefined,
+  edit: (playerId: string) => void,
+  resolve: () => void,
+): void {
+  if (isResolvedParticipant(person)) edit(person.playerId);
+  else resolve();
 }
 
 export function groupParticipants(draft: DraftConfig): {
