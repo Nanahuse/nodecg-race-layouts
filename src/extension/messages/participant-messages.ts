@@ -7,6 +7,22 @@ import {
 } from "../../protocol/participant";
 export * from "../../protocol/participant";
 export type ParticipantMutationRequest = { expectedDraftRevision: number; racetimeUserId: string };
+export async function requestPlayerManagerDirectorySync(
+  nodecg: NodeCG,
+  service: ParticipantDraftService,
+): Promise<void> {
+  try {
+    const outcome = await service.refreshPlayerBindings();
+    if (!outcome.ok && outcome.reason !== "no_race_loaded")
+      nodecg.log.warn(
+        `[participant.directory.refresh_failed] reason=${outcome.reason} message=${outcome.message}`,
+      );
+  } catch (error) {
+    nodecg.log.error(
+      `[participant.directory.refresh_failed] ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
+}
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -43,17 +59,7 @@ export function registerParticipantMessages(
       ack(null, { ok: false, message: error instanceof Error ? error.message : String(error) });
     }
   });
-  nodecg.listenFor(eventMessageName("registrationCompleted"), async () => {
-    try {
-      const outcome = await service.refreshPlayerBindings();
-      if (!outcome.ok && outcome.reason !== "no_race_loaded")
-        nodecg.log.warn(
-          `[participant.directory.refresh_failed] reason=${outcome.reason} message=${outcome.message}`,
-        );
-    } catch (error) {
-      nodecg.log.error(
-        `[participant.directory.refresh_failed] ${error instanceof Error ? error.message : String(error)}`,
-      );
-    }
-  });
+  const refreshDirectory = () => requestPlayerManagerDirectorySync(nodecg, service);
+  nodecg.listenFor(eventMessageName("registrationCompleted"), "player-manager", refreshDirectory);
+  nodecg.listenFor(eventMessageName("directoryChanged"), "player-manager", refreshDirectory);
 }

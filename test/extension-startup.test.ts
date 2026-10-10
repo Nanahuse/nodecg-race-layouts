@@ -17,6 +17,7 @@ function makeFakeNodeCG(bundleConfig: unknown) {
   const replicants = new Map<string, TrackingReplicant<unknown>>();
   const listened: string[] = [];
   const handlers = new Map<string, MessageHandler>();
+  const eventBundles = new Map<string, string>();
   const fakeLogger = createFakeLogger();
 
   const nodecg = {
@@ -31,8 +32,14 @@ function makeFakeNodeCG(bundleConfig: unknown) {
       }
       return replicant;
     },
-    listenFor: (name: string, handler: MessageHandler) => {
+    listenFor: (
+      name: string,
+      bundleOrHandler: string | MessageHandler,
+      maybeHandler?: MessageHandler,
+    ) => {
       listened.push(name);
+      const handler = typeof bundleOrHandler === "string" ? maybeHandler! : bundleOrHandler;
+      if (typeof bundleOrHandler === "string") eventBundles.set(name, bundleOrHandler);
       handlers.set(name, handler);
     },
     log: fakeLogger.logger,
@@ -40,7 +47,7 @@ function makeFakeNodeCG(bundleConfig: unknown) {
     bundleVersion: "0.0.0",
   } as unknown as NodeCG;
 
-  return { nodecg, listened, handlers, fakeLogger };
+  return { nodecg, listened, handlers, eventBundles, fakeLogger };
 }
 
 describe("bootstrapExtension", () => {
@@ -68,6 +75,7 @@ describe("bootstrapExtension", () => {
     expect(listened).toContain("participant.registration.start");
     expect(listened).toContain("player-manager.list");
     expect(listened).toContain("player-manager.v2.registrationCompleted");
+    expect(listened).toContain("player-manager.v2.directoryChanged");
     expect(listened).not.toContain("player-manager.v2.registrationCancelled");
     expect(listened).toContain("race-screen.set-slots");
     expect(listened).toContain("commentators.set");
@@ -163,6 +171,38 @@ describe("Player Manager v2 registration completion", () => {
     );
 
     expect(refreshArguments).toEqual([[]]);
+  });
+
+  it("subscribes to both Player Manager events from the player-manager bundle", () => {
+    const { nodecg, eventBundles, listened } = makeFakeNodeCG(undefined);
+    registerParticipantMessages(nodecg, {
+      refreshPlayerBindings: async () => ({
+        ok: true,
+        changed: false,
+        draftRevision: 1,
+        unresolvedPlayerCount: 0,
+      }),
+    } as unknown as ParticipantDraftService);
+
+    expect([...eventBundles.values()]).toEqual(["player-manager", "player-manager"]);
+    expect(listened).toContain("player-manager.v2.registrationCompleted");
+    expect(listened).toContain("player-manager.v2.directoryChanged");
+  });
+
+  it("resynchronizes on directoryChanged as well as registrationCompleted", async () => {
+    const { nodecg, handlers } = makeFakeNodeCG(undefined);
+    let refreshes = 0;
+    registerParticipantMessages(nodecg, {
+      refreshPlayerBindings: async () => {
+        refreshes += 1;
+        return { ok: true, changed: false, draftRevision: 1, unresolvedPlayerCount: 0 };
+      },
+    } as unknown as ParticipantDraftService);
+
+    await handlers.get("player-manager.v2.directoryChanged")?.(undefined, () => {});
+    await handlers.get("player-manager.v2.registrationCompleted")?.(undefined, () => {});
+
+    expect(refreshes).toBe(2);
   });
 
   it("logs returned refresh failures as warnings and thrown failures as errors", async () => {

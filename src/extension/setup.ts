@@ -41,7 +41,10 @@ import { GoogleSheetsClient } from "./integrations/spreadsheet/google-sheets-cli
 import type { SpreadsheetClient } from "./integrations/spreadsheet/client";
 import { registerBroadcastMessages } from "./messages/broadcast-messages";
 import { registerCategoryMessages } from "./messages/category-messages";
-import { registerParticipantMessages } from "./messages/participant-messages";
+import {
+  registerParticipantMessages,
+  requestPlayerManagerDirectorySync,
+} from "./messages/participant-messages";
 import { registerRaceMessages } from "./messages/race-messages";
 import { registerRacePresentationMessages } from "./messages/race-presentation-messages";
 import { registerSpeedrunMessages } from "./messages/speedrun-messages";
@@ -410,6 +413,13 @@ export function bootstrapExtension(nodecg: NodeCG): {
   registerSpeedrunMessages(nodecg, speedrunDiscovery);
   registerSpeedrunSnapshotMessages(nodecg, speedrunSnapshot);
   registerParticipantMessages(nodecg, participantDraft);
+  void playerManager.ready.then(
+    () => requestPlayerManagerDirectorySync(nodecg, participantDraft),
+    (error: unknown) =>
+      nodecg.log.error(
+        `[participant.directory.refresh_failed] ${error instanceof Error ? error.message : String(error)}`,
+      ),
+  );
   registerRacePresentationMessages(nodecg, racePresentationDraft);
   registerBroadcastMessages(nodecg, broadcastApplyWithPersistence);
   return {

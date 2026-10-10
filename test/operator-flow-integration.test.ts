@@ -201,6 +201,136 @@ describe("Player Manager Directory participant binding", () => {
     });
   });
 
+  it("updates participants and commentators together with one Draft revision", async () => {
+    let directory: Player[] = [player, secondPlayer];
+    let listCalls = 0;
+    const gateway = {
+      ready: Promise.resolve(),
+      list: async () => {
+        listCalls += 1;
+        return directory;
+      },
+      beginRegistration: async () => ({ registrationId: "r", url: "https://example.test" }),
+    };
+    const initial = await buildInitialDraft({
+      session: makeSession({ race: { ...makeSession().race!, entrants: runnerEntrants } }),
+      playerManager: gateway,
+      revision: 1,
+      personRefFactory: (() => {
+        let id = 0;
+        return () => `person-${++id}`;
+      })(),
+    });
+    const { draft, participants } = services(initial.draft, gateway);
+    const presentation = new RacePresentationDraftService({
+      draftConfig: draft,
+      draftSpeedrunSnapshot: new TrackingReplicant(
+        "draft-speedrun-snapshot",
+        createDefaultDraftSpeedrunSnapshot(),
+      ),
+      integrationStatus: new TrackingReplicant(
+        "integration-status",
+        createDefaultIntegrationStatus(),
+      ),
+      playerManager: gateway,
+      log: createFakeLogger().logger,
+    });
+    expect(await presentation.setCommentators(1, ["pm-1", "pm-2"])).toMatchObject({
+      ok: true,
+      changed: true,
+    });
+    const beforeSyncRevision = draft.value.revision;
+    listCalls = 0;
+    directory = [{ ...player, manualDisplayName: "New name" }];
+
+    const outcome = await participants.refreshPlayerBindings();
+
+    expect(listCalls).toBe(1);
+    expect(outcome).toMatchObject({
+      ok: true,
+      changed: true,
+      draftRevision: beforeSyncRevision + 1,
+    });
+    expect(draft.value.persons["person-1"]).toMatchObject({
+      playerId: "pm-1",
+      player: { displayName: "New name" },
+    });
+    expect(draft.value.persons["person-2"]).toMatchObject({
+      playerId: null,
+      player: null,
+      resolution: "unresolved",
+    });
+    expect(draft.value.commentatorPlayerIds).toEqual(["pm-1"]);
+    expect(draft.value.commentators).toEqual({
+      "pm-1": expect.objectContaining({ displayName: "New name" }),
+    });
+  });
+
+  it("keeps Draft and revision unchanged when a sync has no differences or the Directory fails", async () => {
+    let fail = false;
+    const gateway = {
+      ready: Promise.resolve(),
+      list: async () => {
+        if (fail) throw new Error("Directory unavailable");
+        return [player];
+      },
+      beginRegistration: async () => ({ registrationId: "r", url: "https://example.test" }),
+    };
+    const initial = await buildInitialDraft({
+      session: makeSession({
+        race: { ...makeSession().race!, entrants: runnerEntrants.slice(0, 1) },
+      }),
+      playerManager: gateway,
+      revision: 1,
+      personRefFactory: () => "person-1",
+    });
+    const { draft, participants } = services(initial.draft, gateway);
+    const original = draft.value;
+
+    await expect(participants.refreshPlayerBindings()).resolves.toMatchObject({
+      ok: true,
+      changed: false,
+      draftRevision: 1,
+    });
+    expect(draft.value).toBe(original);
+    fail = true;
+    await expect(participants.refreshPlayerBindings()).rejects.toThrow("Directory unavailable");
+    expect(draft.value).toBe(original);
+  });
+
+  it("coalesces overlapping refresh requests and finishes with the newest Directory", async () => {
+    const firstDirectory = deferred<Player[]>();
+    let listCalls = 0;
+    const gateway = {
+      ready: Promise.resolve(),
+      list: () => {
+        listCalls += 1;
+        return listCalls === 2
+          ? firstDirectory.promise
+          : Promise.resolve([{ ...player, manualDisplayName: "Newest name" }]);
+      },
+      beginRegistration: async () => ({ registrationId: "r", url: "https://example.test" }),
+    };
+    const initial = await buildInitialDraft({
+      session: makeSession({
+        race: { ...makeSession().race!, entrants: runnerEntrants.slice(0, 1) },
+      }),
+      playerManager: gateway,
+      revision: 1,
+      personRefFactory: () => "person-1",
+    });
+    const { draft, participants } = services(initial.draft, gateway);
+    const first = participants.refreshPlayerBindings();
+    void participants.refreshPlayerBindings();
+    firstDirectory.resolve([{ ...player, manualDisplayName: "Older name" }]);
+
+    const outcome = await first;
+
+    expect(outcome).toMatchObject({ ok: true, changed: true, draftRevision: 3 });
+    expect(listCalls).toBe(3);
+    expect(draft.value.persons["person-1"]?.player?.displayName).toBe("Newest name");
+  });
+
   it("reconciles new entrants through the same RaceTime Directory index", async () => {
     let listCalls = 0;
     const gateway = {

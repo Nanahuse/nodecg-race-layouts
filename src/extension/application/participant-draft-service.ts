@@ -40,6 +40,9 @@ export type ParticipantDraftServiceOptions = {
 };
 
 export class ParticipantDraftService {
+  private refreshPromise: Promise<ParticipantMutationOutcome> | null = null;
+  private refreshAgain = false;
+
   constructor(private readonly options: ParticipantDraftServiceOptions) {}
 
   async listPlayers(): Promise<PlayerSnapshot[]> {
@@ -64,10 +67,40 @@ export class ParticipantDraftService {
   }
 
   async refreshPlayerBindings(): Promise<ParticipantMutationOutcome> {
-    if (!this.current().race) return this.fail("no_race_loaded", "No race is loaded.");
-    const playersByRaceTimeId = createRaceTimePlayerIndex(await this.options.playerManager.list());
+    if (this.refreshPromise) {
+      this.refreshAgain = true;
+      return this.refreshPromise;
+    }
+    this.refreshPromise = this.refreshPlayerBindingsLoop();
+    try {
+      return await this.refreshPromise;
+    } finally {
+      this.refreshPromise = null;
+    }
+  }
+
+  private async refreshPlayerBindingsLoop(): Promise<ParticipantMutationOutcome> {
+    let outcome: ParticipantMutationOutcome = this.fail("no_race_loaded", "No race is loaded.");
+    do {
+      this.refreshAgain = false;
+      try {
+        outcome = await this.refreshPlayerBindingsOnce();
+      } catch (error) {
+        if (!this.refreshAgain) throw error;
+      }
+    } while (this.refreshAgain);
+    return outcome;
+  }
+
+  private async refreshPlayerBindingsOnce(): Promise<ParticipantMutationOutcome> {
+    const beforeRequest = this.current();
+    if (!beforeRequest.race) return this.fail("no_race_loaded", "No race is loaded.");
+    const players = await this.options.playerManager.list();
+    const playersByRaceTimeId = createRaceTimePlayerIndex(players);
+    const playersById = new Map(players.map((player) => [player.playerId, player]));
     const draft = this.current();
     if (!draft.race) return this.fail("no_race_loaded", "No race is loaded.");
+    if (draft.revision !== beforeRequest.revision) this.refreshAgain = true;
     const persons = { ...draft.persons };
     for (const participant of draft.participants) {
       const person = draft.persons[participant.personRef];
@@ -78,9 +111,15 @@ export class ParticipantDraftService {
         playersByRaceTimeId,
       );
     }
+    const commentatorPlayerIds = draft.commentatorPlayerIds.filter((id) => playersById.has(id));
+    const commentators = Object.fromEntries(
+      commentatorPlayerIds.map((id) => [id, playerToSnapshot(playersById.get(id)!)]),
+    );
     const candidate = {
       ...draft,
       persons,
+      commentatorPlayerIds,
+      commentators,
     };
     return this.finish(draft, candidate, "participant.directory.refreshed");
   }
