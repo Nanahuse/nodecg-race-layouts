@@ -9,6 +9,7 @@ import type {
 } from "../../domain";
 import type { EventConfig } from "../config";
 import type { NodeCG, Replicant } from "../../types/nodecg";
+import type { Player, PlayerManagerGateway } from "../integrations/player-manager/types";
 import {
   buildLeaderboardPageData,
   buildParticipantListData,
@@ -26,10 +27,30 @@ export class GraphicsProjectionService {
       participants: Replicant<ParticipantListData | null>;
       leaderboard: Replicant<LeaderboardPageData | null>;
       result: Replicant<RaceResultPageData | null>;
+      playerManager: PlayerManagerGateway;
       event: EventConfig;
       log: NodeCG["log"];
     },
   ) {}
+  private directoryPlayers: Player[] = [];
+  private directoryRequest = 0;
+
+  async refreshPlayerManagerDirectory(): Promise<void> {
+    const request = ++this.directoryRequest;
+    try {
+      const players = await this.deps.playerManager.list();
+      if (request !== this.directoryRequest) return;
+      this.directoryPlayers = players;
+    } catch (error) {
+      if (request !== this.directoryRequest) return;
+      this.directoryPlayers = [];
+      this.deps.log.warn(
+        `[graphics.projection.directory.refresh_failed] ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+    this.rebuildStatic();
+  }
+
   rebuildStatic(): void {
     const c = this.deps.activeConfig.value,
       s = this.deps.activeSnapshot.value;
@@ -39,7 +60,7 @@ export class GraphicsProjectionService {
     }
     const a = buildRaceOverlayData(c, s, this.deps.event),
       b = buildParticipantListData(c, s, this.deps.event),
-      d = buildLeaderboardPageData(c, s, this.deps.event);
+      d = buildLeaderboardPageData(c, s, this.deps.event, this.directoryPlayers);
     if (!a.ok || !b.ok || !d.ok) {
       this.deps.log.warn("[graphics.projection.static.failed]", [
         ...(!a.ok ? a.issues : []),

@@ -9,6 +9,8 @@ import type {
 } from "../../domain";
 import type { EventConfig } from "../config";
 import { RACE_SCREEN_SLOT_NUMBERS } from "../../domain/race-screen";
+import { resolveDisplayName } from "@nanahuse/player-manager-protocol";
+import type { Player } from "../integrations/player-manager/types";
 
 export type BuildResult<T> = { ok: true; value: T } | { ok: false; issues: string[] };
 const sourceLabel = "Speedrun.com";
@@ -17,7 +19,6 @@ const eventView = (e: EventConfig) => ({
   shortName: e.shortName,
   logoUrl: e.logoUrl,
 });
-const textEqual = (a: string, b: string) => a.trim() === b.trim();
 function player(config: ActiveConfig, id: string) {
   return config.players[id];
 }
@@ -138,36 +139,25 @@ export function buildLeaderboardPageData(
   config: ActiveConfig,
   snapshot: ActiveSpeedrunSnapshot,
   event: EventConfig,
+  playerManagerPlayers: readonly Player[] = [],
 ): BuildResult<LeaderboardPageData> {
-  for (const participant of config.participants)
-    if (!player(config, participant.playerId))
-      return { ok: false, issues: [`Participant player missing: ${participant.playerId}`] };
   if (config.revision !== snapshot.activeRevision)
     return { ok: false, issues: ["Active revision mismatch"] };
-  const map = new Map<string, string>();
-  for (const p of config.participants) {
-    const playerValue = player(config, p.playerId);
-    if (!playerValue) return { ok: false, issues: [`Participant player missing: ${p.playerId}`] };
-    if (playerValue.speedrunCom) {
-      const id = playerValue.speedrunCom.userId;
-      if (map.has(id)) return { ok: false, issues: [`Duplicate SRC user mapping: ${id}`] };
-      const n = name(config, p.playerId);
-      if (!n) return { ok: false, issues: [`Display name unresolved: ${p.playerId}`] };
-      map.set(id, n);
-    }
-  }
+  const playersBySpeedrunComId = new Map(
+    playerManagerPlayers.flatMap((registeredPlayer) =>
+      registeredPlayer.speedrunCom
+        ? [[registeredPlayer.speedrunCom.userId, resolveDisplayName(registeredPlayer)] as const]
+        : [],
+    ),
+  );
   const cat = config.categoryPresentation;
   const entries = snapshot.snapshot.leaderboard
     .filter((e) => e.rank <= 10)
     .map((e) => {
-      const n = map.get(e.speedrunComUserId ?? "") ?? e.speedrunComName;
       return {
         rank: e.rank,
-        name: n,
-        secondaryName:
-          map.has(e.speedrunComUserId ?? "") && !textEqual(n, e.speedrunComName)
-            ? e.speedrunComName
-            : null,
+        name: playersBySpeedrunComId.get(e.speedrunComUserId ?? "") ?? e.speedrunComName,
+        secondaryName: null,
         time: e.formattedTime,
       };
     });

@@ -37,6 +37,7 @@ function revision(value: unknown): number {
 export function registerParticipantMessages(
   nodecg: NodeCG,
   service: ParticipantDraftService,
+  onDirectoryChanged?: () => void,
 ): void {
   nodecg.listenFor(PARTICIPANT_REGISTRATION_START_MESSAGE, async (data, ack) => {
     try {
@@ -59,7 +60,10 @@ export function registerParticipantMessages(
       ack(null, { ok: false, message: error instanceof Error ? error.message : String(error) });
     }
   });
-  const refreshDirectory = () => requestPlayerManagerDirectorySync(nodecg, service);
+  const refreshDirectory = () => {
+    void requestPlayerManagerDirectorySync(nodecg, service);
+    onDirectoryChanged?.();
+  };
   nodecg.listenFor(eventMessageName("registrationCompleted"), "player-manager", refreshDirectory);
   nodecg.listenFor(eventMessageName("directoryChanged"), "player-manager", refreshDirectory);
 }
