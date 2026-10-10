@@ -1,9 +1,17 @@
-import type { DraftConfig, DraftPerson } from "../../../src/domain";
+import type { DraftConfig, DraftPerson, PlayerSnapshot } from "../../../src/domain";
 
 type Participant = DraftConfig["participants"][number];
 
-export function isResolvedParticipant(person: DraftPerson | undefined): boolean {
-  return person?.resolution === "matched" && person.playerId != null && person.player != null;
+export function isResolvedParticipant(
+  person: DraftPerson | undefined,
+): person is DraftPerson & { resolution: "matched"; playerId: string; player: PlayerSnapshot } {
+  return (
+    person?.resolution === "matched" &&
+    person.playerId != null &&
+    person.playerId.trim().length > 0 &&
+    person.player != null &&
+    person.player.playerId === person.playerId
+  );
 }
 
 export function participantAction(person: DraftPerson | undefined): {
